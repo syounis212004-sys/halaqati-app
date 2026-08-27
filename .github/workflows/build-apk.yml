@@ -35,8 +35,7 @@ jobs:
 
           unzip -q "$ZIP_FILE" -d extracted
 
-          PACKAGE_FILE="$(find extracted -type f -name package.json | head -n 1)"
-
+          PACKAGE_FILE="$(find extracted -maxdepth 2 -type f -name package.json | head -n 1)"
           if [ -z "$PACKAGE_FILE" ]; then
             echo "package.json was not found inside ZIP"
             find extracted -maxdepth 3 -type f | head -100
