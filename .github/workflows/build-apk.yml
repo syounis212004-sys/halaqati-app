@@ -1,14 +1,56 @@
+name: Build Halaqati APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Extract Halaqati project
         run: |
           ZIP_FILE="$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)"
+
           if [ -z "$ZIP_FILE" ]; then
             echo "No ZIP file found"
             ls -la
             exit 1
           fi
+
           echo "Using ZIP: $ZIP_FILE"
-          unzip -q "$ZIP_FILE"
-          ls -la Halaqati_Offline_Capacitor_v1_8
+
+          mkdir -p extracted
+          mkdir -p app
+
+          unzip -q "$ZIP_FILE" -d extracted
+
+          PACKAGE_FILE="$(find extracted -type f -name package.json | head -n 1)"
+
+          if [ -z "$PACKAGE_FILE" ]; then
+            echo "package.json was not found inside ZIP"
+            find extracted -maxdepth 3 -type f | head -100
+            exit 1
+          fi
+
+          PROJECT_DIR="$(dirname "$PACKAGE_FILE")"
+
+          echo "Project directory: $PROJECT_DIR"
+
+          cp -a "$PROJECT_DIR"/. app/
+
+          ls -la app
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -29,23 +71,23 @@
           sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
       - name: Install dependencies
-        working-directory: Halaqati_Offline_Capacitor_v1_8
+        working-directory: app
         run: npm install --no-audit --no-fund
 
       - name: Prepare offline files
-        working-directory: Halaqati_Offline_Capacitor_v1_8
+        working-directory: app
         run: npm run prepare:offline
 
       - name: Create Android project
-        working-directory: Halaqati_Offline_Capacitor_v1_8
+        working-directory: app
         run: npx cap add android
 
       - name: Sync Android
-        working-directory: Halaqati_Offline_Capacitor_v1_8
+        working-directory: app
         run: npx cap sync android
 
       - name: Build APK
-        working-directory: Halaqati_Offline_Capacitor_v1_8/android
+        working-directory: app/android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
@@ -54,5 +96,5 @@
         uses: actions/upload-artifact@v4
         with:
           name: Halaqati-v1.8-APK
-          path: Halaqati_Offline_Capacitor_v1_8/android/app/build/outputs/apk/debug/app-debug.apk
+          path: app/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
