@@ -1,0 +1,73 @@
+name: Build Halaqati APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract Halaqati project
+        run: |
+          unzip -q "Halaqati_Offline_Capacitor_v1_8.zip"
+          ls -la
+          ls -la Halaqati_Offline_Capacitor_v1_8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 36
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Install dependencies
+        working-directory: Halaqati_Offline_Capacitor_v1_8
+        run: npm install --no-audit --no-fund
+
+      - name: Prepare offline files
+        working-directory: Halaqati_Offline_Capacitor_v1_8
+        run: npm run prepare:offline
+
+      - name: Create Android project
+        working-directory: Halaqati_Offline_Capacitor_v1_8
+        run: npx cap add android
+
+      - name: Sync Android
+        working-directory: Halaqati_Offline_Capacitor_v1_8
+        run: npx cap sync android
+
+      - name: Build APK
+        working-directory: Halaqati_Offline_Capacitor_v1_8/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Halaqati-v1.8-APK
+          path: Halaqati_Offline_Capacitor_v1_8/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
