@@ -1,29 +1,14 @@
-name: Build Halaqati APK
-
-on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
-
-permissions:
-  contents: read
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
       - name: Extract Halaqati project
         run: |
-          unzip -q "Halaqati_Offline_Capacitor_v1_8.zip"
-          ls -la
+          ZIP_FILE="$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)"
+          if [ -z "$ZIP_FILE" ]; then
+            echo "No ZIP file found"
+            ls -la
+            exit 1
+          fi
+          echo "Using ZIP: $ZIP_FILE"
+          unzip -q "$ZIP_FILE"
           ls -la Halaqati_Offline_Capacitor_v1_8
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
