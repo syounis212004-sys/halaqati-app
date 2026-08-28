@@ -19,18 +19,15 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Extract correct Halaqati project
+        shell: bash
         run: |
-          set -e
+          set -euo pipefail
 
           rm -rf extracted app
           mkdir -p extracted app
 
           FOUND=""
 
-          # Try every ZIP in the repository root.
-          # We only accept a project whose ROOT package.json contains
-          # the prepare:offline script. This prevents GitHub from accidentally
-          # selecting package.json from a Capacitor plugin.
           for ZIP_FILE in ./*.zip; do
             [ -f "$ZIP_FILE" ] || continue
 
@@ -41,50 +38,64 @@ jobs:
             mkdir -p "$TRY_DIR"
             unzip -q "$ZIP_FILE" -d "$TRY_DIR"
 
-            while IFS= read -r PACKAGE_FILE; do
-              if node -e "
-                const p=require(process.argv[1]);
-                process.exit(
-                  p &&
-                  p.scripts &&
-                  p.scripts['prepare:offline']
-                    ? 0 : 1
-                )
-              " "$PACKAGE_FILE"; then
+            # Find a capacitor.config.json/ts and verify that package.json
+            # in the SAME directory is the app's root package.json.
+            while IFS= read -r CAP_FILE; do
+              PROJECT_DIR="$(dirname "$CAP_FILE")"
+              PACKAGE_FILE="$PROJECT_DIR/package.json"
 
-                PROJECT_DIR="$(dirname "$PACKAGE_FILE")"
+              [ -f "$PACKAGE_FILE" ] || continue
+              [ -f "$PROJECT_DIR/source/index.html" ] || continue
+              [ -f "$PROJECT_DIR/scripts/prepare-offline.mjs" ] || continue
 
-                if [ -f "$PROJECT_DIR/capacitor.config.json" ] || [ -f "$PROJECT_DIR/capacitor.config.ts" ]; then
-                  echo "Correct project found in: $ZIP_FILE"
-                  echo "Project directory: $PROJECT_DIR"
+              if node - "$PACKAGE_FILE" <<'NODE'
+const fs = require('fs');
+const file = process.argv[2];
+const p = JSON.parse(fs.readFileSync(file, 'utf8'));
 
-                  cp -a "$PROJECT_DIR"/. app/
-                  FOUND="yes"
-                  break 2
-                fi
+if (!p?.scripts?.['prepare:offline']) process.exit(1);
+if (!p?.dependencies?.['@capacitor/android']) process.exit(1);
+if (!p?.dependencies?.['@capacitor/core']) process.exit(1);
+
+console.log(`Verified root package.json: ${file}`);
+console.log(`Version: ${p.version}`);
+console.log(`prepare:offline: ${p.scripts['prepare:offline']}`);
+NODE
+              then
+                echo "Correct Halaqati project found."
+                echo "ZIP: $ZIP_FILE"
+                echo "Project directory: $PROJECT_DIR"
+
+                cp -a "$PROJECT_DIR"/. app/
+                FOUND="yes"
+                break 2
               fi
-            done < <(find "$TRY_DIR" -type f -name package.json)
+            done < <(find "$TRY_DIR" -type f \( -name capacitor.config.json -o -name capacitor.config.ts \))
           done
 
           if [ "$FOUND" != "yes" ]; then
-            echo "Could not find the Halaqati Capacitor project."
-            echo "The correct ZIP must contain:"
-            echo "- package.json with prepare:offline"
-            echo "- capacitor.config.json or capacitor.config.ts"
+            echo "ERROR: Could not find the Halaqati Capacitor project."
             echo ""
-            echo "ZIP files in repository root:"
+            echo "ZIP files found:"
             ls -lh ./*.zip 2>/dev/null || true
+            echo ""
+            echo "Expected root files inside the ZIP:"
+            echo "  package.json"
+            echo "  capacitor.config.json"
+            echo "  source/index.html"
+            echo "  scripts/prepare-offline.mjs"
             exit 1
           fi
 
           APP_VERSION="$(node -p "require('./app/package.json').version")"
           echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
 
-          echo "Building Halaqati v$APP_VERSION"
-          echo "Selected package.json:"
-          cat app/package.json
           echo ""
-          echo "Project files:"
+          echo "Selected app package.json:"
+          cat app/package.json
+
+          echo ""
+          echo "Selected project files:"
           ls -la app
 
       - name: Setup Node.js
@@ -113,6 +124,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
         run: |
+          set -e
           test -n "$KEYSTORE_B64" || (echo "Missing HALAQATI_KEYSTORE_BASE64" && exit 1)
           test -n "$STORE_PASSWORD" || (echo "Missing HALAQATI_STORE_PASSWORD" && exit 1)
           test -n "$KEY_ALIAS" || (echo "Missing HALAQATI_KEY_ALIAS" && exit 1)
@@ -128,14 +140,14 @@ jobs:
       - name: Verify project scripts
         working-directory: app
         run: |
-          echo "Available npm scripts:"
           npm run
-          node -e "
-            const p=require('./package.json');
-            if(!p.scripts?.['prepare:offline']){
-              throw new Error('prepare:offline script is missing from ROOT package.json');
-            }
-          "
+          node - <<'NODE'
+const p = require('./package.json');
+if (!p.scripts?.['prepare:offline']) {
+  throw new Error('prepare:offline script is missing');
+}
+console.log('prepare:offline is available:', p.scripts['prepare:offline']);
+NODE
 
       - name: Prepare offline files
         working-directory: app
@@ -165,11 +177,12 @@ jobs:
           KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
         run: |
+          set -e
           BUILD_TOOLS="$ANDROID_HOME/build-tools/36.0.0"
           UNSIGNED="app/android/app/build/outputs/apk/release/app-release-unsigned.apk"
 
           if [ ! -f "$UNSIGNED" ]; then
-            echo "Unsigned release APK not found"
+            echo "Unsigned release APK not found."
             find app/android/app/build/outputs -type f || true
             exit 1
           fi
