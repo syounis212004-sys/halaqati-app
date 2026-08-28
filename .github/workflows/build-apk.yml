@@ -18,47 +18,79 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract Halaqati project
+      - name: Extract correct Halaqati project
         run: |
-          ZIP_FILE="$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)"
-
-          if [ -z "$ZIP_FILE" ]; then
-            echo "No ZIP file found in repository root"
-            ls -la
-            exit 1
-          fi
-
-          echo "Using ZIP: $ZIP_FILE"
+          set -e
 
           rm -rf extracted app
           mkdir -p extracted app
-          unzip -q "$ZIP_FILE" -d extracted
 
-          PACKAGE_FILE="$(find extracted -type f -name package.json | head -n 1)"
+          FOUND=""
 
-          if [ -z "$PACKAGE_FILE" ]; then
-            echo "package.json was not found inside ZIP"
-            find extracted -maxdepth 4 -type f | head -100
+          # Try every ZIP in the repository root.
+          # We only accept a project whose ROOT package.json contains
+          # the prepare:offline script. This prevents GitHub from accidentally
+          # selecting package.json from a Capacitor plugin.
+          for ZIP_FILE in ./*.zip; do
+            [ -f "$ZIP_FILE" ] || continue
+
+            echo "Checking ZIP: $ZIP_FILE"
+
+            TRY_DIR="extracted/try"
+            rm -rf "$TRY_DIR"
+            mkdir -p "$TRY_DIR"
+            unzip -q "$ZIP_FILE" -d "$TRY_DIR"
+
+            while IFS= read -r PACKAGE_FILE; do
+              if node -e "
+                const p=require(process.argv[1]);
+                process.exit(
+                  p &&
+                  p.scripts &&
+                  p.scripts['prepare:offline']
+                    ? 0 : 1
+                )
+              " "$PACKAGE_FILE"; then
+
+                PROJECT_DIR="$(dirname "$PACKAGE_FILE")"
+
+                if [ -f "$PROJECT_DIR/capacitor.config.json" ] || [ -f "$PROJECT_DIR/capacitor.config.ts" ]; then
+                  echo "Correct project found in: $ZIP_FILE"
+                  echo "Project directory: $PROJECT_DIR"
+
+                  cp -a "$PROJECT_DIR"/. app/
+                  FOUND="yes"
+                  break 2
+                fi
+              fi
+            done < <(find "$TRY_DIR" -type f -name package.json)
+          done
+
+          if [ "$FOUND" != "yes" ]; then
+            echo "Could not find the Halaqati Capacitor project."
+            echo "The correct ZIP must contain:"
+            echo "- package.json with prepare:offline"
+            echo "- capacitor.config.json or capacitor.config.ts"
+            echo ""
+            echo "ZIP files in repository root:"
+            ls -lh ./*.zip 2>/dev/null || true
             exit 1
           fi
 
-          PROJECT_DIR="$(dirname "$PACKAGE_FILE")"
-          echo "Project directory: $PROJECT_DIR"
+          APP_VERSION="$(node -p "require('./app/package.json').version")"
+          echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
 
-          cp -a "$PROJECT_DIR"/. app/
-
+          echo "Building Halaqati v$APP_VERSION"
+          echo "Selected package.json:"
+          cat app/package.json
+          echo ""
+          echo "Project files:"
           ls -la app
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-
-      - name: Read app version
-        run: |
-          APP_VERSION="$(node -p "require('./app/package.json').version")"
-          echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
-          echo "Building Halaqati v$APP_VERSION"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -87,15 +119,23 @@ jobs:
           test -n "$KEY_PASSWORD" || (echo "Missing HALAQATI_KEY_PASSWORD" && exit 1)
 
           printf '%s' "$KEYSTORE_B64" | base64 -d > halaqati-release.jks
-
-          if [ ! -s halaqati-release.jks ]; then
-            echo "Decoded keystore is empty"
-            exit 1
-          fi
+          test -s halaqati-release.jks
 
       - name: Install dependencies
         working-directory: app
         run: npm install --no-audit --no-fund
+
+      - name: Verify project scripts
+        working-directory: app
+        run: |
+          echo "Available npm scripts:"
+          npm run
+          node -e "
+            const p=require('./package.json');
+            if(!p.scripts?.['prepare:offline']){
+              throw new Error('prepare:offline script is missing from ROOT package.json');
+            }
+          "
 
       - name: Prepare offline files
         working-directory: app
