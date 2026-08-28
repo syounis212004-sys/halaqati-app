@@ -1,4 +1,4 @@
-name: Build Halaqati APK
+name: Build Signed Halaqati APK
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
 
     steps:
       - name: Checkout repository
@@ -23,27 +23,26 @@ jobs:
           ZIP_FILE="$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)"
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "No ZIP file found"
+            echo "No ZIP file found in repository root"
             ls -la
             exit 1
           fi
 
           echo "Using ZIP: $ZIP_FILE"
 
-          mkdir -p extracted
-          mkdir -p app
-
+          rm -rf extracted app
+          mkdir -p extracted app
           unzip -q "$ZIP_FILE" -d extracted
 
-          PACKAGE_FILE="$(find extracted -maxdepth 2 -type f -name package.json | head -n 1)"
+          PACKAGE_FILE="$(find extracted -type f -name package.json | head -n 1)"
+
           if [ -z "$PACKAGE_FILE" ]; then
             echo "package.json was not found inside ZIP"
-            find extracted -maxdepth 3 -type f | head -100
+            find extracted -maxdepth 4 -type f | head -100
             exit 1
           fi
 
           PROJECT_DIR="$(dirname "$PACKAGE_FILE")"
-
           echo "Project directory: $PROJECT_DIR"
 
           cp -a "$PROJECT_DIR"/. app/
@@ -54,6 +53,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - name: Read app version
+        run: |
+          APP_VERSION="$(node -p "require('./app/package.json').version")"
+          echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+          echo "Building Halaqati v$APP_VERSION"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -68,6 +73,25 @@ jobs:
         run: |
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Verify signing secrets
+        env:
+          KEYSTORE_B64: ${{ secrets.HALAQATI_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.HALAQATI_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
+        run: |
+          test -n "$KEYSTORE_B64" || (echo "Missing HALAQATI_KEYSTORE_BASE64" && exit 1)
+          test -n "$STORE_PASSWORD" || (echo "Missing HALAQATI_STORE_PASSWORD" && exit 1)
+          test -n "$KEY_ALIAS" || (echo "Missing HALAQATI_KEY_ALIAS" && exit 1)
+          test -n "$KEY_PASSWORD" || (echo "Missing HALAQATI_KEY_PASSWORD" && exit 1)
+
+          printf '%s' "$KEYSTORE_B64" | base64 -d > halaqati-release.jks
+
+          if [ ! -s halaqati-release.jks ]; then
+            echo "Decoded keystore is empty"
+            exit 1
+          fi
 
       - name: Install dependencies
         working-directory: app
@@ -85,15 +109,73 @@ jobs:
         working-directory: app
         run: npx cap sync android
 
-      - name: Build APK
+      - name: Set Android version
+        working-directory: app
+        run: node scripts/configure-android-version.mjs
+
+      - name: Build release APK
         working-directory: app/android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleRelease
 
-      - name: Upload APK
+      - name: Sign release APK
+        env:
+          STORE_PASSWORD: ${{ secrets.HALAQATI_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
+        run: |
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/36.0.0"
+          UNSIGNED="app/android/app/build/outputs/apk/release/app-release-unsigned.apk"
+
+          if [ ! -f "$UNSIGNED" ]; then
+            echo "Unsigned release APK not found"
+            find app/android/app/build/outputs -type f || true
+            exit 1
+          fi
+
+          "$BUILD_TOOLS/zipalign" -p -f 4 \
+            "$UNSIGNED" \
+            Halaqati-aligned.apk
+
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks halaqati-release.jks \
+            --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass "pass:$STORE_PASSWORD" \
+            --key-pass "pass:$KEY_PASSWORD" \
+            --out "Halaqati-v${APP_VERSION}.apk" \
+            Halaqati-aligned.apk
+
+          "$BUILD_TOOLS/apksigner" verify \
+            --verbose \
+            --print-certs \
+            "Halaqati-v${APP_VERSION}.apk"
+
+          test -s "Halaqati-v${APP_VERSION}.apk"
+
+      - name: Create update publish package
+        working-directory: app
+        run: |
+          node scripts/make-update-publish.mjs "../Halaqati-v${APP_VERSION}.apk"
+
+          echo "Update files:"
+          ls -lh update-publish
+
+          test -s update-publish/Halaqati-latest.apk
+          test -s update-publish/version.json
+
+      - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: Halaqati-v1.8-APK
-          path: app/android/app/build/outputs/apk/debug/app-debug.apk
+          name: Halaqati-v${{ env.APP_VERSION }}-signed-apk
+          path: Halaqati-v${{ env.APP_VERSION }}.apk
+          if-no-files-found: error
+
+      - name: Upload update files
+        uses: actions/upload-artifact@v4
+        with:
+          name: Halaqati-v${{ env.APP_VERSION }}-publish-update
+          path: |
+            app/update-publish/version.json
+            app/update-publish/Halaqati-latest.apk
           if-no-files-found: error
