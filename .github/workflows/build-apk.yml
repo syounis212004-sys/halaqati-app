@@ -19,12 +19,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Extract Halaqati project
-        shell: bash
         run: |
-          set -euo pipefail
-
+          set -e
           ZIP_FILE="$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)"
-
           if [ -z "$ZIP_FILE" ]; then
             echo "No ZIP file found in repository root"
             ls -la
@@ -32,44 +29,18 @@ jobs:
           fi
 
           echo "Using ZIP: $ZIP_FILE"
-
           rm -rf extracted app
           mkdir -p extracted app
           unzip -q "$ZIP_FILE" -d extracted
 
-          CAP_FILE="$(find extracted -type f -name 'capacitor.config.json' | head -n 1)"
-
-          if [ -z "$CAP_FILE" ]; then
-            echo "capacitor.config.json was not found"
+          PACKAGE_FILE="$(find extracted -type f -name package.json | head -n 1)"
+          if [ -z "$PACKAGE_FILE" ]; then
+            echo "package.json was not found inside ZIP"
             find extracted -maxdepth 4 -type f | head -100
             exit 1
           fi
 
-          PROJECT_DIR="$(dirname "$CAP_FILE")"
-          PACKAGE_FILE="$PROJECT_DIR/package.json"
-
-          if [ ! -f "$PACKAGE_FILE" ]; then
-            echo "Root package.json was not found"
-            exit 1
-          fi
-
-          if [ ! -f "$PROJECT_DIR/source/index.html" ]; then
-            echo "source/index.html was not found"
-            exit 1
-          fi
-
-          if [ ! -f "$PROJECT_DIR/scripts/prepare-offline.mjs" ]; then
-            echo "scripts/prepare-offline.mjs was not found"
-            exit 1
-          fi
-
-          if ! grep -q '"prepare:offline"' "$PACKAGE_FILE"; then
-            echo "prepare:offline script is missing from root package.json"
-            cat "$PACKAGE_FILE"
-            exit 1
-          fi
-
-          echo "Correct project directory: $PROJECT_DIR"
+          PROJECT_DIR="$(dirname "$PACKAGE_FILE")"
           cp -a "$PROJECT_DIR"/. app/
 
           APP_VERSION="$(node -p "require('./app/package.json').version")"
@@ -102,12 +73,10 @@ jobs:
           KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
         run: |
-          set -e
           test -n "$KEYSTORE_B64" || (echo "Missing HALAQATI_KEYSTORE_BASE64" && exit 1)
           test -n "$STORE_PASSWORD" || (echo "Missing HALAQATI_STORE_PASSWORD" && exit 1)
           test -n "$KEY_ALIAS" || (echo "Missing HALAQATI_KEY_ALIAS" && exit 1)
           test -n "$KEY_PASSWORD" || (echo "Missing HALAQATI_KEY_PASSWORD" && exit 1)
-
           printf '%s' "$KEYSTORE_B64" | base64 -d > halaqati-release.jks
           test -s halaqati-release.jks
 
@@ -129,7 +98,19 @@ jobs:
 
       - name: Set Android version
         working-directory: app
-        run: node scripts/configure-android-version.mjs
+        run: |
+          set -e
+          APP_VERSION="$(node -p "require('./package.json').version")"
+          VERSION_CODE="$(node -e "const [a=0,b=0,c=0]=process.argv[1].split('.').map(Number); console.log(a*10000+b*100+c)" "$APP_VERSION")"
+          GRADLE="android/app/build.gradle"
+
+          echo "Setting Android version to $APP_VERSION ($VERSION_CODE)"
+          test -f "$GRADLE"
+
+          sed -E -i "s/versionCode[[:space:]]+[0-9]+/versionCode $VERSION_CODE/" "$GRADLE"
+          sed -E -i "s/versionName[[:space:]]+\"[^\"]*\"/versionName \"$APP_VERSION\"/" "$GRADLE"
+
+          grep -nE 'versionCode|versionName' "$GRADLE"
 
       - name: Build release APK
         working-directory: app/android
@@ -167,12 +148,30 @@ jobs:
           test -s "Halaqati-v${APP_VERSION}.apk"
 
       - name: Create update publish package
-        working-directory: app
         run: |
-          node scripts/make-update-publish.mjs "../Halaqati-v${APP_VERSION}.apk"
-          ls -lh update-publish
-          test -s update-publish/Halaqati-latest.apk
-          test -s update-publish/version.json
+          set -e
+          mkdir -p app/update-publish
+          cp "Halaqati-v${APP_VERSION}.apk" app/update-publish/Halaqati-latest.apk
+
+          VERSION_CODE="$(node -e "const [a=0,b=0,c=0]=process.argv[1].split('.').map(Number); console.log(a*10000+b*100+c)" "$APP_VERSION")"
+
+          cat > app/update-publish/version.json <<EOF
+          {
+            "versionName": "${APP_VERSION}",
+            "versionCode": ${VERSION_CODE},
+            "apkUrl": "https://syounis212004-sys.github.io/halaqati-web/Halaqati-latest.apk",
+            "mandatory": false,
+            "notes": [
+              "تحسين العمل بدون إنترنت والمزامنة التلقائية.",
+              "تحسين حساب صفحات القرآن.",
+              "إصلاح بناء وتوقيع نسخة Android."
+            ]
+          }
+          EOF
+
+          cat app/update-publish/version.json
+          test -s app/update-publish/Halaqati-latest.apk
+          test -s app/update-publish/version.json
 
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
