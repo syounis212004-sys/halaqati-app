@@ -120,10 +120,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          FILE="plugins/halaqati-updater/android/src/main/java/com/mohammedsamir/halaqati/updater/HalaqatiUpdaterPlugin.java"
-          test -f "$FILE"
 
-          # Capacitor 8 no longer exposes Bridge.executeOnThreadPool().
+          JAVA_DIR="plugins/halaqati-updater/android/src/main/java/com/mohammedsamir/halaqati/updater"
+          FILE="$JAVA_DIR/HalaqatiUpdaterPlugin.java"
+          PROVIDER_FILE="$JAVA_DIR/HalaqatiUpdateFileProvider.java"
+          MANIFEST="plugins/halaqati-updater/android/src/main/AndroidManifest.xml"
+
+          test -f "$FILE"
+          test -f "$MANIFEST"
+
+          # Fix 1: Capacitor 8 no longer exposes Bridge.executeOnThreadPool().
           # Use a normal background Java thread for the APK download instead.
           sed -i 's/getBridge().executeOnThreadPool(() -> {/new Thread(() -> {/' "$FILE"
           sed -i 's/^        });$/        }).start();/' "$FILE"
@@ -133,7 +139,32 @@ jobs:
             exit 1
           fi
 
+          # Fix 2: do NOT register a second androidx.core.content.FileProvider directly.
+          # Capacitor's app manifest already has a FileProvider with its own FILE_PROVIDER_PATHS.
+          # Android's manifest merger otherwise merges both providers and the android:resource
+          # values conflict. Register a tiny dedicated subclass for the updater instead.
+          cat > "$PROVIDER_FILE" <<'EOF'
+          package com.mohammedsamir.halaqati.updater;
+
+          import androidx.core.content.FileProvider;
+
+          public class HalaqatiUpdateFileProvider extends FileProvider {
+          }
+          EOF
+
+          sed -i 's#android:name="androidx.core.content.FileProvider"#android:name="com.mohammedsamir.halaqati.updater.HalaqatiUpdateFileProvider"#' "$MANIFEST"
+
+          if grep -q 'android:name="androidx.core.content.FileProvider"' "$MANIFEST"; then
+            echo "ERROR: updater manifest still uses the shared FileProvider class"
+            exit 1
+          fi
+
+          echo "Updater Java thread fix:"
           grep -nE 'new Thread|executeOnThreadPool|\.start\(\)' "$FILE"
+          echo "Updater provider manifest:"
+          cat "$MANIFEST"
+          echo "Updater provider class:"
+          cat "$PROVIDER_FILE"
 
       - name: Install dependencies
         working-directory: app
