@@ -115,6 +115,26 @@ jobs:
           printf '%s' "$KEYSTORE_B64" | base64 -d > halaqati-release.jks
           test -s halaqati-release.jks
 
+      - name: Fix Capacitor 8 updater plugin
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE="plugins/halaqati-updater/android/src/main/java/com/mohammedsamir/halaqati/updater/HalaqatiUpdaterPlugin.java"
+          test -f "$FILE"
+
+          # Capacitor 8 no longer exposes Bridge.executeOnThreadPool().
+          # Use a normal background Java thread for the APK download instead.
+          sed -i 's/getBridge().executeOnThreadPool(() -> {/new Thread(() -> {/' "$FILE"
+          sed -i 's/^        });$/        }).start();/' "$FILE"
+
+          if grep -q 'executeOnThreadPool' "$FILE"; then
+            echo "ERROR: old Capacitor API is still present"
+            exit 1
+          fi
+
+          grep -nE 'new Thread|executeOnThreadPool|\.start\(\)' "$FILE"
+
       - name: Install dependencies
         working-directory: app
         run: npm install --no-audit --no-fund
