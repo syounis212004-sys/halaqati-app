@@ -1,4 +1,4 @@
-name: Build Halaqati v2.12.3 Row-Safe PDF + Signed APK
+name: Build Halaqati v2.12.4 Final Stable + Signed APK
 
 on:
   workflow_dispatch:
@@ -22,16 +22,16 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Extract Halaqati v2.12.3 project
+      - name: Extract Halaqati v2.12.4 project
         shell: bash
         run: |
           set -euo pipefail
           ZIP_FILE="$(find . -maxdepth 1 -type f \
-            \( -name 'Halaqati_Vite_Capacitor_v2_12_3_ROW_SAFE_PDF.zip' -o -name 'Halaqati_Vite_Capacitor_v2_12_3_ROW_SAFE_PDF-*.zip' \) \
+            \( -name 'Halaqati_Vite_Capacitor_v2_12_4_FINAL_STABLE.zip' -o -name 'Halaqati_Vite_Capacitor_v2_12_4_FINAL_STABLE-*.zip' \) \
             -print | sort | head -n 1)"
 
           if [ -z "$ZIP_FILE" ] || [ ! -f "$ZIP_FILE" ]; then
-            echo "ERROR: Halaqati_Vite_Capacitor_v2_12_3_ROW_SAFE_PDF.zip was not found in repository root"
+            echo "ERROR: Halaqati_Vite_Capacitor_v2_12_4_FINAL_STABLE.zip was not found in repository root"
             echo "Files in repository root:"
             ls -la
             exit 1
@@ -156,6 +156,53 @@ jobs:
             exit 1
           fi
           echo "Web build verified."
+
+      - name: Browser PDF rendering smoke test
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f scripts/pdf-html2canvas-smoke.html
+          test -f dist/vendor/html2canvas-1.4.1.min.js
+          cp scripts/pdf-html2canvas-smoke.html dist/pdf-smoke.html
+
+          python3 -m http.server 4173 --directory dist >/tmp/halaqati-pdf-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          sleep 2
+
+          CHROME="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$CHROME" ]; then
+            echo "ERROR: Chrome/Chromium is not available on runner for PDF smoke test"
+            exit 1
+          fi
+
+          set +e
+          timeout 35s "$CHROME" \
+            --headless \
+            --no-sandbox \
+            --disable-gpu \
+            --disable-dev-shm-usage \
+            --run-all-compositor-stages-before-draw \
+            --virtual-time-budget=20000 \
+            --dump-dom http://127.0.0.1:4173/pdf-smoke.html \
+            > /tmp/halaqati-pdf-smoke-dom.html 2>/tmp/halaqati-pdf-chrome.log
+          STATUS=$?
+          set -e
+
+          cat /tmp/halaqati-pdf-smoke-dom.html || true
+          if [ "$STATUS" -ne 0 ]; then
+            echo "ERROR: headless browser PDF test failed/timed out ($STATUS)"
+            tail -n 100 /tmp/halaqati-pdf-chrome.log || true
+            exit 1
+          fi
+          grep -q 'PDF_SMOKE_PASS' /tmp/halaqati-pdf-smoke-dom.html || {
+            echo "ERROR: PDF smoke test did not produce visible canvas output"
+            tail -n 100 /tmp/halaqati-pdf-chrome.log || true
+            exit 1
+          }
+          rm -f dist/pdf-smoke.html
+          echo "PDF browser smoke test passed: row counts preserved and html2canvas output is non-blank."
 
       - name: Upload web build
         uses: actions/upload-artifact@v4
