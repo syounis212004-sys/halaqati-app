@@ -1,1 +1,223 @@
+name: Build Halaqati v2.12 Web + Signed APK
 
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: "**/package-lock.json"
+
+      - name: Extract Halaqati v2.12 project
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP_FILE="$(find . -maxdepth 1 -type f \
+            \( -name 'Halaqati_Vite_Capacitor_v2_12_PHASE1.zip' -o -name 'Halaqati_Vite_Capacitor_v2_12_PHASE1-*.zip' \) \
+            -print | sort | head -n 1)"
+
+          if [ -z "$ZIP_FILE" ] || [ ! -f "$ZIP_FILE" ]; then
+            echo "ERROR: Halaqati_Vite_Capacitor_v2_12_PHASE1.zip was not found in repository root"
+            ls -la
+            exit 1
+          fi
+
+          rm -rf extracted app
+          mkdir -p extracted app
+          unzip -q "$ZIP_FILE" -d extracted
+
+          PACKAGE_FILE=""
+          while IFS= read -r candidate; do
+            if node -e '
+              const fs=require("fs");
+              const p=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));
+              process.exit(p.scripts?.build && p.scripts?.["prepare:offline"] ? 0 : 1);
+            ' "$candidate"; then
+              PACKAGE_FILE="$candidate"
+              break
+            fi
+          done < <(find extracted -type f -name package.json -print)
+
+          test -n "$PACKAGE_FILE"
+          PROJECT_DIR="$(dirname "$PACKAGE_FILE")"
+          cp -a "$PROJECT_DIR"/. app/
+
+          test -f app/index.html
+          test -f app/vite.config.js
+          test -f app/src/main.js
+          test -f app/src/legacy/app.js
+          test -f app/capacitor.config.json
+
+          APP_VERSION="$(node -p "require('./app/package.json').version")"
+          echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+          echo "Building Halaqati v$APP_VERSION from $ZIP_FILE"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 36
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Verify signing secrets
+        env:
+          KEYSTORE_B64: ${{ secrets.HALAQATI_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.HALAQATI_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
+        run: |
+          set -e
+          test -n "$KEYSTORE_B64" || (echo "Missing HALAQATI_KEYSTORE_BASE64" && exit 1)
+          test -n "$STORE_PASSWORD" || (echo "Missing HALAQATI_STORE_PASSWORD" && exit 1)
+          test -n "$KEY_ALIAS" || (echo "Missing HALAQATI_KEY_ALIAS" && exit 1)
+          test -n "$KEY_PASSWORD" || (echo "Missing HALAQATI_KEY_PASSWORD" && exit 1)
+          printf '%s' "$KEYSTORE_B64" | base64 -d > halaqati-release.jks
+          test -s halaqati-release.jks
+
+      - name: Fix Capacitor 8 updater plugin
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAVA_DIR="plugins/halaqati-updater/android/src/main/java/com/mohammedsamir/halaqati/updater"
+          FILE="$JAVA_DIR/HalaqatiUpdaterPlugin.java"
+          PROVIDER_FILE="$JAVA_DIR/HalaqatiUpdateFileProvider.java"
+          MANIFEST="plugins/halaqati-updater/android/src/main/AndroidManifest.xml"
+          test -f "$FILE"
+          test -f "$MANIFEST"
+
+          sed -i 's/getBridge().executeOnThreadPool(() -> {/new Thread(() -> {/' "$FILE"
+          sed -i 's/^        });$/        }).start();/' "$FILE"
+          if grep -q 'executeOnThreadPool' "$FILE"; then
+            echo "ERROR: old Capacitor API is still present"
+            exit 1
+          fi
+
+          cat > "$PROVIDER_FILE" <<'EOF'
+          package com.mohammedsamir.halaqati.updater;
+          import androidx.core.content.FileProvider;
+          public class HalaqatiUpdateFileProvider extends FileProvider {}
+          EOF
+
+          sed -i 's#android:name="androidx.core.content.FileProvider"#android:name="com.mohammedsamir.halaqati.updater.HalaqatiUpdateFileProvider"#' "$MANIFEST"
+
+      - name: Install dependencies
+        working-directory: app
+        run: npm install --no-audit --no-fund
+
+      - name: Static migration checks
+        working-directory: app
+        run: |
+          npm run check:legacy
+          node --check src/main.js
+          node --check src/core/lazy-libs.js
+          node --check src/features/reports/lazy.js
+          node --check src/features/import/lazy.js
+
+      - name: Build Vite web application
+        working-directory: app
+        run: npm run build
+
+      - name: Verify web build
+        working-directory: app
+        run: |
+          test -f dist/index.html
+          test -f dist/404.html
+          test -f dist/manifest.webmanifest
+          test -f dist/sw.js
+          test -f dist/core/supabase-2.min.js
+          test -f dist/vendor/xlsx-0.18.5.min.js
+          if grep -q 'cdn.jsdelivr.net/npm/xlsx' dist/index.html; then
+            echo "ERROR: heavy libraries are still boot-loaded in index.html"
+            exit 1
+          fi
+          echo "Web build files:"
+          find dist -maxdepth 2 -type f -printf '%p %k KB\n' | sort | head -80
+
+      - name: Upload web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Halaqati-v${{ env.APP_VERSION }}-web
+          path: app/dist/
+          if-no-files-found: error
+
+      - name: Create Android project
+        working-directory: app
+        run: npx cap add android
+
+      - name: Sync Android from same Vite dist
+        working-directory: app
+        run: npx cap sync android
+
+      - name: Set Android version
+        working-directory: app
+        run: node scripts/configure-android-version.mjs
+
+      - name: Build release APK
+        working-directory: app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease
+
+      - name: Sign release APK
+        env:
+          STORE_PASSWORD: ${{ secrets.HALAQATI_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
+        run: |
+          set -e
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/36.0.0"
+          UNSIGNED="app/android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          test -f "$UNSIGNED"
+          "$BUILD_TOOLS/zipalign" -p -f 4 "$UNSIGNED" Halaqati-aligned.apk
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks halaqati-release.jks \
+            --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass "pass:$STORE_PASSWORD" \
+            --key-pass "pass:$KEY_PASSWORD" \
+            --out "Halaqati-v${APP_VERSION}.apk" \
+            Halaqati-aligned.apk
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "Halaqati-v${APP_VERSION}.apk"
+
+      - name: Create update publish package
+        working-directory: app
+        run: node scripts/make-update-publish.mjs "../Halaqati-v${APP_VERSION}.apk"
+
+      - name: Upload signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Halaqati-v${{ env.APP_VERSION }}-signed-apk
+          path: Halaqati-v${{ env.APP_VERSION }}.apk
+          if-no-files-found: error
+
+      - name: Upload update package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Halaqati-v${{ env.APP_VERSION }}-publish-update
+          path: |
+            app/update-publish/version.json
+            app/update-publish/Halaqati-latest.apk
+          if-no-files-found: error
