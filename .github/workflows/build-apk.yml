@@ -21,14 +21,16 @@ jobs:
       - name: Extract Halaqati project
         run: |
           set -e
-          ZIP_FILE="$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)"
-          if [ -z "$ZIP_FILE" ]; then
-            echo "No ZIP file found in repository root"
-            ls -la
+          ZIP_FILE="./Halaqati_Offline_Capacitor_v2_9_BUILD_FIXED.zip"
+
+          if [ ! -f "$ZIP_FILE" ]; then
+            echo "Required ZIP was not found: $ZIP_FILE"
+            echo "ZIP files currently in repository root:"
+            find . -maxdepth 1 -type f -iname '*.zip' -print
             exit 1
           fi
 
-          echo "Using ZIP: $ZIP_FILE"
+          echo "Using exact ZIP: $ZIP_FILE"
           rm -rf extracted app
           mkdir -p extracted app
           unzip -q "$ZIP_FILE" -d extracted
@@ -83,6 +85,14 @@ jobs:
       - name: Install dependencies
         working-directory: app
         run: npm install --no-audit --no-fund
+
+      - name: Verify offline package
+        working-directory: app
+        run: |
+          echo "Package version: $(node -p "require('./package.json').version")"
+          node -e "const p=require('./package.json'); if(!p.scripts?.['prepare:offline']) { console.error('prepare:offline script is missing'); process.exit(1) }"
+          test -f scripts/prepare-offline.mjs
+          echo "Offline package verified"
 
       - name: Prepare offline files
         working-directory: app
