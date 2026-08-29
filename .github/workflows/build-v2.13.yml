@@ -1,4 +1,4 @@
-name: Build Halaqati v2.13.2 Arabic HQ Safe PDF + Signed APK
+name: Build Halaqati v2.13.3 Phase 3 All Modules + Arabic HQ Safe PDF + Signed APK
 
 on:
   workflow_dispatch:
@@ -22,16 +22,16 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Extract Halaqati v2.13.2 project
+      - name: Extract Halaqati v2.13.3 project
         shell: bash
         run: |
           set -euo pipefail
           ZIP_FILE="$(find . -maxdepth 1 -type f \
-            \( -name 'Halaqati_Vite_Capacitor_v2_13_2_ARABIC_HQ_SAFE.zip' -o -name 'Halaqati_Vite_Capacitor_v2_13_2_ARABIC_HQ_SAFE-*.zip' \) \
+            \( -name 'Halaqati_Vite_Capacitor_v2_13_3_PHASE3_ALL_MODULES.zip' -o -name 'Halaqati_Vite_Capacitor_v2_13_3_PHASE3_ALL_MODULES-*.zip' \) \
             -print | sort | head -n 1)"
 
           if [ -z "$ZIP_FILE" ] || [ ! -f "$ZIP_FILE" ]; then
-            echo "ERROR: Halaqati_Vite_Capacitor_v2_13_2_ARABIC_HQ_SAFE.zip was not found in repository root"
+            echo "ERROR: Halaqati_Vite_Capacitor_v2_13_3_PHASE3_ALL_MODULES.zip was not found in repository root"
             echo "Files in repository root:"
             ls -la
             exit 1
@@ -61,7 +61,16 @@ jobs:
           test -f app/vite.config.js
           test -f app/src/main.js
           test -f app/src/legacy/app.js
+          test -f app/src/core/runtime.js
+          test -f app/src/core/navigation.js
+          test -f app/src/core/startup.js
+          test -f app/src/features/auth/runtime.js
+          test -f app/src/features/students/runtime.js
+          test -f app/src/features/sessions/runtime.js
+          test -f app/src/features/settings/runtime.js
           test -f app/src/features/reports/runtime.js
+          test -f app/scripts/modules-phase3-check.mjs
+          test -f app/scripts/modules-vm-smoke.mjs
           test -f app/scripts/reports-module-check.mjs
           test -f app/scripts/regression-check.mjs
           test -f app/scripts/arabic-pdf-safe-check.mjs
@@ -138,8 +147,17 @@ jobs:
           npm run check:regression
           npm run check:reports-module
           npm run check:arabic-pdf
+          npm run check:modules
           npm run check:legacy
+          node scripts/modules-vm-smoke.mjs
           node --check src/main.js
+          node --check src/core/runtime.js
+          node --check src/core/navigation.js
+          node --check src/core/startup.js
+          node --check src/features/auth/runtime.js
+          node --check src/features/students/runtime.js
+          node --check src/features/sessions/runtime.js
+          node --check src/features/settings/runtime.js
           node --check src/core/lazy-libs.js
           node --check src/features/reports/lazy.js
           node --check src/features/reports/runtime.js
