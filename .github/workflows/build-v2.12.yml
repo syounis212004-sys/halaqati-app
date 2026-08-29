@@ -1,4 +1,4 @@
-name: Build Halaqati v2.12.2 Stable Reports + Signed APK
+name: Build Halaqati v2.12.3 Row-Safe PDF + Signed APK
 
 on:
   workflow_dispatch:
@@ -22,16 +22,16 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Extract Halaqati v2.12.2 project
+      - name: Extract Halaqati v2.12.3 project
         shell: bash
         run: |
           set -euo pipefail
           ZIP_FILE="$(find . -maxdepth 1 -type f \
-            \( -name 'Halaqati_Vite_Capacitor_v2_12_2_STABLE_REPORTS.zip' -o -name 'Halaqati_Vite_Capacitor_v2_12_2_STABLE_REPORTS-*.zip' \) \
+            \( -name 'Halaqati_Vite_Capacitor_v2_12_3_ROW_SAFE_PDF.zip' -o -name 'Halaqati_Vite_Capacitor_v2_12_3_ROW_SAFE_PDF-*.zip' \) \
             -print | sort | head -n 1)"
 
           if [ -z "$ZIP_FILE" ] || [ ! -f "$ZIP_FILE" ]; then
-            echo "ERROR: Halaqati_Vite_Capacitor_v2_12_2_STABLE_REPORTS.zip was not found in repository root"
+            echo "ERROR: Halaqati_Vite_Capacitor_v2_12_3_ROW_SAFE_PDF.zip was not found in repository root"
             echo "Files in repository root:"
             ls -la
             exit 1
