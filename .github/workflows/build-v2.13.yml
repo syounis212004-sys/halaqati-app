@@ -1,4 +1,4 @@
-name: Build Halaqati v2.13 Reports Module Phase 1 + Signed APK
+name: Build Halaqati v2.13.1 Vector HQ PDF + Signed APK
 
 on:
   workflow_dispatch:
@@ -22,16 +22,16 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Extract Halaqati v2.13 project
+      - name: Extract Halaqati v2.13.1 project
         shell: bash
         run: |
           set -euo pipefail
           ZIP_FILE="$(find . -maxdepth 1 -type f \
-            \( -name 'Halaqati_Vite_Capacitor_v2_13_REPORTS_MODULE_PHASE1.zip' -o -name 'Halaqati_Vite_Capacitor_v2_13_REPORTS_MODULE_PHASE1-*.zip' \) \
+            \( -name 'Halaqati_Vite_Capacitor_v2_13_1_VECTOR_HQ_PHASE2.zip' -o -name 'Halaqati_Vite_Capacitor_v2_13_1_VECTOR_HQ_PHASE2-*.zip' \) \
             -print | sort | head -n 1)"
 
           if [ -z "$ZIP_FILE" ] || [ ! -f "$ZIP_FILE" ]; then
-            echo "ERROR: Halaqati_Vite_Capacitor_v2_13_REPORTS_MODULE_PHASE1.zip was not found in repository root"
+            echo "ERROR: Halaqati_Vite_Capacitor_v2_13_1_VECTOR_HQ_PHASE2.zip was not found in repository root"
             echo "Files in repository root:"
             ls -la
             exit 1
@@ -62,7 +62,10 @@ jobs:
           test -f app/src/main.js
           test -f app/src/legacy/app.js
           test -f app/src/features/reports/runtime.js
+          test -f app/src/features/reports/vector-engine.js
           test -f app/scripts/reports-module-check.mjs
+          test -f app/scripts/vector-pdf-check.mjs
+          test -f app/scripts/pdf-vector-long-smoke.html
           test -f app/scripts/regression-check.mjs
           test -f app/capacitor.config.json
 
@@ -135,11 +138,13 @@ jobs:
         run: |
           npm run check:regression
           npm run check:reports-module
+          npm run check:vector-pdf
           npm run check:legacy
           node --check src/main.js
           node --check src/core/lazy-libs.js
           node --check src/features/reports/lazy.js
           node --check src/features/reports/runtime.js
+          node --check src/features/reports/vector-engine.js
           node --check src/features/import/lazy.js
 
       - name: Build Vite web application
@@ -155,6 +160,8 @@ jobs:
           test -f dist/sw.js
           test -f dist/core/supabase-2.min.js
           test -f dist/core/fonts/amiri-search.ttf
+          test -f dist/core/fonts/cairo-pdf-regular.ttf
+          test -f dist/core/fonts/cairo-pdf-bold.ttf
           test -f dist/vendor/xlsx-0.18.5.min.js
           if grep -q 'cdn.jsdelivr.net/npm/xlsx' dist/index.html; then
             echo "ERROR: heavy libraries are still boot-loaded in index.html"
@@ -216,6 +223,8 @@ jobs:
           set -euo pipefail
           test -f scripts/pdf-searchable-smoke.html
           test -f dist/core/fonts/amiri-search.ttf
+          test -f dist/core/fonts/cairo-pdf-regular.ttf
+          test -f dist/core/fonts/cairo-pdf-bold.ttf
           test -f dist/vendor/jspdf-2.5.1.umd.min.js
           test -f dist/vendor/pdfjs-3.11.174.min.js
           test -f dist/vendor/pdfjs-3.11.174.worker.min.js
@@ -257,6 +266,59 @@ jobs:
           }
           rm -f dist/pdf-searchable-smoke.html
           echo "Searchable PDF smoke test passed: Arabic names are extractable/searchable while visual output stays raster-based."
+
+      - name: Long Vector PDF quality + search + 30-page smoke test
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f scripts/pdf-vector-long-smoke.html
+          test -f src/features/reports/vector-engine.js
+          test -f dist/core/fonts/cairo-pdf-regular.ttf
+          test -f dist/core/fonts/cairo-pdf-bold.ttf
+          test -f dist/vendor/jspdf-2.5.1.umd.min.js
+          test -f dist/vendor/pdfjs-3.11.174.min.js
+          test -f dist/vendor/pdfjs-3.11.174.worker.min.js
+          cp scripts/pdf-vector-long-smoke.html dist/pdf-vector-long-smoke.html
+          cp src/features/reports/vector-engine.js dist/vector-engine-smoke.js
+
+          python3 -m http.server 4175 --directory dist >/tmp/halaqati-vector-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          sleep 2
+
+          CHROME="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$CHROME" ]; then
+            echo "ERROR: Chrome/Chromium is not available for vector PDF test"
+            exit 1
+          fi
+
+          set +e
+          timeout 45s "$CHROME" \
+            --headless \
+            --no-sandbox \
+            --disable-gpu \
+            --disable-dev-shm-usage \
+            --run-all-compositor-stages-before-draw \
+            --virtual-time-budget=30000 \
+            --dump-dom http://127.0.0.1:4175/pdf-vector-long-smoke.html \
+            > /tmp/halaqati-vector-dom.html 2>/tmp/halaqati-vector-chrome.log
+          STATUS=$?
+          set -e
+
+          cat /tmp/halaqati-vector-dom.html || true
+          if [ "$STATUS" -ne 0 ]; then
+            echo "ERROR: 30-page vector PDF browser test failed/timed out ($STATUS)"
+            tail -n 120 /tmp/halaqati-vector-chrome.log || true
+            exit 1
+          fi
+          grep -q 'VECTOR_LONG_PDF_PASS' /tmp/halaqati-vector-dom.html || {
+            echo "ERROR: vector PDF failed quality/page-count/Arabic-search checks"
+            tail -n 120 /tmp/halaqati-vector-chrome.log || true
+            exit 1
+          }
+          rm -f dist/pdf-vector-long-smoke.html dist/vector-engine-smoke.js
+          echo "Vector PDF smoke passed: 30 pages, non-blank vector output, embedded Cairo, Arabic search/extraction, bounded file size."
 
       - name: Upload web build
         uses: actions/upload-artifact@v4
