@@ -29,7 +29,7 @@ jobs:
           set -euo pipefail
 
           # IMPORTANT: use the Android/Capacitor ZIP only, not the PWA ZIP.
-          ZIP_FILE="./Halaqati_Offline_Capacitor_v2_10_FINAL.zip"
+          ZIP_FILE="./Halaqati_Offline_Capacitor_v2_11_FINAL.zip"
 
           if [ ! -f "$ZIP_FILE" ]; then
             echo "ERROR: $ZIP_FILE was not found in repository root"
@@ -255,9 +255,9 @@ jobs:
             "apkUrl": "https://syounis212004-sys.github.io/halaqati-web/Halaqati-latest.apk",
             "mandatory": false,
             "notes": [
-              "استعادة واجهة وتقارير وإدارة التحديثات الخاصة بسلسلة 2.8 مع تحسين العمل دون إنترنت.",
-              "حساب صفحات القرآن بدقة من بيانات مصحف المدينة QCF4 المضمّنة.",
-              "دعم تعدد المشرفين لكل حلقة مع الحفاظ على التوقيع والتحديث المباشر."
+              "إصلاح صفحة الويب وتسجيل الدخول بعد مشكلة الكاش وظهور الكود كنص.",
+              "تقارير كاملة لكل الطلاب مع جلب مباشر من جميع جداول المتابعة ذات الصلة.",
+              "معاينة PDF داخل التطبيق مع التحكم بالخط واللون والاتجاه وتعديل النص قبل التنزيل."
             ]
           }
           EOF
