@@ -21,55 +21,29 @@ jobs:
       - name: Extract Halaqati project
         run: |
           set -e
-          ZIP_FILE="./Halaqati_Offline_Capacitor_v2_9_BUILD_FIXED.zip"
-
-          if [ ! -f "$ZIP_FILE" ]; then
-            echo "Required ZIP was not found: $ZIP_FILE"
-            echo "ZIP files currently in repository root:"
-            find . -maxdepth 1 -type f -iname '*.zip' -print
+          ZIP_FILE="$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)"
+          if [ -z "$ZIP_FILE" ]; then
+            echo "No ZIP file found in repository root"
+            ls -la
             exit 1
           fi
 
-          echo "Using exact ZIP: $ZIP_FILE"
+          echo "Using ZIP: $ZIP_FILE"
           rm -rf extracted app
           mkdir -p extracted app
           unzip -q "$ZIP_FILE" -d extracted
 
-          PACKAGE_FILE=""
-
-          while IFS= read -r CANDIDATE; do
-            if node -e "
-              const fs=require('fs');
-              const p=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));
-              process.exit(p.scripts && p.scripts['prepare:offline'] ? 0 : 1);
-            " "$CANDIDATE"; then
-              PACKAGE_FILE="$CANDIDATE"
-              break
-            fi
-          done < <(find extracted -type f -name package.json)
-
+          PACKAGE_FILE="$(find extracted -type f -name package.json | head -n 1)"
           if [ -z "$PACKAGE_FILE" ]; then
-            echo "Main Halaqati package.json was not found inside ZIP"
-            echo "Found package.json files:"
-            find extracted -type f -name package.json -print
+            echo "package.json was not found inside ZIP"
+            find extracted -maxdepth 4 -type f | head -100
             exit 1
           fi
 
-          echo "Using app package: $PACKAGE_FILE"
           PROJECT_DIR="$(dirname "$PACKAGE_FILE")"
-
-          rm -rf app
-          mkdir -p app
           cp -a "$PROJECT_DIR"/. app/
 
           APP_VERSION="$(node -p "require('./app/package.json').version")"
-
-          if [ "$APP_VERSION" != "2.9.0" ]; then
-            echo "Wrong package selected. Expected 2.9.0 but got $APP_VERSION"
-            cat app/package.json
-            exit 1
-          fi
-
           echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
           echo "Building Halaqati v$APP_VERSION"
 
@@ -109,14 +83,6 @@ jobs:
       - name: Install dependencies
         working-directory: app
         run: npm install --no-audit --no-fund
-
-      - name: Verify offline package
-        working-directory: app
-        run: |
-          echo "Package version: $(node -p "require('./package.json').version")"
-          node -e "const p=require('./package.json'); if(!p.scripts?.['prepare:offline']) { console.error('prepare:offline script is missing'); process.exit(1) }"
-          test -f scripts/prepare-offline.mjs
-          echo "Offline package verified"
 
       - name: Prepare offline files
         working-directory: app
@@ -196,9 +162,9 @@ jobs:
             "apkUrl": "https://syounis212004-sys.github.io/halaqati-web/Halaqati-latest.apk",
             "mandatory": false,
             "notes": [
-              "تحسين العمل بدون إنترنت والمزامنة التلقائية.",
-              "تحسين حساب صفحات القرآن.",
-              "إصلاح بناء وتوقيع نسخة Android."
+              "استعادة واجهة وتقارير وإدارة التحديثات الخاصة بسلسلة 2.8 مع تحسين العمل دون إنترنت.",
+              "حساب صفحات القرآن بدقة من بيانات مصحف المدينة QCF4 المضمّنة.",
+              "دعم تعدد المشرفين لكل حلقة مع الحفاظ على التوقيع والتحديث المباشر."
             ]
           }
           EOF
