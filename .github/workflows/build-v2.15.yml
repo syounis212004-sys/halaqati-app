@@ -1,4 +1,4 @@
-name: Build Halaqati v2.15.3 Push Auto Native Bridge + Notifications + Offline Sync + Stable Arabic HQ PDF + Signed APK
+name: Build Halaqati v2.15.4 Push Auto Native Bridge + Notifications + Offline Sync + Stable Arabic HQ PDF + Signed APK
 
 on:
   workflow_dispatch:
@@ -22,18 +22,18 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Extract Halaqati v2.15.3 project
+      - name: Extract Halaqati v2.15.4 project
         shell: bash
         run: |
           set -euo pipefail
-          if [ -f "./Halaqati_Vite_Capacitor_v2_15_3_PUSH_AUTO_NATIVE_BRIDGE.zip" ]; then
-            ZIP_FILE="./Halaqati_Vite_Capacitor_v2_15_3_PUSH_AUTO_NATIVE_BRIDGE.zip"
+          if [ -f "./Halaqati_Vite_Capacitor_v2_15_4_PUSH_AUTOMATIC_STABLE.zip" ]; then
+            ZIP_FILE="./Halaqati_Vite_Capacitor_v2_15_4_PUSH_AUTOMATIC_STABLE.zip"
           else
-            ZIP_FILE="$(find . -maxdepth 1 -type f -name 'Halaqati_Vite_Capacitor_v2_15_3_PUSH_AUTO_NATIVE_BRIDGE-*.zip' -print | sort | head -n 1)"
+            ZIP_FILE="$(find . -maxdepth 1 -type f -name 'Halaqati_Vite_Capacitor_v2_15_4_PUSH_AUTOMATIC_STABLE-*.zip' -print | sort | head -n 1)"
           fi
 
           if [ -z "$ZIP_FILE" ] || [ ! -f "$ZIP_FILE" ]; then
-            echo "ERROR: v2.15.3 project ZIP was not found in repository root"
+            echo "ERROR: v2.15.4 project ZIP was not found in repository root"
             echo "Files in repository root:"
             ls -la
             exit 1
@@ -79,6 +79,7 @@ jobs:
           test -f app/plugins/halaqati-push-bridge/android/src/main/java/com/mohammedsamir/halaqati/pushbridge/HalaqatiPushBridgePlugin.java
           test -f app/scripts/push-auto-v2153-check.mjs
           test -f app/scripts/push-auto-v2153-vm-smoke.mjs
+          test -f app/scripts/push-nonblocking-v2154-vm-smoke.mjs
           test -f app/src/features/reports/runtime.js
           test -f app/scripts/notifications-v215-check.mjs
           test -f app/scripts/modules-phase3-check.mjs
@@ -107,7 +108,7 @@ jobs:
           test -f app/capacitor.config.json
 
           APP_VERSION="$(node -p "require('./app/package.json').version")"
-          test "$APP_VERSION" = "2.15.3" || { echo "ERROR: expected v2.15.3, got $APP_VERSION"; exit 1; }
+          test "$APP_VERSION" = "2.15.4" || { echo "ERROR: expected v2.15.4, got $APP_VERSION"; exit 1; }
           echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
           echo "Building Halaqati v$APP_VERSION from $ZIP_FILE"
 
@@ -217,7 +218,7 @@ jobs:
           node --check src/features/reports/runtime.js
           node --check src/features/import/lazy.js
 
-      - name: Notifications v2.15.3 admin + supervisor + guardian smoke test
+      - name: Notifications v2.15.4 admin + supervisor + guardian smoke test
         working-directory: app
         run: npm run check:notifications
 
@@ -233,7 +234,7 @@ jobs:
             echo "Firebase Push config detected ✅"
           else
             echo "VITE_HALAQATI_FIREBASE_CONFIGURED=false" >> "$GITHUB_ENV"
-            echo "::warning::Firebase Android config is not set. v2.15.3 will still build safely; Native Push will remain disabled and will NOT be initialized at app startup."
+            echo "::warning::Firebase Android config is not set. v2.15.4 will still build safely; Native Push will remain disabled and will NOT be initialized at app startup."
           fi
 
       - name: Push crash-safety regression check
@@ -244,7 +245,7 @@ jobs:
         working-directory: app
         run: npm run check:fcm-token
 
-      - name: Push automatic native bridge regression + VM smoke
+      - name: Push automatic registration regression + non-blocking VM smoke
         working-directory: app
         run: npm run check:push-auto
 
