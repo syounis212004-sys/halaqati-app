@@ -1,4 +1,4 @@
-name: Build Halaqati v2.15 Notifications + Guardian Push + Offline Sync + Stable Arabic HQ PDF + Signed APK
+name: Build Halaqati v2.15.1 Crash-Safe Push + Notifications + Offline Sync + Stable Arabic HQ PDF + Signed APK
 
 on:
   workflow_dispatch:
@@ -22,18 +22,18 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Extract Halaqati v2.15 project
+      - name: Extract Halaqati v2.15.1 project
         shell: bash
         run: |
           set -euo pipefail
-          if [ -f "./Halaqati_Vite_Capacitor_v2_15_NOTIFICATIONS_GUARDIAN.zip" ]; then
-            ZIP_FILE="./Halaqati_Vite_Capacitor_v2_15_NOTIFICATIONS_GUARDIAN.zip"
+          if [ -f "./Halaqati_Vite_Capacitor_v2_15_1_CRASH_SAFE_PUSH.zip" ]; then
+            ZIP_FILE="./Halaqati_Vite_Capacitor_v2_15_1_CRASH_SAFE_PUSH.zip"
           else
-            ZIP_FILE="$(find . -maxdepth 1 -type f -name 'Halaqati_Vite_Capacitor_v2_15_NOTIFICATIONS_GUARDIAN-*.zip' -print | sort | head -n 1)"
+            ZIP_FILE="$(find . -maxdepth 1 -type f -name 'Halaqati_Vite_Capacitor_v2_15_1_CRASH_SAFE_PUSH-*.zip' -print | sort | head -n 1)"
           fi
 
           if [ -z "$ZIP_FILE" ] || [ ! -f "$ZIP_FILE" ]; then
-            echo "ERROR: v2.15 project ZIP was not found in repository root"
+            echo "ERROR: v2.15.1 project ZIP was not found in repository root"
             echo "Files in repository root:"
             ls -la
             exit 1
@@ -96,12 +96,13 @@ jobs:
           test -f app/supabase/migrations/20260830_offline_master_data_updated_at.sql
           test -f app/supabase/migrations/20260830_v215_notifications.sql
           test -f app/supabase/functions/halaqati-notify/index.ts
-          test -f app/FIREBASE_PUSH_V215_SETUP_AR.md
+          test -f app/FIREBASE_PUSH_V2151_SETUP_AR.md
+          test -f app/scripts/push-crash-safe-v2151-check.mjs
           test -f app/scripts/pdf-arabic-raster-smoke.html
           test -f app/capacitor.config.json
 
           APP_VERSION="$(node -p "require('./app/package.json').version")"
-          test "$APP_VERSION" = "2.15.0" || { echo "ERROR: expected v2.15.0, got $APP_VERSION"; exit 1; }
+          test "$APP_VERSION" = "2.15.1" || { echo "ERROR: expected v2.15.1, got $APP_VERSION"; exit 1; }
           echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
           echo "Building Halaqati v$APP_VERSION from $ZIP_FILE"
 
@@ -184,6 +185,7 @@ jobs:
           npm run check:offline-v214
           npm run check:master-offline
           npm run check:notifications
+          npm run check:push-safety
           npm run check:legacy
           node scripts/modules-vm-smoke.mjs
           node --check src/main.js
@@ -203,9 +205,28 @@ jobs:
           node --check src/features/reports/runtime.js
           node --check src/features/import/lazy.js
 
-      - name: Notifications v2.15 admin + supervisor + guardian smoke test
+      - name: Notifications v2.15.1 admin + supervisor + guardian smoke test
         working-directory: app
         run: npm run check:notifications
+
+      - name: Detect Firebase Push configuration
+        shell: bash
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON }}
+          GOOGLE_SERVICES_B64: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -n "${GOOGLE_SERVICES_JSON:-}" ] || [ -n "${GOOGLE_SERVICES_B64:-}" ]; then
+            echo "VITE_HALAQATI_FIREBASE_CONFIGURED=true" >> "$GITHUB_ENV"
+            echo "Firebase Push config detected ✅"
+          else
+            echo "VITE_HALAQATI_FIREBASE_CONFIGURED=false" >> "$GITHUB_ENV"
+            echo "::warning::Firebase Android config is not set. v2.15.1 will still build safely; Native Push will remain disabled and will NOT be initialized at app startup."
+          fi
+
+      - name: Push crash-safety regression check
+        working-directory: app
+        run: npm run check:push-safety
 
       - name: Build Vite web application
         working-directory: app
@@ -482,18 +503,23 @@ jobs:
         working-directory: app
         run: npx cap add android
 
-      - name: Configure Firebase Android Push (optional until secret is added)
+      - name: Install validated Firebase Android config
         working-directory: app
         shell: bash
         env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON }}
           GOOGLE_SERVICES_B64: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64 }}
         run: |
           set -euo pipefail
-          if [ -z "${GOOGLE_SERVICES_B64:-}" ]; then
-            echo "::warning::HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64 is not configured. APK will build and in-app notifications will work, but Android system Push will stay disabled until Firebase setup is completed."
+          rm -f android/app/google-services.json
+          if [ -n "${GOOGLE_SERVICES_JSON:-}" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          elif [ -n "${GOOGLE_SERVICES_B64:-}" ]; then
+            printf '%s' "$GOOGLE_SERVICES_B64" | base64 -d > android/app/google-services.json
+          else
+            echo "Firebase config absent: safe no-Push APK mode ✅"
             exit 0
           fi
-          printf '%s' "$GOOGLE_SERVICES_B64" | base64 -d > android/app/google-services.json
           test -s android/app/google-services.json
           python3 - <<'PYFIREBASE'
           import json
@@ -504,6 +530,7 @@ jobs:
           for c in d.get('client',[]):
               packages.append(c.get('client_info',{}).get('android_client_info',{}).get('package_name'))
           assert 'com.mohammedsamir.halaqati' in packages, f'google-services.json does not contain com.mohammedsamir.halaqati: {packages}'
+          assert d.get('project_info',{}).get('project_id'), 'Firebase project_id missing'
           print('Firebase Android config validated ✅')
           PYFIREBASE
 
@@ -522,6 +549,7 @@ jobs:
             exit 1
           fi
           echo "Capacitor PushNotifications native plugin synced ✅"
+          echo "Firebase build flag: ${VITE_HALAQATI_FIREBASE_CONFIGURED:-false}"
 
       - name: Set Android version
         working-directory: app
