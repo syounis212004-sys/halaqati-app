@@ -1,4 +1,4 @@
-name: Build Halaqati v2.13.9 Account Name + Guardian Linking Fix + Stable Arabic HQ Safe PDF + Signed APK
+name: Build Halaqati v2.14 Offline-First IndexedDB Sync Engine + Stable Arabic HQ PDF + Signed APK
 
 on:
   workflow_dispatch:
@@ -22,16 +22,16 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Extract Halaqati v2.13.9 project
+      - name: Extract Halaqati v2.14 project
         shell: bash
         run: |
           set -euo pipefail
           ZIP_FILE="$(find . -maxdepth 1 -type f \
-            \( -name 'Halaqati_Vite_Capacitor_v2_13_9_ACCOUNT_NAME_GUARDIAN_FIX.zip' -o -name 'Halaqati_Vite_Capacitor_v2_13_9_ACCOUNT_NAME_GUARDIAN_FIX-*.zip' \) \
+            \( -name 'Halaqati_Vite_Capacitor_v2_14_OFFLINE_SYNC_ENGINE.zip' -o -name 'Halaqati_Vite_Capacitor_v2_14_OFFLINE_SYNC_ENGINE-*.zip' \) \
             -print | sort | head -n 1)"
 
           if [ -z "$ZIP_FILE" ] || [ ! -f "$ZIP_FILE" ]; then
-            echo "ERROR: Halaqati_Vite_Capacitor_v2_13_9_ACCOUNT_NAME_GUARDIAN_FIX.zip was not found in repository root"
+            echo "ERROR: Halaqati_Vite_Capacitor_v2_14_OFFLINE_SYNC_ENGINE.zip was not found in repository root"
             echo "Files in repository root:"
             ls -la
             exit 1
@@ -62,6 +62,7 @@ jobs:
           test -f app/src/main.js
           test -f app/src/legacy/app.js
           test -f app/src/core/runtime.js
+          test -f app/src/core/offline-store.js
           test -f app/src/core/navigation.js
           test -f app/src/core/startup.js
           test -f app/src/features/auth/runtime.js
@@ -80,6 +81,9 @@ jobs:
           test -f app/scripts/offline-queue-stability-vm-smoke.mjs
           test -f app/scripts/home-session-open-check.mjs
           test -f app/scripts/account-name-check.mjs
+          test -f app/scripts/offline-v214-check.mjs
+          test -f app/scripts/offline-v214-model-smoke.mjs
+          test -f app/scripts/offline-indexeddb-smoke.html
           test -f app/scripts/pdf-arabic-raster-smoke.html
           test -f app/capacitor.config.json
 
@@ -160,10 +164,12 @@ jobs:
           npm run check:offline-queue
           npm run check:home-session-open
           npm run check:account-name
+          npm run check:offline-v214
           npm run check:legacy
           node scripts/modules-vm-smoke.mjs
           node --check src/main.js
           node --check src/core/runtime.js
+          node --check src/core/offline-store.js
           node --check src/core/navigation.js
           node --check src/core/startup.js
           node --check src/features/auth/runtime.js
@@ -194,6 +200,54 @@ jobs:
             exit 1
           fi
           echo "Web build verified."
+
+      - name: IndexedDB offline outbox 500-operation smoke test
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f scripts/offline-indexeddb-smoke.html
+          test -f src/core/offline-store.js
+          cp scripts/offline-indexeddb-smoke.html dist/offline-indexeddb-smoke.html
+          cp src/core/offline-store.js dist/offline-store-test.js
+
+          python3 -m http.server 4178 --directory dist >/tmp/halaqati-idb-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          sleep 2
+
+          CHROME="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$CHROME" ]; then
+            echo "ERROR: Chrome/Chromium is not available for IndexedDB smoke test"
+            exit 1
+          fi
+
+          set +e
+          timeout 40s "$CHROME" \
+            --headless \
+            --no-sandbox \
+            --disable-gpu \
+            --disable-dev-shm-usage \
+            --run-all-compositor-stages-before-draw \
+            --virtual-time-budget=25000 \
+            --dump-dom http://127.0.0.1:4178/offline-indexeddb-smoke.html \
+            > /tmp/halaqati-idb-smoke-dom.html 2>/tmp/halaqati-idb-chrome.log
+          STATUS=$?
+          set -e
+
+          cat /tmp/halaqati-idb-smoke-dom.html || true
+          if [ "$STATUS" -ne 0 ]; then
+            echo "ERROR: IndexedDB browser smoke failed/timed out ($STATUS)"
+            tail -n 100 /tmp/halaqati-idb-chrome.log || true
+            exit 1
+          fi
+          grep -q 'OFFLINE_IDB_SMOKE_PASS' /tmp/halaqati-idb-smoke-dom.html || {
+            echo "ERROR: IndexedDB outbox/snapshot test did not pass"
+            tail -n 100 /tmp/halaqati-idb-chrome.log || true
+            exit 1
+          }
+          rm -f dist/offline-indexeddb-smoke.html dist/offline-store-test.js
+          echo "IndexedDB offline engine verified with 500 durable operations + snapshot."
 
       - name: Browser PDF rendering smoke test
         working-directory: app
