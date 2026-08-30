@@ -26,10 +26,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ -f "./Halaqati_Vite_Capacitor_v2_15_7_OFFICIAL_CAPACITOR_PUSH.zip" ]; then
+          if [ -f "./Halaqati_Vite_Capacitor_v2_15_7_OFFICIAL_CAPACITOR_PUSH_BUILD_FIX.zip" ]; then
+            ZIP_FILE="./Halaqati_Vite_Capacitor_v2_15_7_OFFICIAL_CAPACITOR_PUSH_BUILD_FIX.zip"
+          elif [ -f "./Halaqati_Vite_Capacitor_v2_15_7_OFFICIAL_CAPACITOR_PUSH.zip" ]; then
             ZIP_FILE="./Halaqati_Vite_Capacitor_v2_15_7_OFFICIAL_CAPACITOR_PUSH.zip"
           else
-            ZIP_FILE="$(find . -maxdepth 1 -type f -name 'Halaqati_Vite_Capacitor_v2_15_7_OFFICIAL_CAPACITOR_PUSH-*.zip' -print | sort | head -n 1)"
+            ZIP_FILE="$(find . -maxdepth 1 -type f \( -name 'Halaqati_Vite_Capacitor_v2_15_7_OFFICIAL_CAPACITOR_PUSH_BUILD_FIX-*.zip' -o -name 'Halaqati_Vite_Capacitor_v2_15_7_OFFICIAL_CAPACITOR_PUSH-*.zip' \) -print | sort | head -n 1)"
           fi
 
           if [ -z "$ZIP_FILE" ] || [ ! -f "$ZIP_FILE" ]; then
