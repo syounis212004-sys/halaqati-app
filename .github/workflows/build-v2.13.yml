@@ -1,4 +1,4 @@
-name: Build Halaqati v2.15.1 Crash-Safe Push + Notifications + Offline Sync + Stable Arabic HQ PDF + Signed APK
+name: Build Halaqati v2.15.2 FCM Token Fix + Notifications + Offline Sync + Stable Arabic HQ PDF + Signed APK
 
 on:
   workflow_dispatch:
@@ -22,18 +22,18 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Extract Halaqati v2.15.1 project
+      - name: Extract Halaqati v2.15.2 project
         shell: bash
         run: |
           set -euo pipefail
-          if [ -f "./Halaqati_Vite_Capacitor_v2_15_1_CRASH_SAFE_PUSH.zip" ]; then
-            ZIP_FILE="./Halaqati_Vite_Capacitor_v2_15_1_CRASH_SAFE_PUSH.zip"
+          if [ -f "./Halaqati_Vite_Capacitor_v2_15_2_FCM_TOKEN_FIX.zip" ]; then
+            ZIP_FILE="./Halaqati_Vite_Capacitor_v2_15_2_FCM_TOKEN_FIX.zip"
           else
-            ZIP_FILE="$(find . -maxdepth 1 -type f -name 'Halaqati_Vite_Capacitor_v2_15_1_CRASH_SAFE_PUSH-*.zip' -print | sort | head -n 1)"
+            ZIP_FILE="$(find . -maxdepth 1 -type f -name 'Halaqati_Vite_Capacitor_v2_15_2_FCM_TOKEN_FIX-*.zip' -print | sort | head -n 1)"
           fi
 
           if [ -z "$ZIP_FILE" ] || [ ! -f "$ZIP_FILE" ]; then
-            echo "ERROR: v2.15.1 project ZIP was not found in repository root"
+            echo "ERROR: v2.15.2 project ZIP was not found in repository root"
             echo "Files in repository root:"
             ls -la
             exit 1
@@ -102,7 +102,7 @@ jobs:
           test -f app/capacitor.config.json
 
           APP_VERSION="$(node -p "require('./app/package.json').version")"
-          test "$APP_VERSION" = "2.15.1" || { echo "ERROR: expected v2.15.1, got $APP_VERSION"; exit 1; }
+          test "$APP_VERSION" = "2.15.2" || { echo "ERROR: expected v2.15.2, got $APP_VERSION"; exit 1; }
           echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
           echo "Building Halaqati v$APP_VERSION from $ZIP_FILE"
 
@@ -205,7 +205,7 @@ jobs:
           node --check src/features/reports/runtime.js
           node --check src/features/import/lazy.js
 
-      - name: Notifications v2.15.1 admin + supervisor + guardian smoke test
+      - name: Notifications v2.15.2 admin + supervisor + guardian smoke test
         working-directory: app
         run: npm run check:notifications
 
@@ -221,12 +221,16 @@ jobs:
             echo "Firebase Push config detected ✅"
           else
             echo "VITE_HALAQATI_FIREBASE_CONFIGURED=false" >> "$GITHUB_ENV"
-            echo "::warning::Firebase Android config is not set. v2.15.1 will still build safely; Native Push will remain disabled and will NOT be initialized at app startup."
+            echo "::warning::Firebase Android config is not set. v2.15.2 will still build safely; Native Push will remain disabled and will NOT be initialized at app startup."
           fi
 
       - name: Push crash-safety regression check
         working-directory: app
         run: npm run check:push-safety
+
+      - name: FCM token registration regression check
+        working-directory: app
+        run: npm run check:fcm-token
 
       - name: Build Vite web application
         working-directory: app
@@ -550,6 +554,25 @@ jobs:
           fi
           echo "Capacitor PushNotifications native plugin synced ✅"
           echo "Firebase build flag: ${VITE_HALAQATI_FIREBASE_CONFIGURED:-false}"
+
+      - name: Verify Firebase Google Services processing
+        if: env.VITE_HALAQATI_FIREBASE_CONFIGURED == 'true'
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s android/app/google-services.json
+          grep -q "com.google.gms:google-services" android/build.gradle
+          grep -q "com.google.gms.google-services" android/app/build.gradle
+          cd android
+          chmod +x gradlew
+          ./gradlew :app:processReleaseGoogleServices
+          cd ..
+          VALUES="android/app/build/generated/res/google-services/release/values/values.xml"
+          test -s "$VALUES" || { echo "ERROR: Google Services resources were not generated"; find android/app/build/generated -maxdepth 6 -type f 2>/dev/null | head -100; exit 1; }
+          grep -q "google_app_id" "$VALUES"
+          grep -q "gcm_defaultSenderId" "$VALUES"
+          echo "Firebase Google Services processed for release APK ✅"
 
       - name: Set Android version
         working-directory: app
