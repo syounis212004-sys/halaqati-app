@@ -568,8 +568,21 @@ jobs:
           chmod +x gradlew
           ./gradlew :app:processReleaseGoogleServices
           cd ..
-          VALUES="android/app/build/generated/res/google-services/release/values/values.xml"
-          test -s "$VALUES" || { echo "ERROR: Google Services resources were not generated"; find android/app/build/generated -maxdepth 6 -type f 2>/dev/null | head -100; exit 1; }
+          # The Google Services plugin can write generated resources to different
+          # directories depending on the AGP/plugin version. Verify by content.
+          VALUES="$(find android/app/build/generated -type f -name 'values.xml' -print 2>/dev/null | while read -r f; do
+            if grep -q 'google_app_id' "$f" && grep -q 'gcm_defaultSenderId' "$f"; then
+              echo "$f"
+              break
+            fi
+          done)"
+          if [ -z "${VALUES:-}" ] || [ ! -s "$VALUES" ]; then
+            echo "ERROR: Google Services task succeeded, but generated Firebase values could not be located."
+            echo "Generated files:"
+            find android/app/build/generated -type f -print 2>/dev/null | head -200 || true
+            exit 1
+          fi
+          echo "Firebase resources found at: $VALUES"
           grep -q "google_app_id" "$VALUES"
           grep -q "gcm_defaultSenderId" "$VALUES"
           echo "Firebase Google Services processed for release APK ✅"
