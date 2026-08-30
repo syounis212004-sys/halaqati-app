@@ -1,4 +1,4 @@
-name: Build Halaqati v2.15.5 Firebase FID Push Root Fix + Notifications + Offline Sync + Stable Arabic HQ PDF + Signed APK
+name: Build Halaqati v2.15.6 Native-only Firebase Push Root Fix + Notifications + Offline Sync + Stable Arabic HQ PDF + Signed APK
 
 on:
   workflow_dispatch:
@@ -22,18 +22,18 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Extract Halaqati v2.15.5 project
+      - name: Extract Halaqati v2.15.6 project
         shell: bash
         run: |
           set -euo pipefail
-          if [ -f "./Halaqati_Vite_Capacitor_v2_15_5_FID_PUSH_ROOT_FIX.zip" ]; then
-            ZIP_FILE="./Halaqati_Vite_Capacitor_v2_15_5_FID_PUSH_ROOT_FIX.zip"
+          if [ -f "./Halaqati_Vite_Capacitor_v2_15_6_NATIVE_ONLY_PUSH.zip" ]; then
+            ZIP_FILE="./Halaqati_Vite_Capacitor_v2_15_6_NATIVE_ONLY_PUSH.zip"
           else
-            ZIP_FILE="$(find . -maxdepth 1 -type f -name 'Halaqati_Vite_Capacitor_v2_15_5_FID_PUSH_ROOT_FIX-*.zip' -print | sort | head -n 1)"
+            ZIP_FILE="$(find . -maxdepth 1 -type f -name 'Halaqati_Vite_Capacitor_v2_15_6_NATIVE_ONLY_PUSH-*.zip' -print | sort | head -n 1)"
           fi
 
           if [ -z "$ZIP_FILE" ] || [ ! -f "$ZIP_FILE" ]; then
-            echo "ERROR: v2.15.5 project ZIP was not found in repository root"
+            echo "ERROR: v2.15.6 project ZIP was not found in repository root"
             echo "Files in repository root:"
             ls -la
             exit 1
@@ -77,6 +77,9 @@ jobs:
           test -f app/plugins/halaqati-push-bridge/package.json
           test -f app/plugins/halaqati-push-bridge/android/build.gradle
           test -f app/plugins/halaqati-push-bridge/android/src/main/java/com/mohammedsamir/halaqati/pushbridge/HalaqatiPushBridgePlugin.java
+          test -f app/plugins/halaqati-push-bridge/android/src/main/java/com/mohammedsamir/halaqati/pushbridge/HalaqatiFirebaseMessagingService.java
+          test -f app/scripts/native-only-push-v2156-check.mjs
+          test -f app/scripts/native-only-push-v2156-vm-smoke.mjs
           test -f app/scripts/push-auto-v2153-check.mjs
           test -f app/scripts/push-auto-v2153-vm-smoke.mjs
           test -f app/scripts/fid-push-v2155-check.mjs
@@ -109,7 +112,7 @@ jobs:
           test -f app/capacitor.config.json
 
           APP_VERSION="$(node -p "require('./app/package.json').version")"
-          test "$APP_VERSION" = "2.15.5" || { echo "ERROR: expected v2.15.5, got $APP_VERSION"; exit 1; }
+          test "$APP_VERSION" = "2.15.6" || { echo "ERROR: expected v2.15.6, got $APP_VERSION"; exit 1; }
           echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
           echo "Building Halaqati v$APP_VERSION from $ZIP_FILE"
 
@@ -181,7 +184,14 @@ jobs:
           grep -q 'FirebaseInstallations.getInstance().getId()' "$PUSH_BRIDGE" || { echo "ERROR: Firebase Installation ID retrieval is missing"; exit 1; }
           grep -q 'firebase-messaging:25.1.1' "$PUSH_GRADLE" || { echo "ERROR: Firebase Messaging 25.1.1 is required"; exit 1; }
           grep -q 'firebase-common:22.2.0' "$PUSH_GRADLE" || { echo "ERROR: fixed firebase-common 22.2.0 is required"; exit 1; }
-          echo "Native Capacitor + FCM bridge plugins validated ✅"
+          PUSH_SERVICE="plugins/halaqati-push-bridge/android/src/main/java/com/mohammedsamir/halaqati/pushbridge/HalaqatiFirebaseMessagingService.java"
+          PUSH_MANIFEST="plugins/halaqati-push-bridge/android/src/main/AndroidManifest.xml"
+          grep -q 'requestNotificationPermission' "$PUSH_BRIDGE" || { echo "ERROR: native Android notification permission flow missing"; exit 1; }
+          grep -q 'onRegistered' "$PUSH_SERVICE" || { echo "ERROR: Firebase onRegistered(FID) service callback missing"; exit 1; }
+          grep -q 'onMessageReceived' "$PUSH_SERVICE" || { echo "ERROR: native foreground notification receiver missing"; exit 1; }
+          grep -q 'POST_NOTIFICATIONS' "$PUSH_MANIFEST" || { echo "ERROR: POST_NOTIFICATIONS permission missing"; exit 1; }
+          grep -q 'HalaqatiFirebaseMessagingService' "$PUSH_MANIFEST" || { echo "ERROR: FirebaseMessagingService manifest entry missing"; exit 1; }
+          echo "Native-only FCM bridge validated ✅"
 
       - name: Install dependencies
         working-directory: app
@@ -204,6 +214,7 @@ jobs:
           npm run check:master-offline
           npm run check:notifications
           npm run check:push-safety
+          npm run check:native-push
           npm run check:legacy
           node scripts/modules-vm-smoke.mjs
           node --check src/main.js
@@ -223,7 +234,7 @@ jobs:
           node --check src/features/reports/runtime.js
           node --check src/features/import/lazy.js
 
-      - name: Notifications v2.15.5 admin + supervisor + guardian smoke test
+      - name: Notifications v2.15.6 admin + supervisor + guardian smoke test
         working-directory: app
         run: npm run check:notifications
 
@@ -239,16 +250,16 @@ jobs:
             echo "Firebase Push config detected ✅"
           else
             echo "VITE_HALAQATI_FIREBASE_CONFIGURED=false" >> "$GITHUB_ENV"
-            echo "::warning::Firebase Android config is not set. v2.15.5 will still build safely; Native Push will remain disabled and will NOT be initialized at app startup."
+            echo "::warning::Firebase Android config is not set. v2.15.6 will still build safely; Native Push will remain disabled and will NOT be initialized at app startup."
           fi
 
       - name: Push crash-safety regression check
         working-directory: app
         run: npm run check:push-safety
 
-      - name: Firebase FID registration root-fix regression + VM smoke
+      - name: Native-only Push v2.15.6 regression + VM smoke
         working-directory: app
-        run: npm run check:fid-push
+        run: npm run check:native-push
 
       - name: Verify deprecated FCM token path is gone
         working-directory: app
@@ -588,18 +599,20 @@ jobs:
         working-directory: app
         run: npx cap sync android
 
-      - name: Verify PushNotifications native plugin sync
+      - name: Verify external Capacitor Push plugin is removed
         working-directory: app
         shell: bash
         run: |
           set -euo pipefail
-          test -d node_modules/@capacitor/push-notifications
-          if ! grep -R -q "capacitor-push-notifications\|@capacitor/push-notifications" android/capacitor.settings.gradle android/settings.gradle android/app/capacitor.build.gradle 2>/dev/null; then
-            echo "ERROR: Capacitor PushNotifications plugin was not synced into Android"
+          if [ -d node_modules/@capacitor/push-notifications ]; then
+            echo "ERROR: @capacitor/push-notifications must not be installed in v2.15.6"
             exit 1
           fi
-          echo "Capacitor PushNotifications native plugin synced ✅"
-          echo "Firebase build flag: ${VITE_HALAQATI_FIREBASE_CONFIGURED:-false}"
+          if grep -R -q "capacitor-push-notifications\|@capacitor/push-notifications" android/capacitor.settings.gradle android/settings.gradle android/app/capacitor.build.gradle 2>/dev/null; then
+            echo "ERROR: external Capacitor PushNotifications plugin is still synced"
+            exit 1
+          fi
+          echo "External Capacitor PushNotifications removed ✅"
 
       - name: Verify Halaqati direct FCM native bridge sync
         working-directory: app
@@ -608,6 +621,7 @@ jobs:
           set -euo pipefail
           test -d node_modules/halaqati-push-bridge
           test -s node_modules/halaqati-push-bridge/android/src/main/java/com/mohammedsamir/halaqati/pushbridge/HalaqatiPushBridgePlugin.java
+          test -s node_modules/halaqati-push-bridge/android/src/main/java/com/mohammedsamir/halaqati/pushbridge/HalaqatiFirebaseMessagingService.java
           if ! grep -R -q "halaqati-push-bridge" android/capacitor.settings.gradle android/settings.gradle android/app/capacitor.build.gradle 2>/dev/null; then
             echo "ERROR: Halaqati direct FCM native bridge was not linked by Capacitor"
             grep -R "halaqati" android/capacitor.settings.gradle android/settings.gradle android/app/capacitor.build.gradle 2>/dev/null || true
@@ -672,6 +686,8 @@ jobs:
           fi
           test -s "$MERGED_MANIFEST"
           grep -q 'firebase_messaging_installation_id_enabled' "$MERGED_MANIFEST"
+          grep -q 'android.permission.POST_NOTIFICATIONS' "$MERGED_MANIFEST"
+          grep -q 'HalaqatiFirebaseMessagingService' "$MERGED_MANIFEST"
 
           # Capacitor must have generated a native plugin entry for our bridge.
           PLUGIN_JSON="app/src/main/assets/capacitor.plugins.json"
@@ -680,7 +696,7 @@ jobs:
           grep -q 'com.mohammedsamir.halaqati.pushbridge.HalaqatiPushBridgePlugin' "$PLUGIN_JSON"
 
           echo "Firebase Messaging 25.1.1 + Installations 19.1.2 + firebase-common 22.2.0 present ✅"
-          echo "Halaqati FID native bridge compiled and registered ✅"
+          echo "Halaqati native-only FID bridge + FirebaseMessagingService compiled and registered ✅"
           echo "FID registration uses FirebaseMessaging.register() and is verified on the physical device after install; GitHub hosted emulators were removed because they repeatedly failed before Android boot."
 
       - name: Set Android version
