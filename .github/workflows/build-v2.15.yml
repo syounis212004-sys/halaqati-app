@@ -653,7 +653,7 @@ jobs:
                   }
                   assertNotNull("FirebaseApp was not initialized from google-services.json", app);
                   FirebaseMessaging.getInstance().setAutoInitEnabled(true);
-                  String token = Tasks.await(FirebaseMessaging.getInstance().getToken(), 45, TimeUnit.SECONDS);
+                  String token = Tasks.await(FirebaseMessaging.getInstance().getToken(), 120, TimeUnit.SECONDS);
                   assertNotNull("FCM token is null", token);
                   assertTrue("FCM token is unexpectedly short", token.trim().length() > 20);
               }
@@ -673,16 +673,75 @@ jobs:
           GRADLE
           echo "Android FCM token instrumentation test prepared ✅"
 
-      - name: Android 14 virtual-device real FCM token smoke test
+      - name: Enable KVM for Android emulator
         if: env.VITE_HALAQATI_FIREBASE_CONFIGURED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm || true
+            echo "KVM device available ✅"
+            ls -l /dev/kvm || true
+          else
+            echo "::warning::/dev/kvm is not available on this runner; fallback software-emulation attempt will be used if needed."
+          fi
+
+      - name: Real FCM token emulator smoke test - primary
+        id: fcm_emu_primary
+        if: env.VITE_HALAQATI_FIREBASE_CONFIGURED == 'true'
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_5
+          cores: 2
+          ram-size: 2048M
+          disk-size: 4G
+          emulator-boot-timeout: 900
+          force-avd-creation: true
+          disable-linux-hw-accel: auto
+          emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          disable-animations: true
+          script: cd app/android && ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.mohammedsamir.halaqati.FcmTokenSmokeTest --stacktrace
+
+      - name: Real FCM token emulator smoke test - fallback
+        id: fcm_emu_fallback
+        if: env.VITE_HALAQATI_FIREBASE_CONFIGURED == 'true' && steps.fcm_emu_primary.outcome != 'success'
+        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
           target: google_apis
           arch: x86_64
-          profile: pixel_6
+          profile: pixel_2
+          cores: 2
+          ram-size: 1536M
+          disk-size: 4G
+          emulator-boot-timeout: 1200
+          force-avd-creation: true
+          disable-linux-hw-accel: true
+          emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           disable-animations: true
-          script: cd app/android && ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.mohammedsamir.halaqati.FcmTokenSmokeTest
+          script: cd app/android && ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.mohammedsamir.halaqati.FcmTokenSmokeTest --stacktrace
+
+      - name: Require successful real FCM token test
+        if: always() && env.VITE_HALAQATI_FIREBASE_CONFIGURED == 'true'
+        shell: bash
+        env:
+          PRIMARY_OUTCOME: ${{ steps.fcm_emu_primary.outcome }}
+          FALLBACK_OUTCOME: ${{ steps.fcm_emu_fallback.outcome }}
+        run: |
+          set -euo pipefail
+          echo "Primary emulator result: ${PRIMARY_OUTCOME:-unknown}"
+          echo "Fallback emulator result: ${FALLBACK_OUTCOME:-skipped}"
+          if [ "${PRIMARY_OUTCOME:-}" = "success" ] || [ "${FALLBACK_OUTCOME:-}" = "success" ]; then
+            echo "A real Android emulator produced a valid FCM token ✅"
+            exit 0
+          fi
+          echo "ERROR: Both Android emulator FCM token attempts failed. APK build is intentionally blocked."
+          exit 1
 
       - name: Set Android version
         working-directory: app
