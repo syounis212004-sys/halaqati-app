@@ -1,4 +1,4 @@
-name: Build Halaqati v2.13.7 Offline Queue Stable + Stable Arabic HQ Safe PDF + Signed APK
+name: Build Halaqati v2.13.8 Home Session Open Fix + Stable Arabic HQ Safe PDF + Signed APK
 
 on:
   workflow_dispatch:
@@ -22,16 +22,16 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Extract Halaqati v2.13.7 project
+      - name: Extract Halaqati v2.13.8 project
         shell: bash
         run: |
           set -euo pipefail
           ZIP_FILE="$(find . -maxdepth 1 -type f \
-            \( -name 'Halaqati_Vite_Capacitor_v2_13_7_OFFLINE_QUEUE_STABLE.zip' -o -name 'Halaqati_Vite_Capacitor_v2_13_7_OFFLINE_QUEUE_STABLE-*.zip' \) \
+            \( -name 'Halaqati_Vite_Capacitor_v2_13_8_HOME_SESSION_OPEN_FIX.zip' -o -name 'Halaqati_Vite_Capacitor_v2_13_8_HOME_SESSION_OPEN_FIX-*.zip' \) \
             -print | sort | head -n 1)"
 
           if [ -z "$ZIP_FILE" ] || [ ! -f "$ZIP_FILE" ]; then
-            echo "ERROR: Halaqati_Vite_Capacitor_v2_13_7_OFFLINE_QUEUE_STABLE.zip was not found in repository root"
+            echo "ERROR: Halaqati_Vite_Capacitor_v2_13_8_HOME_SESSION_OPEN_FIX.zip was not found in repository root"
             echo "Files in repository root:"
             ls -la
             exit 1
@@ -78,6 +78,7 @@ jobs:
           test -f app/scripts/offline-sync-auth-check.mjs
           test -f app/scripts/offline-queue-stability-check.mjs
           test -f app/scripts/offline-queue-stability-vm-smoke.mjs
+          test -f app/scripts/home-session-open-check.mjs
           test -f app/scripts/pdf-arabic-raster-smoke.html
           test -f app/capacitor.config.json
 
@@ -156,6 +157,7 @@ jobs:
           npm run check:offline-sync
           npm run check:offline-recovery
           npm run check:offline-queue
+          npm run check:home-session-open
           npm run check:legacy
           node scripts/modules-vm-smoke.mjs
           node --check src/main.js
