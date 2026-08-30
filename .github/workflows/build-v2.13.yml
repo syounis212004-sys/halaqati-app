@@ -26,12 +26,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ZIP_FILE="$(find . -maxdepth 1 -type f \
-            \( -name 'Halaqati_Vite_Capacitor_v2_14_1_OFFLINE_MASTER_DATA.zip' -o -name 'Halaqati_Vite_Capacitor_v2_14_1_OFFLINE_MASTER_DATA-*.zip' \) \
-            -print | sort | head -n 1)"
+          if [ -f "./Halaqati_Vite_Capacitor_v2_14_1_OFFLINE_MASTER_DATA_BUILD_FIX.zip" ]; then
+            ZIP_FILE="./Halaqati_Vite_Capacitor_v2_14_1_OFFLINE_MASTER_DATA_BUILD_FIX.zip"
+          else
+            ZIP_FILE="$(find . -maxdepth 1 -type f \
+              \( -name 'Halaqati_Vite_Capacitor_v2_14_1_OFFLINE_MASTER_DATA.zip' -o -name 'Halaqati_Vite_Capacitor_v2_14_1_OFFLINE_MASTER_DATA-*.zip' \) \
+              -print | sort | head -n 1)"
+          fi
 
           if [ -z "$ZIP_FILE" ] || [ ! -f "$ZIP_FILE" ]; then
-            echo "ERROR: Halaqati_Vite_Capacitor_v2_14_1_OFFLINE_MASTER_DATA.zip was not found in repository root"
+            echo "ERROR: v2.14.1 project ZIP was not found in repository root"
             echo "Files in repository root:"
             ls -la
             exit 1
@@ -126,32 +130,35 @@ jobs:
           printf '%s' "$KEYSTORE_B64" | base64 -d > halaqati-release.jks
           test -s halaqati-release.jks
 
-      - name: Fix Capacitor 8 updater plugin
+      - name: Validate Capacitor 8 native plugins
         working-directory: app
         shell: bash
         run: |
           set -euo pipefail
-          JAVA_DIR="plugins/halaqati-updater/android/src/main/java/com/mohammedsamir/halaqati/updater"
-          FILE="$JAVA_DIR/HalaqatiUpdaterPlugin.java"
-          PROVIDER_FILE="$JAVA_DIR/HalaqatiUpdateFileProvider.java"
-          MANIFEST="plugins/halaqati-updater/android/src/main/AndroidManifest.xml"
-          test -f "$FILE"
-          test -f "$MANIFEST"
+          UPDATER_DIR="plugins/halaqati-updater/android/src/main/java/com/mohammedsamir/halaqati/updater"
+          UPDATER="$UPDATER_DIR/HalaqatiUpdaterPlugin.java"
+          PROVIDER="$UPDATER_DIR/HalaqatiUpdateFileProvider.java"
+          UPDATER_MANIFEST="plugins/halaqati-updater/android/src/main/AndroidManifest.xml"
+          UPDATE_PATHS="plugins/halaqati-updater/android/src/main/res/xml/halaqati_update_paths.xml"
+          DEEPLINK="plugins/halaqati-deeplink/android/src/main/java/com/mohammedsamir/halaqati/deeplink/HalaqatiDeepLinkPlugin.java"
+          DEEPLINK_MANIFEST="plugins/halaqati-deeplink/android/src/main/AndroidManifest.xml"
 
-          sed -i 's/getBridge().executeOnThreadPool(() -> {/new Thread(() -> {/' "$FILE"
-          sed -i 's/^        });$/        }).start();/' "$FILE"
-          if grep -q 'executeOnThreadPool' "$FILE"; then
-            echo "ERROR: old Capacitor API is still present"
+          for f in "$UPDATER" "$PROVIDER" "$UPDATER_MANIFEST" "$UPDATE_PATHS" "$DEEPLINK" "$DEEPLINK_MANIFEST"; do
+            if [ ! -s "$f" ]; then
+              echo "ERROR: required native plugin file is missing or empty: $f"
+              exit 1
+            fi
+          done
+
+          if grep -q 'executeOnThreadPool' "$UPDATER"; then
+            echo "ERROR: old Capacitor executeOnThreadPool API is still present"
             exit 1
           fi
 
-          cat > "$PROVIDER_FILE" <<'EOF'
-          package com.mohammedsamir.halaqati.updater;
-          import androidx.core.content.FileProvider;
-          public class HalaqatiUpdateFileProvider extends FileProvider {}
-          EOF
-
-          sed -i 's#android:name="androidx.core.content.FileProvider"#android:name="com.mohammedsamir.halaqati.updater.HalaqatiUpdateFileProvider"#' "$MANIFEST"
+          grep -q 'new Thread(() ->' "$UPDATER" || { echo "ERROR: updater thread implementation is missing"; exit 1; }
+          grep -q 'HalaqatiUpdateFileProvider' "$UPDATER_MANIFEST" || { echo "ERROR: dedicated updater FileProvider is not registered"; exit 1; }
+          grep -q 'class HalaqatiUpdateFileProvider extends FileProvider' "$PROVIDER" || { echo "ERROR: updater FileProvider class is invalid"; exit 1; }
+          echo "Native Capacitor plugins validated ✅"
 
       - name: Install dependencies
         working-directory: app
