@@ -1,4 +1,4 @@
-name: Build Halaqati v2.17.1 Smart Plans + Official Capacitor Push + Offline Sync + Stable Arabic HQ PDF + Signed APK
+name: Build Halaqati v2.17.2 Smart Plans + Official Capacitor Push + Offline Sync + Stable Arabic HQ PDF + Signed APK
 
 on:
   workflow_dispatch:
@@ -22,18 +22,18 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Extract Halaqati v2.17.1 project
+      - name: Extract Halaqati v2.17.2 project
         shell: bash
         run: |
           set -euo pipefail
-          if [ -f "./Halaqati_Vite_Capacitor_v2_17_1_SMART_PLANS.zip" ]; then
-            ZIP_FILE="./Halaqati_Vite_Capacitor_v2_17_1_SMART_PLANS.zip"
+          if [ -f "./Halaqati_Vite_Capacitor_v2_17_2_SMART_PLANS.zip" ]; then
+            ZIP_FILE="./Halaqati_Vite_Capacitor_v2_17_2_SMART_PLANS.zip"
           else
-            ZIP_FILE="$(find . -maxdepth 1 -type f -name 'Halaqati_Vite_Capacitor_v2_17_1_SMART_PLANS-*.zip' -print | sort | head -n 1)"
+            ZIP_FILE="$(find . -maxdepth 1 -type f -name 'Halaqati_Vite_Capacitor_v2_17_2_SMART_PLANS-*.zip' -print | sort | head -n 1)"
           fi
 
           if [ -z "$ZIP_FILE" ] || [ ! -f "$ZIP_FILE" ]; then
-            echo "ERROR: v2.17.1 project ZIP was not found in repository root"
+            echo "ERROR: v2.17.2 project ZIP was not found in repository root"
             echo "Files in repository root:"
             ls -la
             exit 1
@@ -97,6 +97,7 @@ jobs:
           test -f app/scripts/master-offline-v2141-model-smoke.mjs
           test -f app/scripts/smart-plans-v217.test.mjs
           test -f app/scripts/smart-plans-v217-check.mjs
+          test -f app/scripts/v2172-ui-check.mjs
           test -f app/scripts/master-data-indexeddb-smoke.html
           test -f app/scripts/offline-indexeddb-smoke.html
           test -f app/supabase/migrations/20260830_offline_master_data_updated_at.sql
@@ -107,13 +108,14 @@ jobs:
           test -f app/supabase/functions/halaqati-notify/index.ts
           test -f app/V216_SMART_PLANS_AR.md
           test -f app/V217_SMART_PLANS_AR.md
+          test -f app/V2172_ARCHIVE_OFFLINE_QURAN_PICKER_AR.md
           test -f app/FIREBASE_PUSH_V2151_SETUP_AR.md
           test -f app/scripts/push-crash-safe-v2151-check.mjs
           test -f app/scripts/pdf-arabic-raster-smoke.html
           test -f app/capacitor.config.json
 
           APP_VERSION="$(node -p "require('./app/package.json').version")"
-          test "$APP_VERSION" = "2.17.1" || { echo "ERROR: expected v2.17.1, got $APP_VERSION"; exit 1; }
+          test "$APP_VERSION" = "2.17.2" || { echo "ERROR: expected v2.17.2, got $APP_VERSION"; exit 1; }
           echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
           echo "Building Halaqati v$APP_VERSION from $ZIP_FILE"
 
@@ -165,7 +167,7 @@ jobs:
           grep -q 'new Thread(() ->' "$UPDATER" || { echo "ERROR: updater thread implementation is missing"; exit 1; }
           grep -q 'HalaqatiUpdateFileProvider' "$UPDATER_MANIFEST" || { echo "ERROR: dedicated updater FileProvider is not registered"; exit 1; }
           grep -q 'class HalaqatiUpdateFileProvider extends FileProvider' "$PROVIDER" || { echo "ERROR: updater FileProvider class is invalid"; exit 1; }
-          test ! -d plugins/halaqati-push-bridge || { echo "ERROR: custom Push bridge must be removed in v2.17.1"; exit 1; }
+          test ! -d plugins/halaqati-push-bridge || { echo "ERROR: custom Push bridge must be removed in v2.17.2"; exit 1; }
           echo "Updater/deeplink validated; custom Push bridge absent ✅"
 
       - name: Install dependencies
@@ -191,6 +193,7 @@ jobs:
           npm run check:push-safety
           npm run check:official-push
           npm run check:smart-plans
+          npm run check:v2172
           npm run check:legacy
           node scripts/modules-vm-smoke.mjs
           node --check src/main.js
@@ -199,11 +202,11 @@ jobs:
           node --check src/features/plans/runtime.js
           node --check src/features/plans/engine.js
 
-      - name: Notifications v2.17.1 admin + supervisor + guardian smoke test
+      - name: Notifications v2.17.2 admin + supervisor + guardian smoke test
         working-directory: app
         run: npm run check:notifications
 
-      - name: Smart plans v2.17.1 algorithm + offline + stable-boundary checks
+      - name: Smart plans v2.17.2 algorithm + offline + stable-boundary checks
         working-directory: app
         run: npm run check:smart-plans
 
@@ -219,14 +222,14 @@ jobs:
             echo "Firebase Push config detected ✅"
           else
             echo "VITE_HALAQATI_FIREBASE_CONFIGURED=false" >> "$GITHUB_ENV"
-            echo "::warning::Firebase Android config is not set. v2.17.1 will still build safely; official Push will remain disabled and will NOT register without Firebase config."
+            echo "::warning::Firebase Android config is not set. v2.17.2 will still build safely; official Push will remain disabled and will NOT register without Firebase config."
           fi
 
       - name: Push crash-safety regression check
         working-directory: app
         run: npm run check:push-safety
 
-      - name: Official Capacitor Push v2.17.1 regression + VM smoke
+      - name: Official Capacitor Push v2.17.2 regression + VM smoke
         working-directory: app
         run: npm run check:official-push
 
@@ -252,6 +255,9 @@ jobs:
           test -f dist/manifest.webmanifest
           test -f dist/sw.js
           test -f dist/core/supabase-2.min.js
+          test -s dist/core/quran-layout.js
+          grep -q "QCF4 Hafs" dist/core/quran-layout.js
+          ! grep -q "HALAQATI_QURAN_LAYOUT=window.HALAQATI_QURAN_LAYOUT||null" dist/core/quran-layout.js
           test -f dist/core/fonts/amiri-search.ttf
           test -f dist/vendor/xlsx-0.18.5.min.js
           if grep -q 'cdn.jsdelivr.net/npm/xlsx' dist/index.html; then
