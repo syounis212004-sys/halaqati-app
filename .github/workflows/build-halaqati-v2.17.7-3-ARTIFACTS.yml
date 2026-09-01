@@ -1,0 +1,734 @@
+name: Build Halaqati v2.17.7 - 3 Artifacts
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Extract Halaqati v2.17.7 project
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f "./Halaqati_Vite_Capacitor_v2_17_7_SMART_PLANS.zip" ]; then
+            ZIP_FILE="./Halaqati_Vite_Capacitor_v2_17_7_SMART_PLANS.zip"
+          else
+            ZIP_FILE="$(find . -maxdepth 1 -type f -name 'Halaqati_Vite_Capacitor_v2_17_7_SMART_PLANS-*.zip' -print | sort | head -n 1)"
+          fi
+
+          if [ -z "$ZIP_FILE" ] || [ ! -f "$ZIP_FILE" ]; then
+            echo "ERROR: v2.17.7 project ZIP was not found in repository root"
+            echo "Files in repository root:"
+            ls -la
+            exit 1
+          fi
+
+          rm -rf extracted app
+          mkdir -p extracted app
+          unzip -q "$ZIP_FILE" -d extracted
+
+          PROJECT_DIR="extracted/Halaqati_v2.17.7_SMART_PLANS"
+          if [ ! -f "$PROJECT_DIR/package.json" ]; then
+            echo "ERROR: expected project root was not found: $PROJECT_DIR"
+            echo "package.json files inside ZIP:"
+            find extracted -type f -name package.json -print || true
+            exit 1
+          fi
+
+          cp -a "$PROJECT_DIR"/. app/
+
+          test -f app/index.html
+          test -f app/vite.config.js
+          test -f app/src/main.js
+          test -f app/src/legacy/app.js
+          test -f app/src/core/runtime.js
+          test -f app/src/core/offline-store.js
+          test -f app/src/core/navigation.js
+          test -f app/src/core/startup.js
+          test -f app/src/features/auth/runtime.js
+          test -f app/src/features/master-data/runtime.js
+          test -f app/src/features/students/runtime.js
+          test -f app/src/features/sessions/runtime.js
+          test -f app/src/features/plans/engine.js
+          test -f app/src/features/plans/runtime.js
+          test -f app/src/features/settings/runtime.js
+          test -f app/src/features/notifications/runtime.js
+          test -f app/src/features/notifications/push-bridge.js
+          test -f app/scripts/official-capacitor-push-v2157-check.mjs
+          test -f app/scripts/official-capacitor-push-v2157-vm-smoke.mjs
+          test -f app/src/features/reports/runtime.js
+          test -f app/scripts/notifications-v215-check.mjs
+          test -f app/scripts/modules-phase3-check.mjs
+          test -f app/scripts/modules-vm-smoke.mjs
+          test -f app/scripts/reports-module-check.mjs
+          test -f app/scripts/regression-check.mjs
+          test -f app/scripts/arabic-pdf-safe-check.mjs
+          test -f app/scripts/data-integrity-check.mjs
+          test -f app/scripts/offline-sync-auth-check.mjs
+          test -f app/scripts/offline-queue-stability-check.mjs
+          test -f app/scripts/offline-queue-stability-vm-smoke.mjs
+          test -f app/scripts/home-session-open-check.mjs
+          test -f app/scripts/account-name-check.mjs
+          test -f app/scripts/offline-v214-check.mjs
+          test -f app/scripts/offline-v214-model-smoke.mjs
+          test -f app/scripts/master-offline-v2141-check.mjs
+          test -f app/scripts/master-offline-v2141-model-smoke.mjs
+          test -f app/scripts/smart-plans-v217.test.mjs
+          test -f app/scripts/smart-plans-v217-check.mjs
+          test -f app/scripts/v2172-ui-check.mjs
+          test -f app/scripts/v2173-check.mjs
+          test -f app/scripts/v2174-check.mjs
+          test -f app/scripts/v2175-check.mjs
+          test -f app/scripts/v2176-check.mjs
+          test -f app/scripts/v2177-check.mjs
+          test -f app/V2177_SERVER_FIRST_ADMIN_REPORTS_AR.md
+          test -f app/Halaqati-v2.17.5-guardian-analytics-migration.sql
+          test -f app/Halaqati-v2.17.6-guardian-unlink-fix.sql
+          test -f app/supabase/migrations/20260901_v2176_guardian_unlink_replace_fix.sql
+          test -f app/Halaqati-v2.17.3-monthly-stats-fix.sql
+          test -f app/scripts/master-data-indexeddb-smoke.html
+          test -f app/scripts/offline-indexeddb-smoke.html
+          test -f app/supabase/migrations/20260830_offline_master_data_updated_at.sql
+          test -f app/supabase/migrations/20260830_v215_notifications.sql
+          test -f app/supabase/migrations/20260830144555_smart_plans_v216.sql
+          test -f app/supabase/migrations/20260831_v217_smart_plan_categories_admin_delete.sql
+          test -f app/Halaqati-v2.17.1-migration.sql
+          test -f app/supabase/functions/halaqati-notify/index.ts
+          test -f app/V216_SMART_PLANS_AR.md
+          test -f app/V217_SMART_PLANS_AR.md
+          test -f app/V2172_ARCHIVE_OFFLINE_QURAN_PICKER_AR.md
+          test -f app/FIREBASE_PUSH_V2151_SETUP_AR.md
+          test -f app/scripts/push-crash-safe-v2151-check.mjs
+          test -f app/scripts/pdf-arabic-raster-smoke.html
+          test -f app/capacitor.config.json
+
+          APP_VERSION="$(node -p "require('./app/package.json').version")"
+          test "$APP_VERSION" = "2.17.7" || { echo "ERROR: expected v2.17.7, got $APP_VERSION"; exit 1; }
+          echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+          echo "Building Halaqati v$APP_VERSION from $ZIP_FILE"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 36
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Verify signing secrets
+        env:
+          KEYSTORE_B64: ${{ secrets.HALAQATI_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.HALAQATI_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
+        run: |
+          set -e
+          test -n "$KEYSTORE_B64" || (echo "Missing HALAQATI_KEYSTORE_BASE64" && exit 1)
+          test -n "$STORE_PASSWORD" || (echo "Missing HALAQATI_STORE_PASSWORD" && exit 1)
+          test -n "$KEY_ALIAS" || (echo "Missing HALAQATI_KEY_ALIAS" && exit 1)
+          test -n "$KEY_PASSWORD" || (echo "Missing HALAQATI_KEY_PASSWORD" && exit 1)
+          printf '%s' "$KEYSTORE_B64" | base64 -d > halaqati-release.jks
+          test -s halaqati-release.jks
+
+      - name: Validate Capacitor 8 native plugins
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          UPDATER_DIR="plugins/halaqati-updater/android/src/main/java/com/mohammedsamir/halaqati/updater"
+          UPDATER="$UPDATER_DIR/HalaqatiUpdaterPlugin.java"
+          PROVIDER="$UPDATER_DIR/HalaqatiUpdateFileProvider.java"
+          UPDATER_MANIFEST="plugins/halaqati-updater/android/src/main/AndroidManifest.xml"
+          UPDATE_PATHS="plugins/halaqati-updater/android/src/main/res/xml/halaqati_update_paths.xml"
+          DEEPLINK="plugins/halaqati-deeplink/android/src/main/java/com/mohammedsamir/halaqati/deeplink/HalaqatiDeepLinkPlugin.java"
+          DEEPLINK_MANIFEST="plugins/halaqati-deeplink/android/src/main/AndroidManifest.xml"
+          for f in "$UPDATER" "$PROVIDER" "$UPDATER_MANIFEST" "$UPDATE_PATHS" "$DEEPLINK" "$DEEPLINK_MANIFEST"; do
+            test -s "$f" || { echo "ERROR: required native plugin file is missing or empty: $f"; exit 1; }
+          done
+          ! grep -q 'executeOnThreadPool' "$UPDATER" || { echo "ERROR: old Capacitor executeOnThreadPool API is still present"; exit 1; }
+          grep -q 'new Thread(() ->' "$UPDATER" || { echo "ERROR: updater thread implementation is missing"; exit 1; }
+          grep -q 'HalaqatiUpdateFileProvider' "$UPDATER_MANIFEST" || { echo "ERROR: dedicated updater FileProvider is not registered"; exit 1; }
+          grep -q 'class HalaqatiUpdateFileProvider extends FileProvider' "$PROVIDER" || { echo "ERROR: updater FileProvider class is invalid"; exit 1; }
+          test ! -d plugins/halaqati-push-bridge || { echo "ERROR: custom Push bridge must be removed in v2.17.7"; exit 1; }
+          echo "Updater/deeplink validated; custom Push bridge absent ✅"
+
+      - name: Install dependencies
+        working-directory: app
+        run: npm install --no-audit --no-fund
+
+      - name: Regression and syntax checks
+        working-directory: app
+        run: |
+          npm run check:regression
+          npm run check:reports-module
+          npm run check:arabic-pdf
+          npm run check:modules
+          npm run check:data-integrity
+          npm run check:offline-sync
+          npm run check:offline-recovery
+          npm run check:offline-queue
+          npm run check:home-session-open
+          npm run check:account-name
+          npm run check:offline-v214
+          npm run check:master-offline
+          npm run check:notifications
+          npm run check:push-safety
+          npm run check:official-push
+          npm run check:smart-plans
+          npm run check:v2172
+          npm run check:v2173
+          npm run check:v2174
+          npm run check:v2175
+          npm run check:v2176
+          npm run check:v2177
+          npm run check:legacy
+          node scripts/modules-vm-smoke.mjs
+          node --check src/main.js
+          node --check src/features/notifications/runtime.js
+          node --check src/features/notifications/push-bridge.js
+          node --check src/features/plans/runtime.js
+          node --check src/features/plans/engine.js
+
+      - name: Notifications v2.17.7 admin + supervisor + guardian smoke test
+        working-directory: app
+        run: npm run check:notifications
+
+      - name: Smart plans v2.17.7 algorithm + offline + stable-boundary checks
+        working-directory: app
+        run: npm run check:smart-plans
+
+      - name: Detect Firebase Push configuration
+        shell: bash
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON }}
+          GOOGLE_SERVICES_B64: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -n "${GOOGLE_SERVICES_JSON:-}" ] || [ -n "${GOOGLE_SERVICES_B64:-}" ]; then
+            echo "VITE_HALAQATI_FIREBASE_CONFIGURED=true" >> "$GITHUB_ENV"
+            echo "Firebase Push config detected ✅"
+          else
+            echo "VITE_HALAQATI_FIREBASE_CONFIGURED=false" >> "$GITHUB_ENV"
+            echo "::warning::Firebase Android config is not set. v2.17.7 will still build safely; official Push will remain disabled and will NOT register without Firebase config."
+          fi
+
+      - name: Push crash-safety regression check
+        working-directory: app
+        run: npm run check:push-safety
+
+      - name: Official Capacitor Push v2.17.7 regression + VM smoke
+        working-directory: app
+        run: npm run check:official-push
+
+      - name: Verify custom Push/FID paths are gone
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -d plugins/halaqati-push-bridge
+          grep -q "@capacitor/push-notifications" package.json
+          ! grep -R -q "HalaqatiPushBridge\|registerFid\|registration_type:" src/features/notifications package.json
+          echo "Custom Push/FID client paths removed ✅"
+
+      - name: Build Vite web application
+        working-directory: app
+        run: npm run build
+
+      - name: Verify web build
+        working-directory: app
+        run: |
+          test -f dist/index.html
+          test -f dist/404.html
+          test -f dist/manifest.webmanifest
+          test -f dist/sw.js
+          test -f dist/core/supabase-2.min.js
+          test -s dist/core/quran-layout.js
+          grep -q "QCF4 Hafs" dist/core/quran-layout.js
+          ! grep -q "HALAQATI_QURAN_LAYOUT=window.HALAQATI_QURAN_LAYOUT||null" dist/core/quran-layout.js
+          test -f dist/core/fonts/amiri-search.ttf
+          test -f dist/vendor/xlsx-0.18.5.min.js
+          if grep -q 'cdn.jsdelivr.net/npm/xlsx' dist/index.html; then
+            echo "ERROR: heavy libraries are still boot-loaded in index.html"
+            exit 1
+          fi
+          echo "Web build verified."
+
+      - name: IndexedDB offline outbox 500-operation smoke test
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f scripts/offline-indexeddb-smoke.html
+          test -f src/core/offline-store.js
+          cp scripts/offline-indexeddb-smoke.html dist/offline-indexeddb-smoke.html
+          cp src/core/offline-store.js dist/offline-store-test.js
+
+          python3 -m http.server 4178 --directory dist >/tmp/halaqati-idb-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          sleep 2
+
+          CHROME="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$CHROME" ]; then
+            echo "ERROR: Chrome/Chromium is not available for IndexedDB smoke test"
+            exit 1
+          fi
+
+          set +e
+          timeout 40s "$CHROME" \
+            --headless \
+            --no-sandbox \
+            --disable-gpu \
+            --disable-dev-shm-usage \
+            --run-all-compositor-stages-before-draw \
+            --virtual-time-budget=25000 \
+            --dump-dom http://127.0.0.1:4178/offline-indexeddb-smoke.html \
+            > /tmp/halaqati-idb-smoke-dom.html 2>/tmp/halaqati-idb-chrome.log
+          STATUS=$?
+          set -e
+
+          cat /tmp/halaqati-idb-smoke-dom.html || true
+          if [ "$STATUS" -ne 0 ]; then
+            echo "ERROR: IndexedDB browser smoke failed/timed out ($STATUS)"
+            tail -n 100 /tmp/halaqati-idb-chrome.log || true
+            exit 1
+          fi
+          grep -q 'OFFLINE_IDB_SMOKE_PASS' /tmp/halaqati-idb-smoke-dom.html || {
+            echo "ERROR: IndexedDB outbox/snapshot test did not pass"
+            tail -n 100 /tmp/halaqati-idb-chrome.log || true
+            exit 1
+          }
+          rm -f dist/offline-indexeddb-smoke.html dist/offline-store-test.js
+          echo "IndexedDB offline engine verified with 500 durable operations + snapshot."
+
+
+      - name: Master data IndexedDB 250-student persistence smoke test
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f scripts/master-data-indexeddb-smoke.html
+          test -f src/core/offline-store.js
+          cp scripts/master-data-indexeddb-smoke.html dist/master-data-indexeddb-smoke.html
+          cp src/core/offline-store.js dist/offline-store-test.js
+
+          python3 -m http.server 4179 --directory dist >/tmp/halaqati-master-idb-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          sleep 2
+
+          CHROME="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$CHROME" ]; then
+            echo "ERROR: Chrome/Chromium is not available for master-data IndexedDB smoke test"
+            exit 1
+          fi
+
+          set +e
+          timeout 45s "$CHROME" \
+            --headless \
+            --no-sandbox \
+            --disable-gpu \
+            --disable-dev-shm-usage \
+            --run-all-compositor-stages-before-draw \
+            --virtual-time-budget=30000 \
+            --dump-dom http://127.0.0.1:4179/master-data-indexeddb-smoke.html \
+            > /tmp/halaqati-master-idb-dom.html 2>/tmp/halaqati-master-idb-chrome.log
+          STATUS=$?
+          set -e
+
+          cat /tmp/halaqati-master-idb-dom.html || true
+          if [ "$STATUS" -ne 0 ]; then
+            echo "ERROR: master-data IndexedDB browser smoke failed/timed out ($STATUS)"
+            tail -n 120 /tmp/halaqati-master-idb-chrome.log || true
+            exit 1
+          fi
+          grep -q 'MASTER_DATA_IDB_SMOKE_PASS' /tmp/halaqati-master-idb-dom.html || {
+            echo "ERROR: offline halaqa/category/student IndexedDB persistence test did not pass"
+            tail -n 120 /tmp/halaqati-master-idb-chrome.log || true
+            exit 1
+          }
+          rm -f dist/master-data-indexeddb-smoke.html dist/offline-store-test.js
+          echo "Master data IndexedDB verified: halaqa + category + 250 students persisted across database reopen."
+
+      - name: Browser PDF rendering smoke test
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f scripts/pdf-html2canvas-smoke.html
+          test -f dist/vendor/html2canvas-1.4.1.min.js
+          cp scripts/pdf-html2canvas-smoke.html dist/pdf-smoke.html
+
+          python3 -m http.server 4173 --directory dist >/tmp/halaqati-pdf-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          sleep 2
+
+          CHROME="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$CHROME" ]; then
+            echo "ERROR: Chrome/Chromium is not available on runner for PDF smoke test"
+            exit 1
+          fi
+
+          set +e
+          timeout 35s "$CHROME" \
+            --headless \
+            --no-sandbox \
+            --disable-gpu \
+            --disable-dev-shm-usage \
+            --run-all-compositor-stages-before-draw \
+            --virtual-time-budget=20000 \
+            --dump-dom http://127.0.0.1:4173/pdf-smoke.html \
+            > /tmp/halaqati-pdf-smoke-dom.html 2>/tmp/halaqati-pdf-chrome.log
+          STATUS=$?
+          set -e
+
+          cat /tmp/halaqati-pdf-smoke-dom.html || true
+          if [ "$STATUS" -ne 0 ]; then
+            echo "ERROR: headless browser PDF test failed/timed out ($STATUS)"
+            tail -n 100 /tmp/halaqati-pdf-chrome.log || true
+            exit 1
+          fi
+          grep -q 'PDF_SMOKE_PASS' /tmp/halaqati-pdf-smoke-dom.html || {
+            echo "ERROR: PDF smoke test did not produce visible canvas output"
+            tail -n 100 /tmp/halaqati-pdf-chrome.log || true
+            exit 1
+          }
+          rm -f dist/pdf-smoke.html
+          echo "PDF browser smoke test passed: row counts preserved and html2canvas output is non-blank."
+
+      - name: Searchable Arabic PDF smoke test
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f scripts/pdf-searchable-smoke.html
+          test -f dist/core/fonts/amiri-search.ttf
+          test -f dist/vendor/jspdf-2.5.1.umd.min.js
+          test -f dist/vendor/pdfjs-3.11.174.min.js
+          test -f dist/vendor/pdfjs-3.11.174.worker.min.js
+          cp scripts/pdf-searchable-smoke.html dist/pdf-searchable-smoke.html
+
+          python3 -m http.server 4174 --directory dist >/tmp/halaqati-searchable-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          sleep 2
+
+          CHROME="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$CHROME" ]; then
+            echo "ERROR: Chrome/Chromium is not available on runner for searchable PDF smoke test"
+            exit 1
+          fi
+
+          set +e
+          timeout 35s "$CHROME" \
+            --headless \
+            --no-sandbox \
+            --disable-gpu \
+            --disable-dev-shm-usage \
+            --virtual-time-budget=20000 \
+            --dump-dom http://127.0.0.1:4174/pdf-searchable-smoke.html \
+            > /tmp/halaqati-searchable-dom.html 2>/tmp/halaqati-searchable-chrome.log
+          STATUS=$?
+          set -e
+
+          cat /tmp/halaqati-searchable-dom.html || true
+          if [ "$STATUS" -ne 0 ]; then
+            echo "ERROR: searchable PDF browser test failed/timed out ($STATUS)"
+            tail -n 100 /tmp/halaqati-searchable-chrome.log || true
+            exit 1
+          fi
+          grep -q 'SEARCHABLE_PDF_PASS' /tmp/halaqati-searchable-dom.html || {
+            echo "ERROR: generated PDF did not preserve extractable Arabic Unicode text"
+            tail -n 100 /tmp/halaqati-searchable-chrome.log || true
+            exit 1
+          }
+          rm -f dist/pdf-searchable-smoke.html
+          echo "Searchable PDF smoke test passed: Arabic names are extractable/searchable while visual output stays raster-based."
+
+      - name: Arabic visual fidelity + searchable PDF smoke test
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f scripts/pdf-arabic-raster-smoke.html
+          test -f dist/vendor/html2canvas-1.4.1.min.js
+          test -f dist/vendor/jspdf-2.5.1.umd.min.js
+          test -f dist/vendor/pdfjs-3.11.174.min.js
+          test -f dist/vendor/pdfjs-3.11.174.worker.min.js
+          test -f dist/core/fonts/amiri-search.ttf
+          cp scripts/pdf-arabic-raster-smoke.html dist/pdf-arabic-raster-smoke.html
+
+          python3 -m http.server 4176 --directory dist >/tmp/halaqati-arabic-raster-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          sleep 2
+
+          CHROME="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$CHROME" ]; then
+            echo "ERROR: Chrome/Chromium is not available for Arabic PDF fidelity test"
+            exit 1
+          fi
+
+          set +e
+          timeout 45s "$CHROME" \
+            --headless \
+            --no-sandbox \
+            --disable-gpu \
+            --disable-dev-shm-usage \
+            --run-all-compositor-stages-before-draw \
+            --virtual-time-budget=30000 \
+            --dump-dom http://127.0.0.1:4176/pdf-arabic-raster-smoke.html \
+            > /tmp/halaqati-arabic-raster-dom.html 2>/tmp/halaqati-arabic-raster-chrome.log
+          STATUS=$?
+          set -e
+
+          cat /tmp/halaqati-arabic-raster-dom.html || true
+          if [ "$STATUS" -ne 0 ]; then
+            echo "ERROR: Arabic PDF fidelity browser test failed/timed out ($STATUS)"
+            tail -n 120 /tmp/halaqati-arabic-raster-chrome.log || true
+            exit 1
+          fi
+          grep -q 'ARABIC_RASTER_PDF_PASS' /tmp/halaqati-arabic-raster-dom.html || {
+            echo "ERROR: Arabic PDF visual/searchable fidelity smoke test failed"
+            tail -n 120 /tmp/halaqati-arabic-raster-chrome.log || true
+            exit 1
+          }
+          rm -f dist/pdf-arabic-raster-smoke.html
+          echo "Arabic PDF smoke passed: browser-rendered Arabic visuals + exact searchable Unicode + non-blank PDF."
+
+      - name: Upload web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Halaqati-v${{ env.APP_VERSION }}-web
+          path: app/dist/
+          if-no-files-found: error
+
+      - name: Create Android project
+        working-directory: app
+        run: npx cap add android
+
+      - name: Pin Firebase Messaging for official Capacitor plugin
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYFIREBASEVERSION'
+          from pathlib import Path
+          import re
+          p=Path('android/variables.gradle')
+          s=p.read_text()
+          if 'firebaseMessagingVersion' in s:
+              s=re.sub(r"firebaseMessagingVersion\s*=\s*['\"][^'\"]+['\"]", "firebaseMessagingVersion = '25.1.1'", s)
+          else:
+              marker='ext {'
+              if marker not in s: raise SystemExit('variables.gradle does not contain ext block')
+              s=s.replace(marker, marker+"\n    firebaseMessagingVersion = '25.1.1'", 1)
+          p.write_text(s)
+          print('Pinned official plugin Firebase Messaging runtime to 25.1.1')
+          PYFIREBASEVERSION
+          grep -q "firebaseMessagingVersion = '25.1.1'" android/variables.gradle
+
+      - name: Install validated Firebase Android config
+        working-directory: app
+        shell: bash
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON }}
+          GOOGLE_SERVICES_B64: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          set -euo pipefail
+          rm -f android/app/google-services.json
+          if [ -n "${GOOGLE_SERVICES_JSON:-}" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          elif [ -n "${GOOGLE_SERVICES_B64:-}" ]; then
+            printf '%s' "$GOOGLE_SERVICES_B64" | base64 -d > android/app/google-services.json
+          else
+            echo "Firebase config absent: safe no-Push APK mode ✅"
+            exit 0
+          fi
+          test -s android/app/google-services.json
+          python3 - <<'PYFIREBASE'
+          import json
+          from pathlib import Path
+          p=Path('android/app/google-services.json')
+          d=json.loads(p.read_text())
+          packages=[]
+          for c in d.get('client',[]):
+              packages.append(c.get('client_info',{}).get('android_client_info',{}).get('package_name'))
+          assert 'com.mohammedsamir.halaqati' in packages, f'google-services.json does not contain com.mohammedsamir.halaqati: {packages}'
+          assert d.get('project_info',{}).get('project_id'), 'Firebase project_id missing'
+          print('Firebase Android config validated ✅')
+          PYFIREBASE
+
+      - name: Ensure Android notification permission
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          test -s "$MANIFEST"
+          if ! grep -q 'android.permission.POST_NOTIFICATIONS' "$MANIFEST"; then
+            python3 - <<'PYPERM'
+          from pathlib import Path
+          p=Path('android/app/src/main/AndroidManifest.xml')
+          s=p.read_text()
+          marker='<application'
+          if marker not in s: raise SystemExit('Android manifest application tag missing')
+          s=s.replace(marker, '    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n\n    '+marker, 1)
+          p.write_text(s)
+          PYPERM
+          fi
+          grep -q 'android.permission.POST_NOTIFICATIONS' "$MANIFEST"
+
+      - name: Sync Android from same Vite dist
+        working-directory: app
+        run: npx cap sync android
+
+      - name: Verify official Capacitor Push plugin is synced
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d node_modules/@capacitor/push-notifications
+          test -s node_modules/@capacitor/push-notifications/android/src/main/java/com/capacitorjs/plugins/pushnotifications/PushNotificationsPlugin.java
+          grep -q 'FirebaseMessaging.getInstance()' node_modules/@capacitor/push-notifications/android/src/main/java/com/capacitorjs/plugins/pushnotifications/PushNotificationsPlugin.java
+          grep -q 'getToken()' node_modules/@capacitor/push-notifications/android/src/main/java/com/capacitorjs/plugins/pushnotifications/PushNotificationsPlugin.java
+          if ! grep -R -q "capacitor-push-notifications\|@capacitor/push-notifications" android/capacitor.settings.gradle android/settings.gradle android/app/capacitor.build.gradle 2>/dev/null; then
+            echo "ERROR: official Capacitor PushNotifications plugin was not linked by cap sync"
+            cat android/capacitor.settings.gradle 2>/dev/null || true
+            exit 1
+          fi
+          test ! -d node_modules/halaqati-push-bridge
+          ! grep -R -q 'HalaqatiPushBridgePlugin' android 2>/dev/null
+          echo "Official @capacitor/push-notifications linked; custom bridge absent ✅"
+
+      - name: Verify Firebase Google Services processing
+        if: env.VITE_HALAQATI_FIREBASE_CONFIGURED == 'true'
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s android/app/google-services.json
+          grep -q "com.google.gms:google-services" android/build.gradle
+          grep -q "com.google.gms.google-services" android/app/build.gradle
+          cd android
+          chmod +x gradlew
+          ./gradlew :app:processReleaseGoogleServices
+          cd ..
+          # The Google Services plugin can write generated resources to different
+          # directories depending on the AGP/plugin version. Verify by content.
+          VALUES="$(find android/app/build/generated -type f -name 'values.xml' -print 2>/dev/null | while read -r f; do
+            if grep -q 'google_app_id' "$f" && grep -q 'gcm_defaultSenderId' "$f"; then
+              echo "$f"
+              break
+            fi
+          done)"
+          if [ -z "${VALUES:-}" ] || [ ! -s "$VALUES" ]; then
+            echo "ERROR: Google Services task succeeded, but generated Firebase values could not be located."
+            echo "Generated files:"
+            find android/app/build/generated -type f -print 2>/dev/null | head -200 || true
+            exit 1
+          fi
+          echo "Firebase resources found at: $VALUES"
+          grep -q "google_app_id" "$VALUES"
+          grep -q "gcm_defaultSenderId" "$VALUES"
+          echo "Firebase Google Services processed for release APK ✅"
+
+      - name: Verify Firebase runtime + official PushNotifications compile
+        if: env.VITE_HALAQATI_FIREBASE_CONFIGURED == 'true'
+        working-directory: app/android
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew :app:compileReleaseJavaWithJavac --stacktrace
+          ./gradlew :app:dependencies --configuration releaseRuntimeClasspath > /tmp/halaqati-release-deps.txt
+          grep -q 'com.google.firebase:firebase-messaging:25.1.1' /tmp/halaqati-release-deps.txt
+
+          MERGED_MANIFEST="app/build/intermediates/merged_manifests/release/processReleaseManifest/AndroidManifest.xml"
+          if [ ! -s "$MERGED_MANIFEST" ]; then
+            MERGED_MANIFEST="$(find app/build/intermediates -type f -name AndroidManifest.xml | grep -E '/release/' | head -n 1)"
+          fi
+          test -s "$MERGED_MANIFEST"
+          grep -q 'android.permission.POST_NOTIFICATIONS' "$MERGED_MANIFEST"
+          grep -q 'com.capacitorjs.plugins.pushnotifications.MessagingService' "$MERGED_MANIFEST"
+          grep -q 'com.google.firebase.MESSAGING_EVENT' "$MERGED_MANIFEST"
+
+          PLUGIN_JSON="app/src/main/assets/capacitor.plugins.json"
+          test -s "$PLUGIN_JSON"
+          grep -q '@capacitor/push-notifications' "$PLUGIN_JSON"
+          grep -q 'com.capacitorjs.plugins.pushnotifications.PushNotificationsPlugin' "$PLUGIN_JSON"
+          ! grep -q 'HalaqatiPushBridgePlugin' "$PLUGIN_JSON"
+          echo "Official Capacitor PushNotifications + FCM registration token path compiled ✅"
+
+      - name: Set Android version
+        working-directory: app
+        run: node scripts/configure-android-version.mjs
+
+      - name: Build release APK
+        working-directory: app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease
+
+      - name: Sign release APK
+        env:
+          STORE_PASSWORD: ${{ secrets.HALAQATI_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
+        run: |
+          set -e
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/36.0.0"
+          UNSIGNED="app/android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          test -f "$UNSIGNED"
+          "$BUILD_TOOLS/zipalign" -p -f 4 "$UNSIGNED" Halaqati-aligned.apk
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks halaqati-release.jks \
+            --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass "pass:$STORE_PASSWORD" \
+            --key-pass "pass:$KEY_PASSWORD" \
+            --out "Halaqati-v${APP_VERSION}.apk" \
+            Halaqati-aligned.apk
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "Halaqati-v${APP_VERSION}.apk"
+
+      - name: Create update publish package
+        working-directory: app
+        run: node scripts/make-update-publish.mjs "../Halaqati-v${APP_VERSION}.apk"
+
+      - name: Upload signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Halaqati-v${{ env.APP_VERSION }}-signed-apk
+          path: Halaqati-v${{ env.APP_VERSION }}.apk
+          if-no-files-found: error
+
+      - name: Upload update package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Halaqati-v${{ env.APP_VERSION }}-publish-update
+          path: |
+            app/update-publish/version.json
+            app/update-publish/Halaqati-latest.apk
+          if-no-files-found: error
