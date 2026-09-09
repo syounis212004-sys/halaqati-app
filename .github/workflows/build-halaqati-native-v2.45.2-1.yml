@@ -1,0 +1,206 @@
+name: Build Halaqati Native v2.45.2
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'Halaqati_Native_Kotlin_v2_45_2.zip'
+      - '.github/workflows/build-halaqati-native-v2.45.2.yml'
+
+permissions:
+  contents: read
+
+env:
+  ARCHIVE: Halaqati_Native_Kotlin_v2_45_2.zip
+  PROJECT_DIR: Halaqati_Native_Kotlin_v2.45.2
+  JAVA_VERSION: '17'
+  GRADLE_VERSION: '8.13'
+
+jobs:
+  verify-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify and extract source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$ARCHIVE"
+          unzip -t "$ARCHIVE"
+          rm -rf _native_build
+          mkdir _native_build
+          unzip -q "$ARCHIVE" -d _native_build
+          test -f "_native_build/$PROJECT_DIR/settings.gradle.kts"
+          test -f "_native_build/$PROJECT_DIR/app/build.gradle.kts"
+          if unzip -l "$ARCHIVE" | grep -Eiq 'google-services\.json|local\.properties|\.jks|\.keystore'; then
+            echo 'Archive contains forbidden secret/local file' >&2
+            exit 1
+          fi
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+
+      - name: Setup Android SDK 36
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform/build tools
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'platform-tools'
+
+      - name: Restore Firebase config
+        working-directory: _native_build/${{ env.PROJECT_DIR }}
+        shell: bash
+        env:
+          FIREBASE_JSON_B64: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64 }}
+          FIREBASE_JSON: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON }}
+        run: |
+          set -euo pipefail
+          if [ -n "${FIREBASE_JSON_B64:-}" ]; then
+            printf '%s' "$FIREBASE_JSON_B64" | base64 --decode > app/google-services.json
+          elif [ -n "${FIREBASE_JSON:-}" ]; then
+            printf '%s' "$FIREBASE_JSON" > app/google-services.json
+          else
+            echo 'Missing Firebase google-services secret' >&2
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json
+          data=json.load(open('app/google-services.json',encoding='utf-8'))
+          packages=[c.get('client_info',{}).get('android_client_info',{}).get('package_name') for c in data.get('client',[])]
+          assert 'com.mohammedsamir.halaqati' in packages, packages
+          print('Firebase package contract OK')
+          PY
+
+      - name: Restore release keystore
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.HALAQATI_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          test -n "${KEYSTORE_B64:-}" || { echo 'Missing HALAQATI_KEYSTORE_BASE64' >&2; exit 1; }
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/halaqati-release.jks"
+          echo "HALAQATI_KEYSTORE_PATH=$RUNNER_TEMP/halaqati-release.jks" >> "$GITHUB_ENV"
+
+      - name: Static release-freeze checks
+        working-directory: _native_build/${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/compile-sanity-check.py
+          python3 scripts/compose-risk-check.py
+          python3 scripts/static-parity-check.py
+          python3 scripts/uiux-pro-max-check.py
+          python3 scripts/navigation-contract-check.py
+          python3 scripts/release-contract-check.py
+          python3 scripts/auth-push-privacy-check.py
+          python3 scripts/smart-plan-alerts-check.py
+          python3 scripts/offline-account-scope-check.py
+          python3 scripts/local-sensitive-account-scope-check.py
+          python3 scripts/manifest-contract-check.py
+          if command -v kotlinc >/dev/null 2>&1; then bash scripts/run-kotlin-selftests.sh; else echo 'kotlinc unavailable; Gradle unit tests remain mandatory'; fi
+
+      - name: CI memory diagnostics
+        working-directory: _native_build/${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          echo "=== Runner memory ==="
+          free -h
+          echo "=== Gradle memory properties ==="
+          grep -E '^(org\.gradle\.jvmargs|kotlin\.compiler\.execution\.strategy|org\.gradle\.parallel|org\.gradle\.workers\.max)=' gradle.properties
+
+      - name: Compile debug Kotlin
+        working-directory: _native_build/${{ env.PROJECT_DIR }}
+        run: gradle --no-daemon --stacktrace :app:compileDebugKotlin
+
+      - name: Compile release Kotlin
+        working-directory: _native_build/${{ env.PROJECT_DIR }}
+        run: gradle --no-daemon --stacktrace :app:compileReleaseKotlin
+
+      - name: Unit tests
+        working-directory: _native_build/${{ env.PROJECT_DIR }}
+        run: gradle --no-daemon --stacktrace :app:testDebugUnitTest
+
+      - name: Release lint
+        working-directory: _native_build/${{ env.PROJECT_DIR }}
+        run: gradle --no-daemon --stacktrace :app:lintRelease
+
+      - name: Assemble signed release APK
+        working-directory: _native_build/${{ env.PROJECT_DIR }}
+        env:
+          HALAQATI_STORE_PASSWORD: ${{ secrets.HALAQATI_STORE_PASSWORD }}
+          HALAQATI_KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
+          HALAQATI_KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
+        run: gradle --no-daemon --stacktrace :app:assembleRelease
+
+      - name: Verify APK identity and exact signing certificate
+        shell: bash
+        env:
+          EXPECTED_CERT: ${{ secrets.HALAQATI_EXPECTED_SIGNING_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          ROOT="_native_build/$PROJECT_DIR"
+          APK=$(find "$ROOT/app/build/outputs/apk/release" -name '*.apk' -type f | head -1)
+          test -n "$APK" && test -s "$APK"
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
+          AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee apksigner.txt
+          "$AAPT" dump badging "$APK" | tee aapt-badging.txt
+          "$AAPT" dump xmltree "$APK" AndroidManifest.xml | tee aapt-manifest.txt
+          grep -q "package: name='com.mohammedsamir.halaqati' versionCode='24502' versionName='2.45.2'" aapt-badging.txt
+          grep -q "sdkVersion:'23'" aapt-badging.txt
+          grep -q "targetSdkVersion:'36'" aapt-badging.txt
+          grep -q 'halaqati_general' aapt-manifest.txt
+          grep -q 'com.google.firebase.messaging.default_notification_channel_id' aapt-manifest.txt
+          grep -q 'com.google.firebase.messaging.default_notification_icon' aapt-manifest.txt
+          grep -q 'com.mohammedsamir.halaqati' aapt-manifest.txt
+          test -n "${EXPECTED_CERT:-}" || { echo 'Missing HALAQATI_EXPECTED_SIGNING_CERT_SHA256' >&2; exit 1; }
+          ACTUAL=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' apksigner.txt | head -1 | tr '[:lower:]' '[:upper:]' | tr -d ': ')
+          EXPECTED=$(printf '%s' "$EXPECTED_CERT" | tr '[:lower:]' '[:upper:]' | tr -d ': ')
+          test "$ACTUAL" = "$EXPECTED" || { echo "Signing certificate mismatch: $ACTUAL" >&2; exit 1; }
+          unzip -l "$APK" | grep -q 'classes.dex'
+          cp "$APK" Halaqati-v2.45.2-release.apk
+          sha256sum Halaqati-v2.45.2-release.apk > Halaqati-v2.45.2-release.apk.sha256
+
+      - name: Build CI audit report
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '# Halaqati Native v2.45.2 CI audit'
+            echo
+            echo "Commit: $GITHUB_SHA"
+            echo "Run: $GITHUB_RUN_ID"
+            echo
+            echo 'Required gates: archive integrity, static contracts, debug/release Kotlin compilation, unit tests, lint, signed release assembly, APK identity, exact signing certificate.'
+            [ -f apksigner.txt ] && { echo; echo '## apksigner'; cat apksigner.txt; }
+            [ -f aapt-badging.txt ] && { echo; echo '## aapt badging'; cat aapt-badging.txt; }
+            [ -f aapt-manifest.txt ] && { echo; echo '## aapt manifest'; cat aapt-manifest.txt; }
+          } > Halaqati-v2.45.2-CI-AUDIT.md
+
+      - name: Upload verified artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Halaqati-Native-v2.45.2-verified
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            Halaqati-v2.45.2-release.apk
+            Halaqati-v2.45.2-release.apk.sha256
+            Halaqati-v2.45.2-CI-AUDIT.md
+            _native_build/Halaqati_Native_Kotlin_v2.45.2/app/build/reports/tests/testDebugUnitTest/**
+            _native_build/Halaqati_Native_Kotlin_v2.45.2/app/build/reports/lint-results-release.html
