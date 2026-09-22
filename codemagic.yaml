@@ -4,8 +4,10 @@ workflows:
     max_build_duration: 120
 
     environment:
-      java: 17
-
+  groups:
+    - halaqati_secrets
+  java: 17
+  
     cache:
       cache_paths:
         - $HOME/.gradle/caches
