@@ -1,0 +1,174 @@
+workflows:
+  halaqati-android:
+    name: Halaqati Android APK v2.45.2
+    max_build_duration: 120
+
+    environment:
+      groups:
+        - halaqati_secrets
+      java: 17
+
+    cache:
+      cache_paths:
+        - $HOME/.gradle/caches
+        - $HOME/.gradle/wrapper
+
+    scripts:
+      - name: Verify and extract Halaqati source
+        script: |
+          set -euo pipefail
+
+          echo "=== Repository contents ==="
+          ls -lah
+
+          EXPECTED_SHA256="48896929ebafe053a2b959fa86169d639e8f5e52ec5f1b5f6e8ce2e020c14c08"
+
+          ZIP_FILE="$(find "$CM_BUILD_DIR" -maxdepth 1 -type f \
+            \( -name "Halaqati_Native_Kotlin_v2_45_2*.zip" -o -name "*.zip" \) \
+            | head -n 1)"
+
+          if [ -z "${ZIP_FILE:-}" ]; then
+            echo "ERROR: No source ZIP found in repository root."
+            exit 1
+          fi
+
+          echo "Using ZIP: $ZIP_FILE"
+
+          ACTUAL_SHA256="$(shasum -a 256 "$ZIP_FILE" | awk '{print $1}')"
+          echo "SHA-256: $ACTUAL_SHA256"
+
+          if [ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]; then
+            echo "ERROR: ZIP SHA-256 does not match the frozen v2.45.2 archive."
+            exit 1
+          fi
+
+          rm -rf "$CM_BUILD_DIR/extracted"
+          mkdir -p "$CM_BUILD_DIR/extracted"
+          unzip -q "$ZIP_FILE" -d "$CM_BUILD_DIR/extracted"
+
+      - name: Locate Android project
+        script: |
+          set -euo pipefail
+
+          SETTINGS_FILE="$(find "$CM_BUILD_DIR/extracted" -type f \
+            -name "settings.gradle.kts" | head -n 1)"
+
+          if [ -z "${SETTINGS_FILE:-}" ]; then
+            echo "ERROR: settings.gradle.kts was not found after extraction."
+            find "$CM_BUILD_DIR/extracted" -maxdepth 4 -type f | sort
+            exit 1
+          fi
+
+          PROJECT_DIR="$(dirname "$SETTINGS_FILE")"
+
+          test -f "$PROJECT_DIR/build.gradle.kts"
+          test -f "$PROJECT_DIR/app/build.gradle.kts"
+          test -f "$PROJECT_DIR/gradle.properties"
+
+          echo "Android project found at:"
+          echo "$PROJECT_DIR"
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
+
+      - name: Prepare Gradle 8.13 wrapper
+        script: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+
+          echo "=== Java ==="
+          java -version
+
+          echo "=== Preinstalled Gradle ==="
+          gradle --version
+
+          # The delivered v2.45.2 source intentionally has no Gradle wrapper.
+          # Use Codemagic's preinstalled Gradle once to generate a pinned 8.13 wrapper.
+          gradle wrapper --gradle-version 8.13 --distribution-type bin
+
+          chmod +x gradlew
+
+          echo "=== Pinned wrapper ==="
+          ./gradlew --version
+
+      - name: Set Android SDK location
+        script: |
+          set -euo pipefail
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$PROJECT_DIR/local.properties"
+          cat "$PROJECT_DIR/local.properties"
+
+      - name: Restore Firebase configuration
+        script: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+
+          python3 - <<'PY'
+          import base64
+          import json
+          import os
+          from pathlib import Path
+
+          b64 = os.environ.get("HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64", "").strip()
+          raw = os.environ.get("HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON", "").strip()
+          target = Path("app/google-services.json")
+
+          if b64:
+              try:
+                  target.write_bytes(base64.b64decode(b64, validate=False))
+              except Exception as exc:
+                  raise SystemExit(f"ERROR: Unable to decode Firebase base64 secret: {exc}")
+          elif raw:
+              target.write_text(raw, encoding="utf-8")
+          else:
+              raise SystemExit(
+                  "ERROR: Firebase config is missing. Add either "
+                  "HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64 or "
+                  "HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON as a Secret "
+                  "environment variable in Codemagic."
+              )
+
+          data = json.loads(target.read_text(encoding="utf-8"))
+          packages = [
+              c.get("client_info", {})
+               .get("android_client_info", {})
+               .get("package_name")
+              for c in data.get("client", [])
+          ]
+
+          if "com.mohammedsamir.halaqati" not in packages:
+              raise SystemExit(f"ERROR: Firebase package mismatch: {packages}")
+
+          print("Firebase package contract OK.")
+          PY
+
+      - name: Static migration checks
+        script: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+
+          python3 scripts/compile-sanity-check.py
+          python3 scripts/compose-risk-check.py
+          python3 scripts/static-parity-check.py
+          python3 scripts/uiux-pro-max-check.py
+          python3 scripts/navigation-contract-check.py
+          python3 scripts/release-contract-check.py
+          python3 scripts/auth-push-privacy-check.py
+          python3 scripts/smart-plan-alerts-check.py
+          python3 scripts/offline-account-scope-check.py
+          python3 scripts/local-sensitive-account-scope-check.py
+          python3 scripts/manifest-contract-check.py
+
+      - name: Build Halaqati debug APK
+        script: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+
+          ./gradlew --no-daemon --max-workers=1 \
+            --stacktrace :app:assembleDebug
+
+          echo "=== Generated APK files ==="
+          find app/build/outputs -type f -name "*.apk" -print
+
+    artifacts:
+      - extracted/**/app/build/outputs/**/*.apk
+      - extracted/**/app/build/reports/**
+      - extracted/**/build/reports/**
