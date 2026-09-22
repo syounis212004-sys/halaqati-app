@@ -1,0 +1,296 @@
+workflows:
+  halaqati-android:
+    name: Halaqati Android APK v2.45.2 SDK-FIX-20260922
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+
+    environment:
+      groups:
+        - halaqati_secrets
+      java: 17
+
+    cache:
+      cache_paths:
+        - $HOME/.gradle/caches
+        - $HOME/.gradle/wrapper
+
+    scripts:
+      - name: Verify and extract frozen source
+        script: |
+          set -euo pipefail
+
+          EXPECTED_SHA256="48896929ebafe053a2b959fa86169d639e8f5e52ec5f1b5f6e8ce2e020c14c08"
+          PROJECT_NAME="Halaqati_Native_Kotlin_v2.45.2"
+
+          ZIP_FILE="$(find "$CM_BUILD_DIR" -maxdepth 1 -type f \
+            \( -name "Halaqati_Native_Kotlin_v2_45_2*.zip" -o -name "*.zip" \) \
+            | head -n 1)"
+
+          if [ -z "${ZIP_FILE:-}" ]; then
+            echo "ERROR: Halaqati source ZIP was not found in repository root."
+            exit 1
+          fi
+
+          ACTUAL_SHA256="$(shasum -a 256 "$ZIP_FILE" | awk '{print $1}')"
+          echo "ZIP: $ZIP_FILE"
+          echo "SHA-256: $ACTUAL_SHA256"
+
+          if [ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]; then
+            echo "ERROR: ZIP SHA-256 mismatch."
+            exit 1
+          fi
+
+          rm -rf "$CM_BUILD_DIR/extracted"
+          mkdir -p "$CM_BUILD_DIR/extracted"
+
+          python3 - "$ZIP_FILE" "$CM_BUILD_DIR/extracted" <<'PY'
+          import sys, zipfile
+          from pathlib import Path
+
+          archive = Path(sys.argv[1])
+          dest = Path(sys.argv[2])
+
+          with zipfile.ZipFile(archive) as zf:
+              bad = zf.testzip()
+              if bad:
+                  raise SystemExit(f"ERROR: corrupt ZIP member: {bad}")
+
+              forbidden = []
+              for name in zf.namelist():
+                  low = name.lower()
+                  if (
+                      low.endswith("google-services.json")
+                      or low.endswith("local.properties")
+                      or low.endswith(".jks")
+                      or low.endswith(".keystore")
+                  ):
+                      forbidden.append(name)
+
+              if forbidden:
+                  raise SystemExit(
+                      "ERROR: source ZIP contains secret/local files:\n"
+                      + "\n".join(forbidden)
+                  )
+
+              zf.extractall(dest)
+          PY
+
+          PROJECT_DIR="$CM_BUILD_DIR/extracted/$PROJECT_NAME"
+
+          for required in \
+            settings.gradle.kts \
+            build.gradle.kts \
+            app/build.gradle.kts \
+            gradle.properties
+          do
+            if [ ! -f "$PROJECT_DIR/$required" ]; then
+              echo "ERROR: missing $required under $PROJECT_DIR"
+              exit 1
+            fi
+          done
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
+          echo "Project verified: $PROJECT_DIR"
+
+      - name: Configure CI memory from project contract
+        script: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+
+          echo "=== Physical RAM reported by runner ==="
+          RAM_BYTES="$(sysctl -n hw.memsize)"
+          awk -v bytes="$RAM_BYTES" 'BEGIN { printf "%.2f GiB\n", bytes/1073741824 }'
+
+          echo "=== Original project memory settings ==="
+          grep -E '^(org\.gradle\.jvmargs|kotlin\.compiler\.execution\.strategy|org\.gradle\.parallel|org\.gradle\.workers\.max|org\.gradle\.caching)=' gradle.properties || true
+
+          echo "=== Existing user-level Gradle settings ==="
+          if [ -f "$HOME/.gradle/gradle.properties" ]; then
+            cat "$HOME/.gradle/gradle.properties"
+          else
+            echo "(none)"
+          fi
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # Match the source ZIP's intended 5 GiB in-process compiler profile.
+          # Add the same single-worker/non-parallel hardening used by the project,
+          # plus the non-incremental/VFS settings used by the supplied GitHub CI.
+          updates = {
+              "org.gradle.jvmargs": "-Xmx5120m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8",
+              "kotlin.compiler.execution.strategy": "in-process",
+              "kotlin.incremental": "false",
+              "org.gradle.parallel": "false",
+              "org.gradle.workers.max": "1",
+              "org.gradle.caching": "true",
+              "org.gradle.vfs.watch": "false",
+          }
+
+          def patch(path: Path):
+              path.parent.mkdir(parents=True, exist_ok=True)
+              lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+              out = []
+              seen = set()
+
+              for line in lines:
+                  stripped = line.strip()
+                  if "=" in stripped and not stripped.startswith("#"):
+                      key = stripped.split("=", 1)[0].strip()
+                      if key in updates:
+                          if key not in seen:
+                              out.append(f"{key}={updates[key]}")
+                              seen.add(key)
+                          continue
+                  out.append(line)
+
+              if out and out[-1] != "":
+                  out.append("")
+              out.append("# Halaqati Codemagic CI memory profile")
+
+              for key, value in updates.items():
+                  if key not in seen:
+                      out.append(f"{key}={value}")
+
+              path.write_text("\n".join(out).rstrip() + "\n", encoding="utf-8")
+
+          patch(Path("gradle.properties"))
+          patch(Path.home() / ".gradle" / "gradle.properties")
+          PY
+
+          echo "=== Effective project profile ==="
+          grep -E '^(org\.gradle\.jvmargs|kotlin\.compiler\.execution\.strategy|kotlin\.incremental|org\.gradle\.parallel|org\.gradle\.workers\.max|org\.gradle\.caching|org\.gradle\.vfs\.watch)=' gradle.properties
+
+          echo "=== Effective user-level profile ==="
+          grep -E '^(org\.gradle\.jvmargs|kotlin\.compiler\.execution\.strategy|kotlin\.incremental|org\.gradle\.parallel|org\.gradle\.workers\.max|org\.gradle\.caching|org\.gradle\.vfs\.watch)=' "$HOME/.gradle/gradle.properties"
+
+      - name: Prepare pinned Gradle 8.13 wrapper
+        script: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+
+          echo "=== Java ==="
+          java -version
+
+          echo "=== Preinstalled Gradle ==="
+          gradle --version
+
+          # The delivered source intentionally has no wrapper binary.
+          # Generate an ephemeral wrapper in CI, pinned to the GitHub workflow's 8.13.
+          gradle --no-daemon \
+            -Dorg.gradle.jvmargs="-Xmx1536m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8" \
+            wrapper --gradle-version 8.13 --distribution-type bin
+
+          chmod +x gradlew
+
+          echo "=== Pinned Gradle ==="
+          ./gradlew --version
+
+      - name: Set Android SDK location
+        script: |
+          set -euo pipefail
+
+          echo "CONFIG_FINGERPRINT=HALAQATI-CM-SDKFIX-20260922-01"
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-<unset>}"
+
+          if [ -z "${ANDROID_SDK_ROOT:-}" ] || [ ! -d "$ANDROID_SDK_ROOT" ]; then
+            echo "ERROR: Codemagic ANDROID_SDK_ROOT is missing or invalid."
+            exit 1
+          fi
+
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$PROJECT_DIR/local.properties"
+          cat "$PROJECT_DIR/local.properties"
+
+      - name: Restore Firebase configuration
+        script: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+
+          python3 - <<'PY'
+          import base64
+          import json
+          import os
+          from pathlib import Path
+
+          b64 = os.environ.get(
+              "HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64", ""
+          ).strip()
+          raw = os.environ.get(
+              "HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON", ""
+          ).strip()
+
+          target = Path("app/google-services.json")
+
+          if b64:
+              try:
+                  target.write_bytes(base64.b64decode(b64, validate=False))
+              except Exception as exc:
+                  raise SystemExit(
+                      f"ERROR: unable to decode Firebase base64 secret: {exc}"
+                  )
+          elif raw:
+              target.write_text(raw, encoding="utf-8")
+          else:
+              raise SystemExit(
+                  "ERROR: missing Firebase configuration. "
+                  "Add HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON "
+                  "or HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64 "
+                  "to the halaqati_secrets group."
+              )
+
+          data = json.loads(target.read_text(encoding="utf-8"))
+          packages = [
+              c.get("client_info", {})
+               .get("android_client_info", {})
+               .get("package_name")
+              for c in data.get("client", [])
+          ]
+
+          if "com.mohammedsamir.halaqati" not in packages:
+              raise SystemExit(f"ERROR: Firebase package mismatch: {packages}")
+
+          print("Firebase package contract OK.")
+          PY
+
+      - name: Static migration checks
+        script: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+
+          python3 scripts/compile-sanity-check.py
+          python3 scripts/compose-risk-check.py
+          python3 scripts/static-parity-check.py
+          python3 scripts/uiux-pro-max-check.py
+          python3 scripts/navigation-contract-check.py
+          python3 scripts/release-contract-check.py
+          python3 scripts/auth-push-privacy-check.py
+          python3 scripts/smart-plan-alerts-check.py
+          python3 scripts/offline-account-scope-check.py
+          python3 scripts/local-sensitive-account-scope-check.py
+          python3 scripts/manifest-contract-check.py
+
+      - name: Compile debug Kotlin
+        script: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+
+          ./gradlew --no-daemon --max-workers=1 \
+            -Dorg.gradle.jvmargs="-Xmx5120m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8" \
+            --stacktrace :app:compileDebugKotlin
+
+      - name: Build Halaqati debug APK
+        script: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+
+          ./gradlew --no-daemon --max-workers=1 \
+            -Dorg.gradle.jvmargs="-Xmx5120m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8" \
+            --stacktrace :app:assembleDebug
+
+          echo "=== Generated APK files ==="
+          find app/build/outputs -type f -name "*.apk" -print
+
+    artifacts:
+      - extracted/**/app/build/outputs/**/*.apk
+      - extracted/**/app/build/reports/**
+      - extracted/**/build/reports/**
