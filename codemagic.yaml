@@ -1,0 +1,79 @@
+workflows:
+  halaqati-android:
+    name: Halaqati Android APK
+    max_build_duration: 120
+
+    environment:
+      java: 17
+
+    scripts:
+      - name: Find and extract Halaqati ZIP
+        script: |
+          set -e
+
+          echo "=== Repository contents ==="
+          ls -lah
+
+          ZIP_FILE=$(find "$CM_BUILD_DIR" -maxdepth 1 -type f \( -name "*.zip" -o -name "*.ZIP" \) | head -n 1)
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERROR: No ZIP file found in repository root."
+            exit 1
+          fi
+
+          echo "Found ZIP:"
+          echo "$ZIP_FILE"
+
+          mkdir -p "$CM_BUILD_DIR/extracted"
+          unzip -q "$ZIP_FILE" -d "$CM_BUILD_DIR/extracted"
+
+          echo "=== Extracted contents ==="
+          find "$CM_BUILD_DIR/extracted" -maxdepth 3 -type f | head -n 100
+
+      - name: Locate Android project
+        script: |
+          set -e
+
+          GRADLEW=$(find "$CM_BUILD_DIR/extracted" -type f -name "gradlew" | head -n 1)
+
+          if [ -z "$GRADLEW" ]; then
+            echo "ERROR: gradlew was not found after extracting ZIP."
+            find "$CM_BUILD_DIR/extracted" -maxdepth 5 -type f | sort
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$GRADLEW")
+
+          echo "Android project found at:"
+          echo "$PROJECT_DIR"
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
+
+          chmod +x "$PROJECT_DIR/gradlew"
+
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$PROJECT_DIR/local.properties"
+
+      - name: Check Gradle project
+        script: |
+          set -e
+          cd "$PROJECT_DIR"
+
+          echo "=== Android project ==="
+          pwd
+          ls -lah
+
+          ./gradlew --version
+
+      - name: Build Halaqati debug APK
+        script: |
+          set -e
+          cd "$PROJECT_DIR"
+
+          ./gradlew clean assembleDebug --stacktrace
+
+          echo "=== Generated APK files ==="
+          find . -type f -name "*.apk" -print
+
+    artifacts:
+      - extracted/**/build/outputs/**/*.apk
+      - extracted/**/build/reports/**
