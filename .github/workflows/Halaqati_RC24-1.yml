@@ -25,7 +25,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  ARCHIVE_SHA256: 3dda5c4cb76494ebd27d394f69b9a0374c2ed0b58f955946e6af833742e0bf1b
+  ARCHIVE_SHA256: 1117d190a793867fdd6ef747fac153432ef842864764c1959a2050577f33d1e8
   PROJECT_DIR: ${{ github.workspace }}/extracted/Halaqati_Native_Kotlin_v2.50.0_RC15
   GRADLE_VERSION: '8.13'
 
@@ -172,7 +172,10 @@ jobs:
           echo "::notice::RC23 requires v2590 after v2580 for student/status consistency, one session per type/day/halaqa, plan-test decoupling, and tilawah enum parity. Production already has RC23 applied."
           test -s RELEASE_2_60_0_RC24_CERTIFICATE_ARCHIVE_RENDERING_CORE_AR.md
           test -s RELEASE_2_60_1_RC24_1_CERTIFICATE_LAYOUT_ARCHIVE_UX_AR.md
-          echo "::notice::RC24.1 is a hotfix: no new SQL migration. RC24 v2600 stays applied as-is."
+          test -s migration/20261010_v2601_rc24_1_fix_digest_search_path.sql
+          grep -q "extensions" migration/20261010_v2601_rc24_1_fix_digest_search_path.sql
+          cp migration/20261010_v2601_rc24_1_fix_digest_search_path.sql ci-logs/RC24_1_REQUIRED_SUPABASE_MIGRATION.sql
+          echo "::warning::RC24.1 needs migration 20261010_v2601 (digest search_path fix) run ONCE in Supabase SQL Editor. CI never runs live DDL."
           test -s migration/20261009_v2600_rc24_certificate_archive_rendering_core.sql
           grep -q "create table if not exists public.certificate_series" migration/20261009_v2600_rc24_certificate_archive_rendering_core.sql
           grep -q "create table if not exists public.certificate_revisions" migration/20261009_v2600_rc24_certificate_archive_rendering_core.sql
@@ -473,7 +476,8 @@ jobs:
           cp migration/20261005_v2580_rc22_program_metadata_import_ux.sql verified/RC22_REQUIRED_SUPABASE_MIGRATION.sql
           cp migration/20261008_v2590_rc23_student_session_plan_consistency.sql verified/RC23_REQUIRED_SUPABASE_MIGRATION.sql
           cp migration/20261009_v2600_rc24_certificate_archive_rendering_core.sql verified/RC24_REQUIRED_SUPABASE_MIGRATION.sql
-          (cd verified && sha256sum *.apk RC18_REQUIRED_SUPABASE_MIGRATION.sql RC18_2_REQUIRED_SUPABASE_MIGRATION.sql RC19_REQUIRED_SUPABASE_MIGRATION.sql RC19_1_REQUIRED_SUPABASE_MIGRATION.sql RC20_REQUIRED_SUPABASE_MIGRATION.sql RC21_REQUIRED_SUPABASE_MIGRATION.sql RC22_REQUIRED_SUPABASE_MIGRATION.sql RC23_REQUIRED_SUPABASE_MIGRATION.sql RC24_REQUIRED_SUPABASE_MIGRATION.sql > SHA256SUMS.txt)
+          cp migration/20261010_v2601_rc24_1_fix_digest_search_path.sql verified/RC24_1_REQUIRED_SUPABASE_MIGRATION.sql
+          (cd verified && sha256sum *.apk RC18_REQUIRED_SUPABASE_MIGRATION.sql RC18_2_REQUIRED_SUPABASE_MIGRATION.sql RC19_REQUIRED_SUPABASE_MIGRATION.sql RC19_1_REQUIRED_SUPABASE_MIGRATION.sql RC20_REQUIRED_SUPABASE_MIGRATION.sql RC21_REQUIRED_SUPABASE_MIGRATION.sql RC22_REQUIRED_SUPABASE_MIGRATION.sql RC23_REQUIRED_SUPABASE_MIGRATION.sql RC24_REQUIRED_SUPABASE_MIGRATION.sql RC24_1_REQUIRED_SUPABASE_MIGRATION.sql > SHA256SUMS.txt)
 
       - name: Final RC24 gate aggregation
         if: always()
@@ -544,12 +548,12 @@ jobs:
           test -s "$APK"
           test -s "$UPDATE"
           if gh release view v2.60.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload v2.60.1 "$APK" "$UPDATE" verified/version.json verified/RC18_REQUIRED_SUPABASE_MIGRATION.sql verified/RC18_2_REQUIRED_SUPABASE_MIGRATION.sql verified/RC19_REQUIRED_SUPABASE_MIGRATION.sql verified/RC19_1_REQUIRED_SUPABASE_MIGRATION.sql verified/RC20_REQUIRED_SUPABASE_MIGRATION.sql verified/RC21_REQUIRED_SUPABASE_MIGRATION.sql verified/RC22_REQUIRED_SUPABASE_MIGRATION.sql verified/RC23_REQUIRED_SUPABASE_MIGRATION.sql verified/RC24_REQUIRED_SUPABASE_MIGRATION.sql --clobber --repo "$GITHUB_REPOSITORY"
+            gh release upload v2.60.1 "$APK" "$UPDATE" verified/version.json verified/RC18_REQUIRED_SUPABASE_MIGRATION.sql verified/RC18_2_REQUIRED_SUPABASE_MIGRATION.sql verified/RC19_REQUIRED_SUPABASE_MIGRATION.sql verified/RC19_1_REQUIRED_SUPABASE_MIGRATION.sql verified/RC20_REQUIRED_SUPABASE_MIGRATION.sql verified/RC21_REQUIRED_SUPABASE_MIGRATION.sql verified/RC22_REQUIRED_SUPABASE_MIGRATION.sql verified/RC23_REQUIRED_SUPABASE_MIGRATION.sql verified/RC24_REQUIRED_SUPABASE_MIGRATION.sql verified/RC24_1_REQUIRED_SUPABASE_MIGRATION.sql --clobber --repo "$GITHUB_REPOSITORY"
           else
-            gh release create v2.60.1 "$APK" "$UPDATE" verified/version.json verified/RC18_REQUIRED_SUPABASE_MIGRATION.sql verified/RC18_2_REQUIRED_SUPABASE_MIGRATION.sql verified/RC19_REQUIRED_SUPABASE_MIGRATION.sql verified/RC19_1_REQUIRED_SUPABASE_MIGRATION.sql verified/RC20_REQUIRED_SUPABASE_MIGRATION.sql verified/RC21_REQUIRED_SUPABASE_MIGRATION.sql verified/RC22_REQUIRED_SUPABASE_MIGRATION.sql verified/RC23_REQUIRED_SUPABASE_MIGRATION.sql verified/RC24_REQUIRED_SUPABASE_MIGRATION.sql \
+            gh release create v2.60.1 "$APK" "$UPDATE" verified/version.json verified/RC18_REQUIRED_SUPABASE_MIGRATION.sql verified/RC18_2_REQUIRED_SUPABASE_MIGRATION.sql verified/RC19_REQUIRED_SUPABASE_MIGRATION.sql verified/RC19_1_REQUIRED_SUPABASE_MIGRATION.sql verified/RC20_REQUIRED_SUPABASE_MIGRATION.sql verified/RC21_REQUIRED_SUPABASE_MIGRATION.sql verified/RC22_REQUIRED_SUPABASE_MIGRATION.sql verified/RC23_REQUIRED_SUPABASE_MIGRATION.sql verified/RC24_REQUIRED_SUPABASE_MIGRATION.sql verified/RC24_1_REQUIRED_SUPABASE_MIGRATION.sql \
               --repo "$GITHUB_REPOSITORY" \
               --title "Halaqati v2.60.1 RC24.1 — Certificate Layout & Archive UX Hotfix" \
-              --notes "RC24.1 يصلح تنسيق الشهادة على A4 بمناطق ثابتة لا تتداخل، ويجعل فحص التصدير ثابتًا مع رسائل خطأ تحدد العنصر، ويضغط الأرشيف مع فلاتر وإخفاء وحذف من الجهاز وحذف نهائي للمدير. لا حاجة لأي SQL جديد."
+              --notes "RC24.1 يصلح تنسيق الشهادة على A4 بمناطق ثابتة لا تتداخل، ويجعل فحص التصدير ثابتًا مع رسائل خطأ تحدد العنصر، ويضغط الأرشيف مع فلاتر وإخفاء وحذف من الجهاز وحذف نهائي للمدير. يلزم تشغيل ملف SQL صغير واحد (RC24_1_REQUIRED_SUPABASE_MIGRATION.sql) لإصلاح خطأ digest عند حفظ الشهادة."
           fi
 
       - name: Publish direct update to halaqati-web when a cross-repo token is configured
