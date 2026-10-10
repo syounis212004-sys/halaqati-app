@@ -1,10 +1,10 @@
-name: Halaqati v2.60.0 RC24 — Certificate Archive & Rendering Core
+name: Halaqati v2.60.1 RC24.1 — Certificate Layout & Archive UX Hotfix
 
 on:
   workflow_dispatch:
     inputs:
       source_repository:
-        description: 'Repository containing Halaqati_RC24.zip; blank = this repository'
+        description: 'Repository containing Halaqati_RC24_1.zip; blank = this repository'
         default: ''
         type: string
       source_ref:
@@ -21,11 +21,11 @@ permissions:
   contents: write
 
 concurrency:
-  group: halaqati-v2600-rc24-${{ github.workflow }}-${{ github.ref }}
+  group: halaqati-v2601-rc24-1-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  ARCHIVE_SHA256: 4b21cbf568e41ebadbdab33827adc0b2b4a7591c42042b131328e4cad8904657
+  ARCHIVE_SHA256: 3dda5c4cb76494ebd27d394f69b9a0374c2ed0b58f955946e6af833742e0bf1b
   PROJECT_DIR: ${{ github.workspace }}/extracted/Halaqati_Native_Kotlin_v2.50.0_RC15
   GRADLE_VERSION: '8.13'
 
@@ -47,14 +47,14 @@ jobs:
           path: source-repo
           persist-credentials: false
 
-      - name: Verify exact RC24 v2.60.0 archive and extract
+      - name: Verify exact RC24.1 v2.60.1 archive and extract
         timeout-minutes: 2
         run: |
           set -euo pipefail
           python3 - <<'PY'
           import hashlib, os, zipfile
           from pathlib import Path
-          expected_name = 'Halaqati_RC24.zip'
+          expected_name = 'Halaqati_RC24_1.zip'
           matches = [
               p for p in Path('source-repo').rglob(expected_name)
               if '.git' not in p.parts
@@ -78,7 +78,7 @@ jobs:
           project = Path(os.environ['PROJECT_DIR'])
           if not project.is_dir():
               raise SystemExit(f'Expected Halaqati project directory missing: {project}')
-          print('Verified RC24 source SHA-256:', os.environ['ARCHIVE_SHA256'])
+          print('Verified RC24.1 source SHA-256:', os.environ['ARCHIVE_SHA256'])
           print('Project:', project)
           PY
 
@@ -171,6 +171,8 @@ jobs:
           cp migration/20261008_v2590_rc23_student_session_plan_consistency.sql ci-logs/RC23_REQUIRED_SUPABASE_MIGRATION.sql
           echo "::notice::RC23 requires v2590 after v2580 for student/status consistency, one session per type/day/halaqa, plan-test decoupling, and tilawah enum parity. Production already has RC23 applied."
           test -s RELEASE_2_60_0_RC24_CERTIFICATE_ARCHIVE_RENDERING_CORE_AR.md
+          test -s RELEASE_2_60_1_RC24_1_CERTIFICATE_LAYOUT_ARCHIVE_UX_AR.md
+          echo "::notice::RC24.1 is a hotfix: no new SQL migration. RC24 v2600 stays applied as-is."
           test -s migration/20261009_v2600_rc24_certificate_archive_rendering_core.sql
           grep -q "create table if not exists public.certificate_series" migration/20261009_v2600_rc24_certificate_archive_rendering_core.sql
           grep -q "create table if not exists public.certificate_revisions" migration/20261009_v2600_rc24_certificate_archive_rendering_core.sql
@@ -303,6 +305,8 @@ jobs:
             timeout 120s python3 scripts/rc24-certificate-db-contract-check.py
             echo '=== RC24 Certificate Archive & Rendering Core ==='
             timeout 120s python3 scripts/rc24-certificate-archive-rendering-check.py
+            echo '=== RC24.1 Certificate Layout & Archive UX ==='
+            timeout 120s python3 scripts/rc24-1-certificate-layout-archive-check.py
             echo '=== UI/UX Pro Max ==='
             timeout 120s python3 scripts/uiux-pro-max-check.py
             echo '=== Full release parity ==='
@@ -442,10 +446,10 @@ jobs:
           from pathlib import Path
           badging = Path('ci-logs/badging.txt').read_text()
           assert "name='com.mohammedsamir.halaqati'" in badging
-          assert "versionCode='26000'" in badging
+          assert "versionCode='26001'" in badging
           assert int(re.search(r"versionCode='(\d+)'", badging).group(1)) > 24400, 'must upgrade legacy 2.44 (24400)'
           assert 'applicationIdSuffix' not in Path('app/build.gradle.kts').read_text()
-          expected_name = '2.60.0' if os.environ['VARIANT'] == 'release' else '2.60.0-debug'
+          expected_name = '2.60.1' if os.environ['VARIANT'] == 'release' else '2.60.1-debug'
           assert f"versionName='{expected_name}'" in badging, f'Unexpected versionName; expected {expected_name}'
           assert "sdkVersion:'23'" in badging
           assert "targetSdkVersion:'36'" in badging
@@ -458,7 +462,7 @@ jobs:
               assert expected, 'Derived signing certificate fingerprint missing'
               assert normalize(match.group(1)) == normalize(expected), 'Signing certificate mismatch versus restored legacy keystore'
           PY
-          OUT="verified/Halaqati-v2.60.0-$VARIANT.apk"
+          OUT="verified/Halaqati-v2.60.1-$VARIANT.apk"
           cp "$APK" "$OUT"
           cp migration/20261002_v2540_rc18_privacy_monthly_achievements.sql verified/RC18_REQUIRED_SUPABASE_MIGRATION.sql
           cp migration/20261002_v2542_rc18_2_session_monthly_continuity.sql verified/RC18_2_REQUIRED_SUPABASE_MIGRATION.sql
@@ -505,7 +509,7 @@ jobs:
             echo '::error::One or more RC24 gates failed. This workflow intentionally continued so a single run exposes all independent build problems. Review diagnostics/artifacts above.'
             exit 1
           fi
-          echo 'All RC24 certificate rendering/archive, RC23 student/session, RC22 import/program, RC21 multi-halaqa, UI/document, privacy, visual, Gradle, lint, assemble, and APK verification gates passed.'
+          echo 'All RC24.1 certificate layout/archive, RC23 student/session, RC22 import/program, RC21 multi-halaqa, UI/document, privacy, visual, Gradle, lint, assemble, and APK verification gates passed.'
 
       - name: Prepare direct in-app update package
         if: ${{ inputs.variant == 'release' }}
@@ -519,33 +523,33 @@ jobs:
           import json
           from pathlib import Path
           data=json.loads(Path('update-publish/version.json').read_text(encoding='utf-8'))
-          assert data['versionName']=='2.60.0'
-          assert int(data['versionCode'])==26000
+          assert data['versionName']=='2.60.1'
+          assert int(data['versionCode'])==26001
           assert data['apkUrl']=='https://syounis212004-sys.github.io/halaqati-web/Halaqati-latest.apk'
           print('Direct-update manifest verified:', data['versionName'], data['versionCode'])
           PY2
           cp update-publish/version.json verified/version.json
-          (cd update-publish && zip -q -X ../verified/Halaqati-v2.60.0-publish-update.zip Halaqati-latest.apk version.json)
-          sha256sum verified/Halaqati-v2.60.0-publish-update.zip >> verified/SHA256SUMS.txt
+          (cd update-publish && zip -q -X ../verified/Halaqati-v2.60.1-publish-update.zip Halaqati-latest.apk version.json)
+          sha256sum verified/Halaqati-v2.60.1-publish-update.zip >> verified/SHA256SUMS.txt
 
-      - name: Create or refresh GitHub Release v2.60.0 RC24
+      - name: Create or refresh GitHub Release v2.60.1 RC24.1
         if: ${{ inputs.variant == 'release' }}
         working-directory: ${{ env.PROJECT_DIR }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          APK=verified/Halaqati-v2.60.0-release.apk
-          UPDATE=verified/Halaqati-v2.60.0-publish-update.zip
+          APK=verified/Halaqati-v2.60.1-release.apk
+          UPDATE=verified/Halaqati-v2.60.1-publish-update.zip
           test -s "$APK"
           test -s "$UPDATE"
-          if gh release view v2.60.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload v2.60.0 "$APK" "$UPDATE" verified/version.json verified/RC18_REQUIRED_SUPABASE_MIGRATION.sql verified/RC18_2_REQUIRED_SUPABASE_MIGRATION.sql verified/RC19_REQUIRED_SUPABASE_MIGRATION.sql verified/RC19_1_REQUIRED_SUPABASE_MIGRATION.sql verified/RC20_REQUIRED_SUPABASE_MIGRATION.sql verified/RC21_REQUIRED_SUPABASE_MIGRATION.sql verified/RC22_REQUIRED_SUPABASE_MIGRATION.sql verified/RC23_REQUIRED_SUPABASE_MIGRATION.sql verified/RC24_REQUIRED_SUPABASE_MIGRATION.sql --clobber --repo "$GITHUB_REPOSITORY"
+          if gh release view v2.60.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload v2.60.1 "$APK" "$UPDATE" verified/version.json verified/RC18_REQUIRED_SUPABASE_MIGRATION.sql verified/RC18_2_REQUIRED_SUPABASE_MIGRATION.sql verified/RC19_REQUIRED_SUPABASE_MIGRATION.sql verified/RC19_1_REQUIRED_SUPABASE_MIGRATION.sql verified/RC20_REQUIRED_SUPABASE_MIGRATION.sql verified/RC21_REQUIRED_SUPABASE_MIGRATION.sql verified/RC22_REQUIRED_SUPABASE_MIGRATION.sql verified/RC23_REQUIRED_SUPABASE_MIGRATION.sql verified/RC24_REQUIRED_SUPABASE_MIGRATION.sql --clobber --repo "$GITHUB_REPOSITORY"
           else
-            gh release create v2.60.0 "$APK" "$UPDATE" verified/version.json verified/RC18_REQUIRED_SUPABASE_MIGRATION.sql verified/RC18_2_REQUIRED_SUPABASE_MIGRATION.sql verified/RC19_REQUIRED_SUPABASE_MIGRATION.sql verified/RC19_1_REQUIRED_SUPABASE_MIGRATION.sql verified/RC20_REQUIRED_SUPABASE_MIGRATION.sql verified/RC21_REQUIRED_SUPABASE_MIGRATION.sql verified/RC22_REQUIRED_SUPABASE_MIGRATION.sql verified/RC23_REQUIRED_SUPABASE_MIGRATION.sql verified/RC24_REQUIRED_SUPABASE_MIGRATION.sql \
+            gh release create v2.60.1 "$APK" "$UPDATE" verified/version.json verified/RC18_REQUIRED_SUPABASE_MIGRATION.sql verified/RC18_2_REQUIRED_SUPABASE_MIGRATION.sql verified/RC19_REQUIRED_SUPABASE_MIGRATION.sql verified/RC19_1_REQUIRED_SUPABASE_MIGRATION.sql verified/RC20_REQUIRED_SUPABASE_MIGRATION.sql verified/RC21_REQUIRED_SUPABASE_MIGRATION.sql verified/RC22_REQUIRED_SUPABASE_MIGRATION.sql verified/RC23_REQUIRED_SUPABASE_MIGRATION.sql verified/RC24_REQUIRED_SUPABASE_MIGRATION.sql \
               --repo "$GITHUB_REPOSITORY" \
-              --title "Halaqati v2.60.0 RC24 — Certificate Archive & Rendering Core" \
-              --notes "RC24 يعيد بناء محرك الشهادات: يمنع PDF الناقص عبر Render Gate، يضع شهادة تقدير وإنجاز تحت الزخرفة، يدعم سلاسل أرقام مستقلة G/S/K/M/I/R/C وإصدارات v1/v2/v3 بنفس الرقم، وأرشيفًا رسميًا قابلًا للتصحيح والإلغاء. Migration v2600 مطبقة بالفعل على قاعدة الإنتاج الحالية ولا يجب إعادة تشغيلها هناك."
+              --title "Halaqati v2.60.1 RC24.1 — Certificate Layout & Archive UX Hotfix" \
+              --notes "RC24.1 يصلح تنسيق الشهادة على A4 بمناطق ثابتة لا تتداخل، ويجعل فحص التصدير ثابتًا مع رسائل خطأ تحدد العنصر، ويضغط الأرشيف مع فلاتر وإخفاء وحذف من الجهاز وحذف نهائي للمدير. لا حاجة لأي SQL جديد."
           fi
 
       - name: Publish direct update to halaqati-web when a cross-repo token is configured
@@ -568,16 +572,16 @@ jobs:
           git config user.email 'actions@users.noreply.github.com'
           git add Halaqati-latest.apk version.json
           if git diff --cached --quiet; then
-            echo 'Updater files already match v2.60.0 RC24.'
+            echo 'Updater files already match v2.60.1 RC24.1.'
           else
-            git commit -m 'Publish Halaqati v2.60.0 RC24 direct update'
+            git commit -m 'Publish Halaqati v2.60.1 RC24.1 direct update'
             git push origin HEAD:main
           fi
 
       - name: Upload APK only after every gate passes
         uses: actions/upload-artifact@v6
         with:
-          name: Halaqati-v2.60.0-RC24-${{ inputs.variant }}
+          name: Halaqati-v2.60.1-RC24-${{ inputs.variant }}
           path: ${{ env.PROJECT_DIR }}/verified/
           if-no-files-found: error
           retention-days: 14
@@ -586,7 +590,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: Halaqati-v2.60.0-RC24-diagnostics-${{ github.run_id }}
+          name: Halaqati-v2.60.1-RC24-diagnostics-${{ github.run_id }}
           path: |
             ${{ env.PROJECT_DIR }}/ci-logs/
             ${{ env.PROJECT_DIR }}/app/build/reports/
