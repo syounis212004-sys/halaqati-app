@@ -531,7 +531,7 @@ jobs:
           from pathlib import Path
           badging = Path('ci-logs/badging.txt').read_text()
           assert "name='com.mohammedsamir.halaqati'" in badging
-          assert "versionCode='26600'" in badging
+          assert "versionCode='26700'" in badging
           assert int(re.search(r"versionCode='(\d+)'", badging).group(1)) > 24400, 'must upgrade legacy 2.44 (24400)'
           assert 'applicationIdSuffix' not in Path('app/build.gradle.kts').read_text()
           expected_name = '2.67.0' if os.environ['VARIANT'] == 'release' else '2.67.0-debug'
@@ -612,7 +612,7 @@ jobs:
           from pathlib import Path
           data=json.loads(Path('update-publish/version.json').read_text(encoding='utf-8'))
           assert data['versionName']=='2.67.0'
-          assert int(data['versionCode'])==26600
+          assert int(data['versionCode'])==26700
           assert data['apkUrl']=='https://syounis212004-sys.github.io/halaqati-web/Halaqati-latest.apk'
           print('Direct-update manifest verified:', data['versionName'], data['versionCode'])
           PY2
