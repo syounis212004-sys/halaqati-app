@@ -231,7 +231,7 @@ jobs:
           test -s RELEASE_2_72_0_RC36_AR.md
           test -s RELEASE_2_73_0_RC37_AR.md
           test -s RELEASE_2_74_0_RC38_AR.md
-          test -s RELEASE_2_89_6_RC60_AR.md
+          test -s RELEASE_2_89_7_RC60_AR.md
           test -s docs/RC28_VERIFICATION.md
           test -s app/src/main/res/raw/halaqati_trophy.json
           test -s app/src/main/res/raw/halaqati_role_teacher.json
