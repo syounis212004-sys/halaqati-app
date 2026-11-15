@@ -1,0 +1,18 @@
+{
+  "project_info": {
+    "project_number": "123456789012",
+    "project_id": "halaqati-offline-test"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:123456789012:android:0000000000000000000000",
+        "android_client_info": {
+          "package_name": "com.mohammedsamir.halaqati"
+        }
+      },
+      "api_key": [{ "current_key": "offline-test-placeholder" }]
+    }
+  ],
+  "configuration_version": "1"
+}

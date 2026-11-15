@@ -1,0 +1,41 @@
+name: Codex Android checks
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: codex-android-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: tools/codex/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Bootstrap pinned tools and extract source
+        run: bash tools/codex/bootstrap.sh
+      - name: Tooling, Android unit tests, lint and debug assembly
+        env:
+          HALAQATI_OFFLINE_ANDROID_TEST: '1'
+        run: python3 tools/codex/check.py
+      - name: Retain independent check logs and native reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-android-checks
+          if-no-files-found: warn
+          path: |
+            .codex-work/checks/
+            .codex-work/native/**/app/build/reports/
+            .codex-work/native/**/app/build/test-results/
