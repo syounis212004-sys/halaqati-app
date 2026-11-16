@@ -1,0 +1,1068 @@
+[
+  {
+    "id": "shell.bottom.admin_supervisor_teacher",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER"
+    ],
+    "native_destination": "app_shell",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "shell.bottom.guardian",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "GUARDIAN"
+    ],
+    "native_destination": "app_shell_guardian",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "shell.more.menu",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER",
+      "GUARDIAN"
+    ],
+    "native_destination": "more",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "home.dashboard",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER",
+      "GUARDIAN"
+    ],
+    "native_destination": "home",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "home.daily_supervisor_board",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER"
+    ],
+    "native_destination": "home",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/DashboardViewModel.kt",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/screens/DashboardScreen.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "notifications.center",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER",
+      "GUARDIAN"
+    ],
+    "native_destination": "notifications",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "notifications.push_preferences",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER",
+      "GUARDIAN"
+    ],
+    "native_destination": "settings_notifications",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "community.announcements",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER",
+      "GUARDIAN"
+    ],
+    "native_destination": "community",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "community.forum_comments",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER",
+      "GUARDIAN"
+    ],
+    "native_destination": "community",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "halaqas.manage",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER"
+    ],
+    "native_destination": "halaqas",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "categories.manage",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER"
+    ],
+    "native_destination": "halaqas",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "sessions.list",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER"
+    ],
+    "native_destination": "sessions",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "sessions.start_today",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/features/live-halaqa/runtime.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER"
+    ],
+    "native_destination": "session_live",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/features/live-halaqa/runtime.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/sessions/SessionWorkflowRules.kt",
+      "app/src/main/java/com/mohammedsamir/halaqati/data/HalaqatiRepository.kt",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/screens/CoreScreens.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "sessions.attendance",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER"
+    ],
+    "native_destination": "sessions",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "sessions.recitation",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER"
+    ],
+    "native_destination": "sessions",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "sessions.tathbit_activity",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER"
+    ],
+    "native_destination": "sessions",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "sessions.sard_activity",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER"
+    ],
+    "native_destination": "sessions",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "sessions.daily_notes",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER"
+    ],
+    "native_destination": "sessions",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "students.list",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER"
+    ],
+    "native_destination": "students",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "students.detail",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER"
+    ],
+    "native_destination": "student_detail",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "students.edit",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER"
+    ],
+    "native_destination": "student_edit",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "students.archive_restore",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER"
+    ],
+    "native_destination": "students",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "plans.list",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/features/plans/runtime.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER",
+      "GUARDIAN"
+    ],
+    "native_destination": "plans",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/features/plans/runtime.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "plans.smart_hifz",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/features/plans/runtime.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER"
+    ],
+    "native_destination": "plans",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/features/plans/runtime.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "plans.smart_tathbit",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/features/plans/runtime.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER"
+    ],
+    "native_destination": "plans",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/features/plans/runtime.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "plans.student_override",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/features/plans/runtime.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER"
+    ],
+    "native_destination": "plans",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/features/plans/runtime.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "plans.guardian_view",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/features/plans/runtime.js",
+    "roles": [
+      "GUARDIAN"
+    ],
+    "native_destination": "plans",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/features/plans/runtime.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "reports.list",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER",
+      "GUARDIAN"
+    ],
+    "native_destination": "reports",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "reports.studio",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER"
+    ],
+    "native_destination": "report_studio",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "reports.guardian",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "GUARDIAN"
+    ],
+    "native_destination": "reports",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "certificates.editor",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER"
+    ],
+    "native_destination": "certificates",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "quran.calculator_picker",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER",
+      "GUARDIAN"
+    ],
+    "native_destination": "quran",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "ranking.staff",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER"
+    ],
+    "native_destination": "rankings",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "guardian.competition",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "GUARDIAN"
+    ],
+    "native_destination": "guardian_competition",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "guardian.achievements",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "GUARDIAN"
+    ],
+    "native_destination": "guardian_achievements",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "guardian.profile",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "GUARDIAN"
+    ],
+    "native_destination": "guardian_profile",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "supervision.teacher_tracking",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR"
+    ],
+    "native_destination": "supervision",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "users.permissions",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN"
+    ],
+    "native_destination": "users",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "data.import",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR"
+    ],
+    "native_destination": "importexport",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "data.export_backup",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER"
+    ],
+    "native_destination": "importexport",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "sync.center",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/offline-store.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER",
+      "GUARDIAN"
+    ],
+    "native_destination": "sync_center",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "IMPROVED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/offline-store.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "settings.theme",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER",
+      "GUARDIAN"
+    ],
+    "native_destination": "settings",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "app/src/main/java/com/mohammedsamir/halaqati/data/UiPreferencesStore.kt",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/theme/Theme.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "settings.cairo_font",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER",
+      "GUARDIAN"
+    ],
+    "native_destination": "settings",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/theme/CairoTypography.kt",
+      "scripts/cairo-contract-check.py",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "settings.password",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER",
+      "GUARDIAN"
+    ],
+    "native_destination": "settings",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "settings.account_name",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER",
+      "GUARDIAN"
+    ],
+    "native_destination": "settings",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "settings.update",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER",
+      "GUARDIAN"
+    ],
+    "native_destination": "settings",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "auth.login_approval_recovery",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/navigation.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER",
+      "GUARDIAN"
+    ],
+    "native_destination": "auth",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "MATCHED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/navigation.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  },
+  {
+    "id": "offline.account_scoped_queue",
+    "required": true,
+    "golden_surface": "migration/legacy-web-v2.44.0/src/core/offline-store.js",
+    "roles": [
+      "ADMIN",
+      "SUPERVISOR",
+      "TEACHER",
+      "GUARDIAN"
+    ],
+    "native_destination": "sync_center",
+    "actions": [
+      "restore_golden_master_behavior"
+    ],
+    "offline": "preserve_2_44_contract",
+    "permissions": "role_and_rls_scoped",
+    "status": "IMPROVED",
+    "evidence": [
+      "migration/legacy-web-v2.44.0/src/core/offline-store.js",
+      "app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+      "scripts/full-release-parity-check.py"
+    ]
+  }
+]

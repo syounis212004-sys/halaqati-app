@@ -1,0 +1,42 @@
+auth-push-privacy-check.py: PASS
+Auth/push/privacy check passed (strict recovery callback, account-bound FCM guard, lifecycle/channel, sensitive backup exclusions)
+
+compile-sanity-check.py: PASS
+Compile sanity check passed (31 Kotlin files)
+
+compiler-regression-check.py: PASS
+Compiler regression source checks passed (not an APK compile)
+
+compose-risk-check.py: PASS
+Compose compile-risk check passed
+
+local-sensitive-account-scope-check.py: PASS
+Local sensitive-data account scope check passed (reports + certificates + portable assets)
+
+manifest-contract-check.py: PASS
+Android manifest/resource contract passed (exact auth deep link, singleTop, FCM, backup rules)
+
+navigation-contract-check.py: PASS
+Navigation contract passed (17 explicit Native routes, no generic data fallback)
+
+offline-account-scope-check.py: PASS
+Offline account-scope check passed (queue v4, per-user replay isolation + migration simulation)
+
+release-contract-check.py: PASS
+Release contract passed (2.45.2, 25 tables, 3 views, 7 RPCs, 2 student tracks, Native runtime only)
+
+smart-plan-alerts-check.py: PASS
+Smart-plan alert parity check passed (legacy delay + evening prep via idempotent event_student WorkManager flow)
+
+static-parity-check.py: PASS
+Native structure/parity smoke check passed
+
+uiux-pro-max-check.py: PASS
+UI/UX Pro Max check passed
+
+All 30 moved initializer expressions match the original source exactly.
+
+Existing files modified: gradle.properties, app/build.gradle.kts, app/src/main/java/com/mohammedsamir/halaqati/ui/screens/CoreScreens.kt
+All other original files are byte-identical.
+
+Android compilation/unit tests/lint NOT executed locally: Android SDK, Gradle and Kotlin compiler unavailable; Maven download timed out. CI gates enforce them.

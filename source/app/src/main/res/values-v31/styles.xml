@@ -1,0 +1,11 @@
+<resources>
+    <style name="Theme.Halaqati" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">@color/halaqati_splash_background</item>
+        <item name="android:navigationBarColor">@color/halaqati_splash_background</item>
+        <item name="android:windowSplashScreenBackground">@color/halaqati_splash_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/launcher_background</item>
+    </style>
+</resources>

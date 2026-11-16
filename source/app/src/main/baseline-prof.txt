@@ -1,0 +1,13 @@
+Lcom/mohammedsamir/halaqati/HalaqatiApplication;
+Lcom/mohammedsamir/halaqati/MainActivity;
+Lcom/mohammedsamir/halaqati/ui/HalaqatiAppKt;
+Lcom/mohammedsamir/halaqati/ui/screens/DashboardScreenKt;
+Lcom/mohammedsamir/halaqati/ui/screens/CoreScreensKt;
+Lcom/mohammedsamir/halaqati/ui/screens/ReportsAndToolsKt;
+Lcom/mohammedsamir/halaqati/ui/screens/QuranPickerKt;
+Lcom/mohammedsamir/halaqati/quran/QuranCore;
+Lcom/mohammedsamir/halaqati/quran/QuranRangeEngine;
+Lcom/mohammedsamir/halaqati/quran/QuranMetadata;
+Lcom/mohammedsamir/halaqati/data/HalaqatiRepository;
+Lcom/mohammedsamir/halaqati/data/OfflineQueue;
+Lcom/mohammedsamir/halaqati/plans/SmartPlanEngine;

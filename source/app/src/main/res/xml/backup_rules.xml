@@ -1,0 +1,15 @@
+<full-backup-content>
+    <!-- Authentication material and device token state must never leave the device backup boundary. -->
+    <exclude domain="sharedpref" path="halaqati_secure.xml"/>
+    <!-- Reports contain student attendance/recitation data and are reproducible from Supabase. -->
+    <exclude domain="sharedpref" path="halaqati_native_report_cache.xml"/>
+    <!-- Certificate preferences can contain signatures, stamps and student names; export is explicit in-app. -->
+    <exclude domain="sharedpref" path="halaqati_native_certificates.xml"/>
+    <!-- Pending offline writes can contain student notes and recitation details. -->
+    <exclude domain="database" path="halaqati-rc7.db"/>
+    <exclude domain="database" path="halaqati-rc7.db-wal"/>
+    <exclude domain="database" path="halaqati-rc7.db-shm"/>
+    <exclude domain="database" path="halaqati-offline.db"/>
+    <exclude domain="database" path="halaqati-offline.db-wal"/>
+    <exclude domain="database" path="halaqati-offline.db-shm"/>
+</full-backup-content>

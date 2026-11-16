@@ -1,0 +1,29 @@
+// مولَّد من design/tokens.json — لا تعدّله يدويًا
+object DesignTokens {
+    const val SIZE_TOPBAR = 44
+    const val SIZE_TAB = 48
+    const val SIZE_TILE = 64
+    const val SIZE_AVATARSM = 40
+    const val SIZE_AVATARMD = 56
+    const val SIZE_AVATARLG = 72
+    const val SIZE_TOUCHMIN = 48
+    const val RADIUS_CHIP = 50
+    const val RADIUS_CARD = 22
+    const val RADIUS_TILE = 16
+    const val RADIUS_SHEET = 28
+    const val SPACE_XS = 4
+    const val SPACE_SM = 8
+    const val SPACE_MD = 12
+    const val SPACE_LG = 16
+    const val SPACE_XL = 24
+    const val FONT_TITLE = 18
+    const val FONT_BODY = 14
+    const val FONT_LABEL = 12
+    const val FONT_SMALL = 11
+    const val FONT_VERSE = 20
+    const val TONE_PRESENT = 0xFF0B8F5E
+    const val TONE_ABSENT = 0xFFD64545
+    const val TONE_EXCUSED = 0xFFD98A00
+    const val TONE_LATE = 0xFF2F6FDE
+    const val TONE_NEUTRAL = 0xFF6B7A75
+}

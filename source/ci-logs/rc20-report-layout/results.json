@@ -1,0 +1,18 @@
+{
+  "metrics": {
+    "nameClientWidth": 1056,
+    "nameScrollWidth": 1056,
+    "nameHeight": 32.390625,
+    "gridColumns": 3,
+    "gridColumnWidths": [],
+    "bodyScrollWidth": 1200,
+    "bodyClientWidth": 1200
+  },
+  "checks": {
+    "name_wide": true,
+    "name_no_horizontal_overflow": true,
+    "name_not_vertical_stack": true,
+    "three_metadata_columns": true,
+    "no_body_horizontal_overflow": true
+  }
+}

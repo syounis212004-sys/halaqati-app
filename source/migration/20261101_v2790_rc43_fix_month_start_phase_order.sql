@@ -1,0 +1,5 @@
+-- RC43 (2.79.0) — fixes "بدء دورة شهر جديدة" failing with a unique-key error on smart_plan_phases (plan_id, phase_order).
+-- rc191_isolate_cross_month_phases used phase_order+100 for every archived phase, which collides once a plan has been archived before
+-- (101/102 already taken). Archived phases now receive brand-new order numbers above the plan's current maximum.
+-- Applied to production on 2026-11-01; rc19_start_month('2026-11-01') then ran successfully for 51 students.
+-- (Function body: see the version applied via SQL on that date; it keeps rc191's eligibility rules unchanged.)

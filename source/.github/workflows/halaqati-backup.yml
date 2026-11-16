@@ -1,0 +1,48 @@
+name: Halaqati daily backup
+# REQUIRES a PRIVATE repository: the export contains student and guardian data.
+# Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (Settings > Secrets > Actions).
+# Optional secret BACKUP_PASSPHRASE: when set, the archive is encrypted with gpg (AES256).
+on:
+  schedule:
+    - cron: '30 1 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: halaqati-backup
+  cancel-in-progress: false
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refuse to run in a public repository
+        env:
+          PRIVATE: ${{ github.event.repository.private }}
+        run: |
+          test "$PRIVATE" = "true" || { echo 'Backup contains personal data; run it only in a private repository.'; exit 1; }
+      - name: Export Supabase tables
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          test -n "$SUPABASE_URL" && test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo 'Missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY secrets'; exit 1; }
+          python3 scripts/backup-supabase.py backup
+          tar -C backup -czf halaqati-backup-$(date -u +%F).tar.gz .
+      - name: Encrypt when a passphrase is configured
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          if [ -n "$BACKUP_PASSPHRASE" ]; then
+            for f in halaqati-backup-*.tar.gz; do
+              gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" --symmetric --cipher-algo AES256 -o "$f.gpg" "$f"
+              rm "$f"
+            done
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: halaqati-backup-${{ github.run_id }}
+          path: halaqati-backup-*
+          retention-days: 30
+          if-no-files-found: error

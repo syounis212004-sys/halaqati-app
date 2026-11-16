@@ -1,0 +1,63 @@
+@font-face{font-family:'Cairo';src:url('cairo.ttf') format('truetype');font-weight:100 1000;font-style:normal;font-display:block}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#e9edea;direction:rtl;font-family:'Cairo',Tahoma,Arial,sans-serif}
+body{display:flex;justify-content:center;align-items:flex-start;min-height:100vh}
+/* RC24.1 — fixed-zone A4 layout.
+   Zones (page 1122x794): head (logos + names + ornament + kicker) -> body (title..dua, flexible) ->
+   dates -> signatures/stamp -> footer verse. Every text box has an explicit line-height so the
+   layout does not depend on a font's "normal" metrics, and nothing is measured in screen pixels. */
+.halaqati-certificate{--cert-top:40px;--cert-main-bottom:206px;font-family:var(--cert-font)!important;position:relative;width:1122px;height:794px;overflow:hidden;padding:0;background:radial-gradient(circle at 50% 38%,rgba(197,163,80,.07),transparent 38%),linear-gradient(var(--cert-paper),var(--cert-paper));color:var(--cert-ink);box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.halaqati-certificate.cert-num-top{--cert-top:56px}
+.halaqati-certificate *{box-sizing:border-box;font-family:inherit}
+.cert-geo-bg{position:absolute;inset:28px;width:calc(100% - 56px);height:calc(100% - 56px);color:var(--cert-primary);opacity:calc(var(--cert-ornament-opacity)*.038);pointer-events:none;z-index:0}
+.cert-frame{position:absolute;inset:16px;border:var(--cert-border-width) solid var(--cert-primary);box-shadow:inset 0 0 0 5px var(--cert-paper),inset 0 0 0 7px var(--cert-accent),inset 0 0 0 13px var(--cert-paper),inset 0 0 0 15px var(--cert-primary);z-index:1}
+.cert-corner{position:absolute;width:154px;height:154px;color:var(--cert-primary);opacity:calc(var(--cert-ornament-opacity)*.92);z-index:1}
+.cert-corner-line{vector-effect:non-scaling-stroke;stroke-width:1.8}.cert-corner-line.primary{stroke:var(--cert-primary)}.cert-corner-line.accent{stroke:var(--cert-accent)}.cert-corner .cert-star-fill{fill:rgba(197,163,80,.07)}
+.cert-corner.c1{right:22px;top:22px}.cert-corner.c2{left:22px;top:22px;transform:scaleX(-1)}.cert-corner.c3{right:22px;bottom:22px;transform:scaleY(-1)}.cert-corner.c4{left:22px;bottom:22px;transform:scale(-1)}
+.cert-side-rosette{position:absolute;width:54px;height:54px;top:50%;transform:translateY(-50%);z-index:1;opacity:calc(var(--cert-ornament-opacity)*.72)}.cert-side-rosette .primary{stroke:var(--cert-primary);stroke-width:1.8}.cert-side-rosette .accent{stroke:var(--cert-accent);stroke-width:1.6}.cert-side-rosette.r1{right:31px}.cert-side-rosette.l1{left:31px}
+
+/* ---- Zone 1: main column (head + body) ---- */
+.cert-main{position:absolute;z-index:2;left:52px;right:52px;top:var(--cert-top);bottom:var(--cert-main-bottom);display:flex;flex-direction:column;min-height:0}
+
+/* ---- Zone 1a: head = [halaqa logo | names + ornament + kicker | center logo (+ number)] ---- */
+.cert-head{position:relative;z-index:2;flex:0 0 auto;display:flex;flex-direction:row;align-items:flex-start;justify-content:space-between}
+.cert-logo-slot{flex:0 0 200px;width:200px;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start}
+.cert-logo{width:var(--cert-logo-size);height:var(--cert-logo-size);max-width:none!important;max-height:none!important;object-fit:cover;border-radius:50%;background:#fff;border:2px solid var(--cert-accent);box-shadow:0 6px 16px #00000014;flex:0 0 auto}.cert-logo.signature,.cert-logo.stamp{object-fit:contain}.cert-logo-placeholder{display:grid;place-items:center;font-size:12px;color:var(--cert-primary);border-radius:50%;border:1px dashed var(--cert-accent);background:rgba(255,255,255,.6)}
+.cert-org{flex:1 1 auto;min-width:0;text-align:center;padding-top:2px}
+.cert-org h3,.cert-org h4{margin:0;white-space:normal}
+.cert-org h3{font-size:29px;font-weight:800;color:var(--cert-primary);line-height:1.35}
+.cert-org h4{font-size:24px;font-weight:700;color:var(--cert-secondary);margin-top:2px;line-height:1.35}
+.cert-orn-line{margin:10px auto 0;width:360px;height:22px;position:relative}.cert-orn-line:before,.cert-orn-line:after{content:'';position:absolute;top:10px;width:145px;height:1px;background:linear-gradient(90deg,transparent,var(--cert-accent))}.cert-orn-line:before{left:0}.cert-orn-line:after{right:0;transform:scaleX(-1)}.cert-orn-line span{position:absolute;left:50%;top:0;transform:translateX(-50%) rotate(45deg);width:18px;height:18px;border:2px solid var(--cert-accent);box-shadow:0 0 0 4px var(--cert-paper),0 0 0 5px var(--cert-primary)}.cert-orn-line span:before{content:'';position:absolute;inset:3px;border:1.5px solid var(--cert-primary);transform:rotate(45deg)}
+.cert-kicker{position:relative;z-index:3;text-align:center;margin:6px auto 0;width:max-content;max-width:100%;padding:5px 18px;border:1.5px solid var(--cert-accent);border-radius:999px;color:var(--cert-secondary);font-size:17px;font-weight:800;line-height:1.5;background:rgba(255,255,255,.72)}
+
+/* ---- Zone 1b: body (title, intro, name, achievement, dua) fills the remaining height ---- */
+.cert-body{position:relative;z-index:2;flex:1 1 0;min-height:0;display:flex;flex-direction:column;justify-content:space-evenly;align-items:center}
+.cert-body>*{position:relative;z-index:2;flex:0 0 auto;margin:0;text-align:center}
+.cert-body>*+*{margin-top:6px}
+.cert-main-title{color:var(--cert-primary);font-size:var(--cert-title-size);font-weight:900;line-height:1.2;max-width:840px}
+.cert-intro{font-size:var(--cert-body-size);font-weight:500;line-height:1.5;max-width:890px}
+.cert-name-box{position:relative;width:760px;max-width:78%;min-height:64px;display:grid;place-items:center;border:2px solid var(--cert-accent);border-radius:18px;background:rgba(255,255,255,.40);box-shadow:0 8px 18px #00000008}.cert-name-box:before,.cert-name-box:after{content:'✦';position:absolute;top:50%;transform:translateY(-50%);color:var(--cert-primary);font-size:22px;line-height:1;background:var(--cert-paper);padding:2px}.cert-name-box:before{right:-13px}.cert-name-box:after{left:-13px}.cert-name-box strong{font-size:var(--cert-student-size);font-weight:900;color:var(--cert-secondary);line-height:1.25;padding:6px 18px;text-align:center;max-width:100%}
+.cert-achievement{font-size:calc(var(--cert-body-size) + 1px);font-weight:650;line-height:1.5;max-width:875px;white-space:pre-line}
+.cert-dua{font-size:calc(var(--cert-body-size) - 4px);color:var(--cert-ink);opacity:.78;line-height:1.4;max-width:870px}
+
+/* ---- Zone 2: dates ---- */
+.cert-dates{position:absolute;z-index:3;left:165px;right:165px;bottom:166px;display:flex;justify-content:space-between;align-items:center;pointer-events:none}.cert-dates span{min-width:190px;padding:4px 16px;border:1px solid var(--cert-accent);border-radius:12px;background:rgba(255,255,255,.48);font-size:13px;font-weight:800;line-height:1.5;text-align:center;box-shadow:0 3px 10px #00000008}.cert-date-hijri{color:var(--cert-primary)}.cert-date-gregorian{color:var(--cert-secondary)}
+
+/* ---- Certificate number (4 possible positions) ---- */
+.cert-number{font-size:12px;font-weight:800;line-height:1.4;color:var(--cert-ink);direction:rtl;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:5px}.cert-number-code{direction:ltr;unicode-bidi:isolate;font-weight:800;letter-spacing:.02em}.cert-number-label{direction:rtl;unicode-bidi:isolate}
+.cert-number-logo{flex:0 0 auto;margin-top:5px;min-width:170px;max-width:none;padding:3px 10px;border-top:1px solid var(--cert-accent);border-bottom:1px solid var(--cert-accent);background:linear-gradient(90deg,transparent,var(--cert-paper) 18%,var(--cert-paper) 82%,transparent);text-align:center;font-size:11px;letter-spacing:.015em}
+.cert-number-top{position:absolute;z-index:4;top:20px;left:50%;transform:translateX(-50%);background:var(--cert-paper);padding:4px 14px;border-radius:999px;border:1px solid var(--cert-accent)}
+
+/* ---- Zone 3: signatures + stamp ---- */
+.cert-signatures{position:absolute;z-index:2;left:72px;right:72px;bottom:70px;display:grid;grid-template-columns:1fr 130px 1fr;gap:34px;align-items:end}.cert-sign{text-align:center;min-width:0}.cert-sign-line{height:30px;border-bottom:1px solid var(--cert-accent);display:flex;align-items:end;justify-content:center;margin:0 42px 4px}.cert-sign-line img{max-height:44px;max-width:78%;object-fit:contain}.cert-sign span{display:block;font-size:12px;line-height:1.4;color:#6c6251}.cert-sign b{display:block;font-size:16px;line-height:1.4;font-weight:800;color:var(--cert-primary);margin-top:2px}.cert-stamp{width:82px;height:82px;flex:0 0 82px;border:2px dashed var(--cert-accent);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto;padding:0;overflow:hidden;box-sizing:border-box;text-align:center;color:var(--cert-secondary);font-size:12px;line-height:1.3;font-weight:700;background:rgba(255,255,255,.45)}.cert-stamp span{display:block;width:100%;margin:0;padding:0 8px;text-align:center;line-height:1.3}.cert-stamp img{display:block;width:100%;height:100%;object-fit:contain;border-radius:50%}
+
+/* ---- Zone 4: footer verse (+ optional number) ---- */
+.cert-footer{position:absolute;z-index:2;left:68px;right:68px;bottom:16px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center}.cert-number-footer{justify-content:flex-start}.cert-number-right{justify-content:flex-end}.cert-verse{padding:6px 24px;border-radius:999px;background:var(--cert-primary);color:white;border:2px solid var(--cert-accent);font-size:17px;line-height:1.5;font-weight:700;white-space:nowrap;box-shadow:0 4px 10px #0000000b}
+.cert-template-minimal .cert-corner{opacity:calc(var(--cert-ornament-opacity)*.52)}.cert-template-minimal .cert-geo-bg{opacity:calc(var(--cert-ornament-opacity)*.028)}.cert-template-gold .cert-frame{box-shadow:inset 0 0 0 5px var(--cert-paper),inset 0 0 0 7px var(--cert-accent),inset 0 0 0 12px var(--cert-paper),inset 0 0 0 15px var(--cert-secondary)}
+@page{size:A4 landscape;margin:0!important}
+@media print{
+ html,body{width:297mm!important;height:210mm!important;margin:0!important;padding:0!important;overflow:hidden!important;background:var(--cert-paper)!important}
+ body{display:block!important}
+ .halaqati-certificate{break-inside:avoid!important;page-break-inside:avoid!important;width:297mm!important;height:210mm!important;max-width:none!important;max-height:none!important;margin:0!important;padding:0!important;box-shadow:none!important}
+ .cert-geo-bg{inset:7.4mm;width:calc(100% - 14.8mm);height:calc(100% - 14.8mm)}
+}

@@ -1,0 +1,7 @@
+-- RC43 (2.79.0) — month-roll fixes applied to production on 2026-11-01 (kept here as the record).
+-- 1) rc191_isolate_cross_month_phases: archived phases get brand-new phase_order values above the plan's maximum
+--    (the old phase_order+100 collided with the unique (plan_id, phase_order) key and made "بدء دورة شهر جديدة" fail).
+-- 2) rc152_roll_tathbit_months_core: an auto-extended tathbit plan of an earlier month ends on the last day of its own month,
+--    so the nightly roll freezes it (with the pages actually done) and creates the new month's plan.
+-- The full function bodies are the ones currently deployed (see pg_get_functiondef); the client derives the line list of a rolled
+-- tathbit plan from its start location (HalaqatiRepository.canonicalPlanLineKeys).

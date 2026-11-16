@@ -1,0 +1,11 @@
+{
+  "format": "halaqati-qcf4-page-line-v2",
+  "source": "MohamadHajjRabee/quran-qcf4 verses.json",
+  "source_url": "https://raw.githubusercontent.com/MohamadHajjRabee/quran-qcf4/5130511027e769f0a8f4eeb7f00f46bde3788d60/verses.json",
+  "source_commit": "5130511027e769f0a8f4eeb7f00f46bde3788d60",
+  "source_blob_sha1": "568f4820cefe142ccd3f75b89fa99b1a2ad01fe9",
+  "ayah_count": 6236,
+  "page_count": 604,
+  "line_model": 15,
+  "asset_sha256": "cce7cd58921b99196ed2a9f081572e3bde2211f2d9ea09fabf1bde6eff8986c4"
+}

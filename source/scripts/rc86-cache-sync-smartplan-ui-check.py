@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+from pathlib import Path
+ROOT=Path(__file__).resolve().parents[1]
+def read(p): return (ROOT/p).read_text(encoding='utf-8')
+errors=[]
+def need(ok,msg):
+    if not ok: errors.append(msg)
+repo=read('app/src/main/java/com/mohammedsamir/halaqati/data/HalaqatiRepository.kt')
+conn=read('app/src/main/java/com/mohammedsamir/halaqati/data/ConnectivitySyncCoordinator.kt')
+graph=read('app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt')
+vm=read('app/src/main/java/com/mohammedsamir/halaqati/ui/AppViewModel.kt')
+app=read('app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt')
+core=read('app/src/main/java/com/mohammedsamir/halaqati/ui/screens/CoreScreens.kt')
+mgmt=read('app/src/main/java/com/mohammedsamir/halaqati/ui/screens/ManagementScreens.kt')
+reports=read('app/src/main/java/com/mohammedsamir/halaqati/ui/screens/ReportsAndTools.kt')
+typo=read('app/src/main/java/com/mohammedsamir/halaqati/ui/theme/CairoTypography.kt')
+rules=read('app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanActivityRules.kt')
+components=read('app/src/main/java/com/mohammedsamir/halaqati/ui/components/Components.kt')
+
+need('registerDefaultNetworkCallback' in conn and 'registerNetworkCallback' in conn and 'Build.VERSION.SDK_INT' in conn and 'NET_CAPABILITY_VALIDATED' in conn, 'validated reconnect listener/minSdk23 fallback missing')
+need('syncEpoch' in conn and 'requestImmediateSync' in conn, 'foreground immediate sync/epoch missing')
+need('ConnectivitySyncCoordinator' in graph and '.start()' in graph, 'connectivity coordinator not started by AppGraph')
+need('AppGraph.connectivity.syncEpoch.collectLatest' in vm, 'ViewModel does not react to completed reconnect sync')
+need(('@Synchronized\n    fun syncNow()' in repo) or ('synchronized(pushLock) { flushQueue() }' in repo), 'syncNow is not guarded against concurrent reconnect/manual runs')
+need('fun table(' in repo and 'forceRefresh: Boolean = false' in repo and 'if (!forceRefresh && cached != null)' in repo, 'generic stale-while-revalidate cache reader missing')
+need('CACHE_ACCOUNTS' in repo and 'fun accountProfiles(forceRefresh: Boolean = false)' in repo, 'accounts are still online-only')
+need('planSnapshotMemory' in repo and 'return planSnapshotMemory' in repo, 'Smart Plan in-memory snapshot missing')
+need(repo.count('CACHE_SESSION_') >= 3 and repo.count('maxAge = null') >= 8, 'session details are not persistent-cache-first')
+need('effectiveDailyPages' in rules and 'weeklyDaily' in repo, 'Smart Plan amount rule still allows stale single-line wards')
+need('QuranLocation(23, 118)' in read('scripts/kotlin-selftest/SmartPlanActivityRulesSelfTest.kt'), 'Al-Muminun -> Al-Hajj continuation regression missing')
+need('students:' in app and 'initialStudentId=deepLinkedStudentId' in app and 'فتح ملف الطالب' in mgmt, 'supervision student deep navigation missing')
+need('syncEpoch by AppGraph.connectivity.syncEpoch.collectAsState()' in core, 'screens do not refresh from cache after background sync')
+need('فلترة النتائج' in reports and 'Fصل كامل بين الحفظ العام والتثبيت' not in reports[reports.find('fun RankingsScreen'):reports.find('fun ImportExportScreen')], 'rankings still wastes space on duplicate hero')
+need('heightIn(min = 48.dp)' in reports[reports.find('fun RankingsScreen'):reports.find('fun ImportExportScreen')], 'rankings compact 48dp filters missing')
+need('bodyLarge = TextStyle(fontFamily = CairoFamily, fontWeight = FontWeight.Medium' in typo and 'bodyMedium = TextStyle(fontFamily = CairoFamily, fontWeight = FontWeight.Medium' in typo, 'Cairo body hierarchy not strengthened')
+need('resolve host' in components and 'آخر بيانات محفوظة' in components, 'raw DNS error masking missing')
+need('progress.recoveryShare > 0.001' in core, 'zero compensation is still shown')
+if errors:
+    print('RC8.6 cache/sync/smart-plan/UI gate FAILED')
+    for e in errors: print(' -',e)
+    raise SystemExit(1)
+print('RC8.6 cache/sync/smart-plan/UI gate PASS')
