@@ -231,14 +231,14 @@ internal suspend fun compareGroups(fromD: LocalDate, toD: LocalDate, byCategory:
                 val students = AppGraph.repo.students(forceRefresh = false)
                     .filter { it.status == "active" && it.halaqaId.orEmpty() in halaqaName }
                     .associateBy { it.id }
-                val att = AppGraph.repo.table(
+                val att = AppGraph.repo.tablePaged(
                     "attendance_records",
-                    "select=student_id,status,sessions!inner(session_date,halaqa_id,status)&$range&limit=10000",
+                    "select=student_id,status,sessions!inner(session_date,halaqa_id,status)&$range",
                     forceRefresh = fresh,
                 ).objs()
-                val rec = AppGraph.repo.table(
+                val rec = AppGraph.repo.tablePaged(
                     "recitation_entries",
-                    "select=student_id,activity_type,start_surah,start_ayah,end_surah,end_ayah,pages_count,evaluation,safety_percentage,sessions!inner(session_date,halaqa_id,status)&$range&limit=10000",
+                    "select=student_id,activity_type,start_surah,start_ayah,end_surah,end_ayah,pages_count,evaluation,safety_percentage,sessions!inner(session_date,halaqa_id,status)&$range",
                     forceRefresh = fresh,
                 ).objs()
                 if (!byCategory) {

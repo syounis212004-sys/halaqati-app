@@ -65,7 +65,7 @@ fun TeamScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, navigate: 
                 val today = LocalDate.now()
                 val rows = repo.staffOverviewStored(today.withDayOfMonth(1).toString(), today.toString())
                     ?: throw IllegalStateException("لا توجد بيانات محفوظة بعد. افتح هذه الصفحة مرة واحدة وأنت متصل بالإنترنت.")
-                val activeStudents = repo.table("students", "select=id,halaqa_id,status&limit=3000").sRows().filter { it.optString("status") == "active" }
+                val activeStudents = repo.tablePaged("students", "select=id,halaqa_id,status").sRows().filter { it.optString("status") == "active" }
                 val perHalaqa = activeStudents.groupingBy { it.optString("halaqa_id") }.eachCount()
                 rows.map { p ->
                     val hs = p.optJSONArray("halaqas")

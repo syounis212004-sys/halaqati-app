@@ -934,6 +934,22 @@ class HalaqatiRepository(
     fun cachedStudents(ownerId: String, maxAge: Duration? = null): List<Student>? =
         cache.get(ownerId, CACHE_STUDENTS, maxAge)?.let(::studentsFromJson)
 
+    /**
+     * PostgREST caps one response at 1000 rows, so a single `limit=1000` silently drops students beyond that. Pages of 500 are
+     * read until a short page comes back. shortcut: stops at 40 pages (20,000 rows), raise it if a program ever grows past that.
+     */
+    private fun selectAllPages(name: String, query: String): JSONArray {
+        val out = JSONArray()
+        var offset = 0
+        repeat(40) {
+            val page = api.select(name, "$query&limit=500&offset=$offset")
+            for (i in 0 until page.length()) out.put(page.get(i))
+            if (page.length() < 500) return out
+            offset += 500
+        }
+        return out
+    }
+
     fun refreshStudents(): List<Student> {
         val owner = currentUserId() ?: return emptyList()
         val localFallback = { offlineDb.students().all(owner).map { Student.from(it.asJson()) } }
@@ -941,7 +957,7 @@ class HalaqatiRepository(
         // RC79: the bulk list no longer carries photo_path (about 15 KB per student). Photos are fetched once, then only for
         // students whose row changed on the server, and are kept in the local database in between.
         val arr = runCatching { withAuthRetry {
-            api.select("students", "select=$STUDENT_COLUMNS_NO_PHOTO&order=full_name.asc&limit=1000")
+            selectAllPages("students", "select=$STUDENT_COLUMNS_NO_PHOTO&order=full_name.asc,id.asc")
         } }.getOrElse { return localFallback().ifEmpty { cachedStudents(owner, null).orEmpty() } }
         val dirtyIds = offlineDb.students().dirty(owner).mapTo(hashSetOf()) { it.id }
         val localPhotos = offlineDb.students().all(owner).associate { it.id to it.photoPath }
@@ -2747,6 +2763,22 @@ class HalaqatiRepository(
      * only an explicit refresh waits for the server. The background sync worker
      * refreshes these snapshots after connectivity returns.
      */
+    /**
+     * `table()` for lists that can pass PostgREST's 1000-row response cap (insight screens read thousands of attendance and
+     * recitation rows). Pages of 1000 by `id`, so the query must not carry its own limit/order. shortcut: 20 pages (20,000 rows).
+     */
+    fun tablePaged(name: String, query: String, forceRefresh: Boolean = false): JSONArray {
+        val out = JSONArray()
+        var offset = 0
+        repeat(20) {
+            val page = table(name, "$query&order=id.asc&limit=1000&offset=$offset", forceRefresh = forceRefresh && offset == 0)
+            for (i in 0 until page.length()) out.put(page.get(i))
+            if (page.length() < 1000) return out
+            offset += 1000
+        }
+        return out
+    }
+
     fun table(
         table: String,
         query: String = "select=*&order=created_at.desc&limit=250",
