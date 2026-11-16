@@ -1,0 +1,5006 @@
+{
+ "name": "halaqati-app",
+ "description": "تطبيق أندرويد (Kotlin / Jetpack Compose) لإدارة حلقات تحفيظ القرآن الكريم \"حلقاتي\"، مع سكربتات Python للفحص الذاتي وملفات SQL ووثائق إصدارات بالعربية. Note: this project has over 100 source files; consider scoping analysis to a subdirectory for faster results.",
+ "languages": [
+  "bin",
+  "css",
+  "java",
+  "javascript",
+  "json",
+  "kotlin",
+  "markdown",
+  "pro",
+  "properties",
+  "python",
+  "shell",
+  "sql",
+  "txt",
+  "webp",
+  "xml",
+  "yaml"
+ ],
+ "frameworks": [
+  "Jetpack Compose",
+  "Material 3",
+  "Room",
+  "WorkManager",
+  "Firebase",
+  "Lottie",
+  "Gradle",
+  "GitHub Actions"
+ ],
+ "files": [
+  {
+   "path": ".ua/config.json",
+   "language": "json",
+   "sizeLines": 1,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/.github/workflows/halaqati-backup.yml",
+   "language": "yaml",
+   "sizeLines": 48,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/DESIGN_FIXES_AFTER_RC97_AR.md",
+   "language": "markdown",
+   "sizeLines": 19,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC10_1_DAILY_INTELLIGENCE_AR.md",
+   "language": "markdown",
+   "sizeLines": 26,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC10_2_10_3_FIX1_COMPILE_AR.md",
+   "language": "markdown",
+   "sizeLines": 11,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC10_2_10_3_STUDENT_INTELLIGENCE_AR.md",
+   "language": "markdown",
+   "sizeLines": 63,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC11_1_UI_ACCESS_FIX_AR.md",
+   "language": "markdown",
+   "sizeLines": 12,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC11_2_CORE_PHASE_CONSISTENCY_AR.md",
+   "language": "markdown",
+   "sizeLines": 26,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC11_3_UNIFIED_PHASE_CONTROL_AR.md",
+   "language": "markdown",
+   "sizeLines": 28,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC11_BUILD_FIX1_AR.md",
+   "language": "markdown",
+   "sizeLines": 9,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC11_SMART_PLAN_PHASES_AR.md",
+   "language": "markdown",
+   "sizeLines": 55,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC12_1_STABILITY_CERTIFICATES_CORE_AR.md",
+   "language": "markdown",
+   "sizeLines": 39,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC12_2_CERTIFICATES_STUDIO_AR.md",
+   "language": "markdown",
+   "sizeLines": 30,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC12_2_FIX1_BUILD_FIX2_AR.md",
+   "language": "markdown",
+   "sizeLines": 14,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC12_2_FIX1_VISUAL_RESTORATION_AR.md",
+   "language": "markdown",
+   "sizeLines": 28,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC13_BUILD_FIX2_AR.md",
+   "language": "markdown",
+   "sizeLines": 19,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC13_BUILD_FIX5_ONE_SHOT_AR.md",
+   "language": "markdown",
+   "sizeLines": 11,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC13_DOCUMENT_REPORTS_STUDIO_AR.md",
+   "language": "markdown",
+   "sizeLines": 54,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC13_FINAL_DOCUMENT_SAVE_PREVIEW_FIX_AR.md",
+   "language": "markdown",
+   "sizeLines": 34,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC14_1_PDF_V244_ENGINE_AR.md",
+   "language": "markdown",
+   "sizeLines": 7,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC14_GUARDIAN_MANAGEMENT_DOCUMENT_RELIABILITY_AR.md",
+   "language": "markdown",
+   "sizeLines": 81,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC15_1_TATHBIT_ISOLATION_PDF_AR.md",
+   "language": "markdown",
+   "sizeLines": 16,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC15_2_TATHBIT_CORE_PDF_CORE_AR.md",
+   "language": "markdown",
+   "sizeLines": 26,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC15_TATHBIT_SYNC_INTEGRITY_AR.md",
+   "language": "markdown",
+   "sizeLines": 13,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC16_2_51_0_FINAL_POLISH_AR.md",
+   "language": "markdown",
+   "sizeLines": 12,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC17_1_BUILD_FIX2_SMART_PLAN_UUID_NULL_AR.md",
+   "language": "markdown",
+   "sizeLines": 11,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC17_1_BUILD_FIX3_SMART_PLAN_CONTINUITY_AR.md",
+   "language": "markdown",
+   "sizeLines": 29,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC17_1_BUILD_FIX4_SHARED_LABEL_VISIBILITY_AR.md",
+   "language": "markdown",
+   "sizeLines": 9,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC17_1_BUILD_FIX5_UX_TILAWAH_PERFORMANCE_AR.md",
+   "language": "markdown",
+   "sizeLines": 22,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC17_1_BUILD_FIX6_SOURCE_GATE_COMPAT_AR.md",
+   "language": "markdown",
+   "sizeLines": 14,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC17_1_CONSISTENCY_PERFORMANCE_PATCH_AR.md",
+   "language": "markdown",
+   "sizeLines": 27,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC17_2_52_0_ROLE_EXPERIENCE_AR.md",
+   "language": "markdown",
+   "sizeLines": 11,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC17_BUILD_FIX1_UNIT_TEST_SYNC_AR.md",
+   "language": "markdown",
+   "sizeLines": 18,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC17_DESIGN_INTEGRATION_AR.md",
+   "language": "markdown",
+   "sizeLines": 25,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC19_1_MONTH_ISOLATION_HOTFIX_AR.md",
+   "language": "markdown",
+   "sizeLines": 6,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC19_SMART_PLAN_CONTROL_CENTER_AR.md",
+   "language": "markdown",
+   "sizeLines": 42,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC8_2_RECITATION_PARITY_AR.md",
+   "language": "markdown",
+   "sizeLines": 30,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC8_3_SMART_PLAN_QURAN_UX_AR.md",
+   "language": "markdown",
+   "sizeLines": 19,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC8_4_DIRECTION_OFFLINE_UX_AR.md",
+   "language": "markdown",
+   "sizeLines": 34,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC8_5_MULTI_ACTIVITY_SMART_PLAN_AR.md",
+   "language": "markdown",
+   "sizeLines": 41,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC8_6_CACHE_SYNC_SMART_PLAN_UX_AR.md",
+   "language": "markdown",
+   "sizeLines": 54,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC8_6_STARTUP_CRASH_HOTFIX_AR.md",
+   "language": "markdown",
+   "sizeLines": 11,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC8_6_V3_PERFORMANCE_SESSION_UX_AR.md",
+   "language": "markdown",
+   "sizeLines": 40,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC9_1_SMART_PLAN_CORE_AR.md",
+   "language": "markdown",
+   "sizeLines": 80,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC9_2_SESSION_WORKFLOW_AR.md",
+   "language": "markdown",
+   "sizeLines": 102,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC9_3_FINAL_STABILIZATION_AR.md",
+   "language": "markdown",
+   "sizeLines": 93,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC9_3_FIX2_SURPLUS_PROGRESS_AR.md",
+   "language": "markdown",
+   "sizeLines": 16,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/POWER_RC9_3_FIX3_RUNTIME_UX_STABILIZATION_AR.md",
+   "language": "markdown",
+   "sizeLines": 25,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RC11_VALIDATION.md",
+   "language": "markdown",
+   "sizeLines": 43,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RC12_2_FIX1_BUILD_FIX.md",
+   "language": "markdown",
+   "sizeLines": 9,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RC13_RUNTIME_DOCUMENTS_ONE_SHOT_AR.md",
+   "language": "markdown",
+   "sizeLines": 34,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RC17_1_BUILD_FIX7_RELEASE_UPDATE_AR.md",
+   "language": "markdown",
+   "sizeLines": 7,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/README.md",
+   "language": "markdown",
+   "sizeLines": 87,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_53_0_MANAGEMENT_UX_RELIABILITY_AR.md",
+   "language": "markdown",
+   "sizeLines": 49,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_54_0_RC18_PRIVACY_MONTHLY_ACHIEVEMENTS_AR.md",
+   "language": "markdown",
+   "sizeLines": 70,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_54_1_RC18_1_VISIBILITY_FIX_AR.md",
+   "language": "markdown",
+   "sizeLines": 17,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_54_2_RC18_2_SESSION_MONTHLY_CONTINUITY_AR.md",
+   "language": "markdown",
+   "sizeLines": 31,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_58_0_RC22_STABLE_IMPORT_PROGRAMS_AR.md",
+   "language": "markdown",
+   "sizeLines": 14,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_59_0_RC23_STUDENT_SESSION_PLAN_CONSISTENCY_AR.md",
+   "language": "markdown",
+   "sizeLines": 39,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_60_0_RC24_CERTIFICATE_ARCHIVE_RENDERING_CORE_AR.md",
+   "language": "markdown",
+   "sizeLines": 89,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_60_1_RC24_1_CERTIFICATE_LAYOUT_ARCHIVE_UX_AR.md",
+   "language": "markdown",
+   "sizeLines": 59,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_60_2_RC24_2_NOTIFICATIONS_AYAH_RANGES_AR.md",
+   "language": "markdown",
+   "sizeLines": 20,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_60_3_RC24_3_COMPACT_UI_AR.md",
+   "language": "markdown",
+   "sizeLines": 10,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_60_4_RC24_4_SESSION_DELETE_SAFETY_AR.md",
+   "language": "markdown",
+   "sizeLines": 8,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_61_0_RC25_HALAQA_SCOPE_AR.md",
+   "language": "markdown",
+   "sizeLines": 18,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_62_0_RC26_PLAN_RANGE_AR.md",
+   "language": "markdown",
+   "sizeLines": 102,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_12_RC27_12_MOTION_AR.md",
+   "language": "markdown",
+   "sizeLines": 22,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_13_RC27_13_MOTION_FIXES_AR.md",
+   "language": "markdown",
+   "sizeLines": 8,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_14_RC27_14_BRAND_AR.md",
+   "language": "markdown",
+   "sizeLines": 28,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_15_RC27_15_EASTERN_MOTION_AR.md",
+   "language": "markdown",
+   "sizeLines": 12,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_16_RC27_16_TRANSITIONS_AR.md",
+   "language": "markdown",
+   "sizeLines": 20,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_17_RC27_17_DRAWER_AR.md",
+   "language": "markdown",
+   "sizeLines": 8,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_18_RC27_18_STALE_SESSION_DATA_AR.md",
+   "language": "markdown",
+   "sizeLines": 12,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_19_RC27_19_PROGRAM_PARTICIPANTS_AR.md",
+   "language": "markdown",
+   "sizeLines": 10,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_20_RC27_20_INSIGHT_CARDS_WELCOME_AR.md",
+   "language": "markdown",
+   "sizeLines": 12,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_21_RC27_21_LOGIN_SPLASH_AR.md",
+   "language": "markdown",
+   "sizeLines": 6,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_22_RC27_22_MORE_HUB_COMPARE_AR.md",
+   "language": "markdown",
+   "sizeLines": 7,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_23_RC27_23_OFFLINE_CACHE_AR.md",
+   "language": "markdown",
+   "sizeLines": 9,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_24_RC27_24_SAVE_KEEPS_CACHE_AR.md",
+   "language": "markdown",
+   "sizeLines": 9,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_25_RC27_25_ROSTER_BACK_AR.md",
+   "language": "markdown",
+   "sizeLines": 5,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_26_RC27_26_REPORT_INACTIVE_AR.md",
+   "language": "markdown",
+   "sizeLines": 5,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_27_RC27_27_ANNOUNCE_ALL_AR.md",
+   "language": "markdown",
+   "sizeLines": 5,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_28_RC27_28_GUARDIAN_PRAISE_AR.md",
+   "language": "markdown",
+   "sizeLines": 5,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_29_RC27_29_FULL_MENU_BLACK_AR.md",
+   "language": "markdown",
+   "sizeLines": 5,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_30_RC27_30_PROGRAMS_NOT_COMPARED_AR.md",
+   "language": "markdown",
+   "sizeLines": 5,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_31_RC27_31_COMPARE_OPTIONS_AR.md",
+   "language": "markdown",
+   "sizeLines": 6,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_32_RC27_32_SEASONS_AR.md",
+   "language": "markdown",
+   "sizeLines": 10,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_33_RC27_33_SEASONS_ALL_ROLES_AR.md",
+   "language": "markdown",
+   "sizeLines": 8,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_34_RC27_34_DATA_USAGE_AR.md",
+   "language": "markdown",
+   "sizeLines": 9,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_35_RC27_35_FORCED_UPDATE_AR.md",
+   "language": "markdown",
+   "sizeLines": 9,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_36_RC27_36_UPDATE_HARDENING_AR.md",
+   "language": "markdown",
+   "sizeLines": 9,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_37_RC27_37_BADGES_AR.md",
+   "language": "markdown",
+   "sizeLines": 10,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_38_RC27_38_GATE_CLEANUP_AR.md",
+   "language": "markdown",
+   "sizeLines": 7,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_39_RC27_39_NAV_FIX_AR.md",
+   "language": "markdown",
+   "sizeLines": 6,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_40_RC27_40_DATA_FRESHNESS_AR.md",
+   "language": "markdown",
+   "sizeLines": 5,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_41_RC27_41_PAGED_READS_AR.md",
+   "language": "markdown",
+   "sizeLines": 7,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_42_RC27_42_APPROVALS_AR.md",
+   "language": "markdown",
+   "sizeLines": 8,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_43_RC27_43_APPROVAL_HARDENING_AR.md",
+   "language": "markdown",
+   "sizeLines": 5,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_44_RC27_44_IDENTITY_WEEKLY_AR.md",
+   "language": "markdown",
+   "sizeLines": 6,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_45_RC27_45_TESTS_AUDIT_AR.md",
+   "language": "markdown",
+   "sizeLines": 5,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_46_RC27_46_APPROVAL_PUSH_AR.md",
+   "language": "markdown",
+   "sizeLines": 6,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_47_RC27_47_IDENTITY_PICKER_AR.md",
+   "language": "markdown",
+   "sizeLines": 7,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_48_RC27_48_BUILD_FIX_AR.md",
+   "language": "markdown",
+   "sizeLines": 4,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_49_RC27_49_BROADCAST_CENTER_AR.md",
+   "language": "markdown",
+   "sizeLines": 8,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_63_50_RC27_50_PREP_NOTIFICATION_AR.md",
+   "language": "markdown",
+   "sizeLines": 5,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_64_0_RC28_AR.md",
+   "language": "markdown",
+   "sizeLines": 26,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_65_0_RC29_AR.md",
+   "language": "markdown",
+   "sizeLines": 18,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_66_0_RC30_AR.md",
+   "language": "markdown",
+   "sizeLines": 16,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_67_0_RC31_AR.md",
+   "language": "markdown",
+   "sizeLines": 11,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_68_0_RC32_AR.md",
+   "language": "markdown",
+   "sizeLines": 5,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_69_0_RC33_AR.md",
+   "language": "markdown",
+   "sizeLines": 5,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_70_0_RC34_AR.md",
+   "language": "markdown",
+   "sizeLines": 5,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_71_0_RC35_AR.md",
+   "language": "markdown",
+   "sizeLines": 8,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_72_0_RC36_AR.md",
+   "language": "markdown",
+   "sizeLines": 7,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_73_0_RC37_AR.md",
+   "language": "markdown",
+   "sizeLines": 12,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_74_0_RC38_AR.md",
+   "language": "markdown",
+   "sizeLines": 6,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_75_0_RC39_AR.md",
+   "language": "markdown",
+   "sizeLines": 6,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_76_0_RC40_AR.md",
+   "language": "markdown",
+   "sizeLines": 9,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_77_0_RC41_AR.md",
+   "language": "markdown",
+   "sizeLines": 6,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_78_0_RC42_AR.md",
+   "language": "markdown",
+   "sizeLines": 7,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_79_0_RC43_AR.md",
+   "language": "markdown",
+   "sizeLines": 7,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_80_0_RC44_AR.md",
+   "language": "markdown",
+   "sizeLines": 5,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_81_0_RC45_AR.md",
+   "language": "markdown",
+   "sizeLines": 3,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_82_0_RC46_AR.md",
+   "language": "markdown",
+   "sizeLines": 9,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_83_0_RC47_AR.md",
+   "language": "markdown",
+   "sizeLines": 6,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_84_0_RC48_AR.md",
+   "language": "markdown",
+   "sizeLines": 8,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_85_0_RC49_AR.md",
+   "language": "markdown",
+   "sizeLines": 8,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_86_0_RC50_AR.md",
+   "language": "markdown",
+   "sizeLines": 7,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_87_0_RC51_AR.md",
+   "language": "markdown",
+   "sizeLines": 10,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_88_0_RC52_AR.md",
+   "language": "markdown",
+   "sizeLines": 5,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_89_0_RC53_AR.md",
+   "language": "markdown",
+   "sizeLines": 9,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_89_1_RC54_AR.md",
+   "language": "markdown",
+   "sizeLines": 3,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_89_2_RC55_AR.md",
+   "language": "markdown",
+   "sizeLines": 3,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_89_3_RC56_AR.md",
+   "language": "markdown",
+   "sizeLines": 3,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_89_4_RC57_AR.md",
+   "language": "markdown",
+   "sizeLines": 3,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_90_10_RC97_AR.md",
+   "language": "markdown",
+   "sizeLines": 6,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_90_11_RC98_AR.md",
+   "language": "markdown",
+   "sizeLines": 9,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_90_12_RC99_AR.md",
+   "language": "markdown",
+   "sizeLines": 5,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_90_2_RC89_AR.md",
+   "language": "markdown",
+   "sizeLines": 4,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_90_6_RC93_AR.md",
+   "language": "markdown",
+   "sizeLines": 31,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_90_7_RC94_AR.md",
+   "language": "markdown",
+   "sizeLines": 6,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_90_8_RC95_AR.md",
+   "language": "markdown",
+   "sizeLines": 14,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/RELEASE_2_90_9_RC96_AR.md",
+   "language": "markdown",
+   "sizeLines": 11,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/app/build.gradle.kts",
+   "language": "kotlin",
+   "sizeLines": 141,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/proguard-rules.pro",
+   "language": "pro",
+   "sizeLines": 6,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/androidTest/java/com/mohammedsamir/halaqati/ui/screens/ReportStudioScrollTest.kt",
+   "language": "kotlin",
+   "sizeLines": 45,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/AndroidManifest.xml",
+   "language": "xml",
+   "sizeLines": 30,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/assets/documents/certificate-fit.js",
+   "language": "javascript",
+   "sizeLines": 198,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/assets/documents/certificate.css",
+   "language": "css",
+   "sizeLines": 63,
+   "fileCategory": "markup"
+  },
+  {
+   "path": "source/app/src/main/assets/documents/report.css",
+   "language": "css",
+   "sizeLines": 27,
+   "fileCategory": "markup"
+  },
+  {
+   "path": "source/app/src/main/assets/quran/qcf4-layout-source.json",
+   "language": "json",
+   "sizeLines": 11,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/assets/quran/qcf4-layout-v2.bin",
+   "language": "bin",
+   "sizeLines": 49,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/baseline-prof.txt",
+   "language": "txt",
+   "sizeLines": 13,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/app/src/main/java/android/print/HalaqatiWebViewPdfWriter.java",
+   "language": "java",
+   "sizeLines": 141,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/HalaqatiApplication.kt",
+   "language": "kotlin",
+   "sizeLines": 44,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/MainActivity.kt",
+   "language": "kotlin",
+   "sizeLines": 76,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "language": "kotlin",
+   "sizeLines": 119,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/ApprovalModels.kt",
+   "language": "kotlin",
+   "sizeLines": 16,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/AuthCallbackRules.kt",
+   "language": "kotlin",
+   "sizeLines": 63,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/BackupRules.kt",
+   "language": "kotlin",
+   "sizeLines": 38,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/ConflictRules.kt",
+   "language": "kotlin",
+   "sizeLines": 17,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/ConnectivitySyncCoordinator.kt",
+   "language": "kotlin",
+   "sizeLines": 118,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/DeepLinkRules.kt",
+   "language": "kotlin",
+   "sizeLines": 61,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/GoogleAuthRules.kt",
+   "language": "kotlin",
+   "sizeLines": 17,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/HalaqaScopeStore.kt",
+   "language": "kotlin",
+   "sizeLines": 30,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/HalaqatiRepository.kt",
+   "language": "kotlin",
+   "sizeLines": 6534,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/ImportRules.kt",
+   "language": "kotlin",
+   "sizeLines": 155,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/LocalAccountScopeRules.kt",
+   "language": "kotlin",
+   "sizeLines": 24,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/LocalCache.kt",
+   "language": "kotlin",
+   "sizeLines": 38,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/OfflineDatabase.kt",
+   "language": "kotlin",
+   "sizeLines": 261,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/OfflineLegacyImporter.kt",
+   "language": "kotlin",
+   "sizeLines": 77,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/OfflineQueue.kt",
+   "language": "kotlin",
+   "sizeLines": 80,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/PerfLog.kt",
+   "language": "kotlin",
+   "sizeLines": 24,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/PlanRebaseModels.kt",
+   "language": "kotlin",
+   "sizeLines": 20,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/RefreshGate.kt",
+   "language": "kotlin",
+   "sizeLines": 46,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/RuntimeStabilityRules.kt",
+   "language": "kotlin",
+   "sizeLines": 16,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/SafetyScoring.kt",
+   "language": "kotlin",
+   "sizeLines": 41,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/SecureSessionStore.kt",
+   "language": "kotlin",
+   "sizeLines": 63,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/SessionDeleteGuard.kt",
+   "language": "kotlin",
+   "sizeLines": 11,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/SessionExpiry.kt",
+   "language": "kotlin",
+   "sizeLines": 8,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/SmartPlanAlertRules.kt",
+   "language": "kotlin",
+   "sizeLines": 53,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/StudentGuardianRules.kt",
+   "language": "kotlin",
+   "sizeLines": 34,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/StudentInsightEngine.kt",
+   "language": "kotlin",
+   "sizeLines": 66,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/StudentSchemaContract.kt",
+   "language": "kotlin",
+   "sizeLines": 22,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/StudentTrackRules.kt",
+   "language": "kotlin",
+   "sizeLines": 93,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/SupabaseApi.kt",
+   "language": "kotlin",
+   "sizeLines": 381,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/SyncErrorRules.kt",
+   "language": "kotlin",
+   "sizeLines": 78,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/UiPreferencesStore.kt",
+   "language": "kotlin",
+   "sizeLines": 84,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/data/WorkModeHolder.kt",
+   "language": "kotlin",
+   "sizeLines": 42,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/documents/CertificateHtmlRenderer.kt",
+   "language": "kotlin",
+   "sizeLines": 172,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/documents/CertificateRenderGate.kt",
+   "language": "kotlin",
+   "sizeLines": 98,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/documents/DocumentExportManager.kt",
+   "language": "kotlin",
+   "sizeLines": 36,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/documents/DocumentImageEncoder.kt",
+   "language": "kotlin",
+   "sizeLines": 83,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/documents/HtmlDocumentPreview.kt",
+   "language": "kotlin",
+   "sizeLines": 270,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/documents/LogoPolicy.kt",
+   "language": "kotlin",
+   "sizeLines": 6,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/documents/RecitationMatrix.kt",
+   "language": "kotlin",
+   "sizeLines": 121,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/documents/ReportHtmlRenderer.kt",
+   "language": "kotlin",
+   "sizeLines": 474,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/documents/VectorDocumentRenderer.kt",
+   "language": "kotlin",
+   "sizeLines": 1024,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/exams/ExamRules.kt",
+   "language": "kotlin",
+   "sizeLines": 67,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/model/CertificateCore.kt",
+   "language": "kotlin",
+   "sizeLines": 230,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/model/CertificateRules.kt",
+   "language": "kotlin",
+   "sizeLines": 63,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/model/JsonCompat.kt",
+   "language": "kotlin",
+   "sizeLines": 16,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/model/Models.kt",
+   "language": "kotlin",
+   "sizeLines": 613,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/plans/BadgeRules.kt",
+   "language": "kotlin",
+   "sizeLines": 116,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/plans/HifzSpanRules.kt",
+   "language": "kotlin",
+   "sizeLines": 40,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/plans/OrgAttentionRules.kt",
+   "language": "kotlin",
+   "sizeLines": 29,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/plans/OrgInsightRules.kt",
+   "language": "kotlin",
+   "sizeLines": 161,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/plans/PlanHistoryRules.kt",
+   "language": "kotlin",
+   "sizeLines": 62,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/plans/PlanRangeRebaseRules.kt",
+   "language": "kotlin",
+   "sizeLines": 117,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/plans/RecitationGapRules.kt",
+   "language": "kotlin",
+   "sizeLines": 25,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/plans/RecitationQualityRules.kt",
+   "language": "kotlin",
+   "sizeLines": 15,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SardAnchorResolver.kt",
+   "language": "kotlin",
+   "sizeLines": 43,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanActivityRules.kt",
+   "language": "kotlin",
+   "sizeLines": 111,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanCoreState.kt",
+   "language": "kotlin",
+   "sizeLines": 182,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanEligibility.kt",
+   "language": "kotlin",
+   "sizeLines": 40,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanEngine.kt",
+   "language": "kotlin",
+   "sizeLines": 1031,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanHealthRules.kt",
+   "language": "kotlin",
+   "sizeLines": 51,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanPhaseEngine.kt",
+   "language": "kotlin",
+   "sizeLines": 292,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanTagRules.kt",
+   "language": "kotlin",
+   "sizeLines": 8,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanUiRules.kt",
+   "language": "kotlin",
+   "sizeLines": 52,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/plans/WorkModeRules.kt",
+   "language": "kotlin",
+   "sizeLines": 94,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/push/HalaqatiMessagingService.kt",
+   "language": "kotlin",
+   "sizeLines": 29,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/push/NotificationHelper.kt",
+   "language": "kotlin",
+   "sizeLines": 67,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranCore.kt",
+   "language": "kotlin",
+   "sizeLines": 20,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranMetadata.kt",
+   "language": "kotlin",
+   "sizeLines": 203,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranRangeEngine.kt",
+   "language": "kotlin",
+   "sizeLines": 464,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/quran/RecitationParityRules.kt",
+   "language": "kotlin",
+   "sizeLines": 55,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/AppViewModel.kt",
+   "language": "kotlin",
+   "sizeLines": 326,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/CoroutineSafety.kt",
+   "language": "kotlin",
+   "sizeLines": 16,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt",
+   "language": "kotlin",
+   "sizeLines": 535,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/Navigation.kt",
+   "language": "kotlin",
+   "sizeLines": 14,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/auth/NativeGoogleSignIn.kt",
+   "language": "kotlin",
+   "sizeLines": 83,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/AdaptiveControls.kt",
+   "language": "kotlin",
+   "sizeLines": 302,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/AdminHalaqaTodayCard.kt",
+   "language": "kotlin",
+   "sizeLines": 52,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/Components.kt",
+   "language": "kotlin",
+   "sizeLines": 529,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/FollowUpBoard.kt",
+   "language": "kotlin",
+   "sizeLines": 284,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/GazaTime.kt",
+   "language": "kotlin",
+   "sizeLines": 52,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/Girih.kt",
+   "language": "kotlin",
+   "sizeLines": 61,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/GoldenShell.kt",
+   "language": "kotlin",
+   "sizeLines": 507,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/HalaqaScopeUi.kt",
+   "language": "kotlin",
+   "sizeLines": 174,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/HalaqatiInsightKit.kt",
+   "language": "kotlin",
+   "sizeLines": 145,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/HalaqatiMotion.kt",
+   "language": "kotlin",
+   "sizeLines": 340,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/HalaqatiMotionKit.kt",
+   "language": "kotlin",
+   "sizeLines": 124,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/HalaqatiNavMotion.kt",
+   "language": "kotlin",
+   "sizeLines": 102,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/HomeShortcuts.kt",
+   "language": "kotlin",
+   "sizeLines": 96,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/IslamicPattern.kt",
+   "language": "kotlin",
+   "sizeLines": 66,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/Lattice.kt",
+   "language": "kotlin",
+   "sizeLines": 34,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/MonthPicker.kt",
+   "language": "kotlin",
+   "sizeLines": 114,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/NourButton.kt",
+   "language": "kotlin",
+   "sizeLines": 62,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/NourKit.kt",
+   "language": "kotlin",
+   "sizeLines": 288,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/NourLists.kt",
+   "language": "kotlin",
+   "sizeLines": 34,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/OneLineName.kt",
+   "language": "kotlin",
+   "sizeLines": 61,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/OrgAttentionCard.kt",
+   "language": "kotlin",
+   "sizeLines": 78,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/OrgInsightCards.kt",
+   "language": "kotlin",
+   "sizeLines": 375,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/OrgLogo.kt",
+   "language": "kotlin",
+   "sizeLines": 52,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/PatternTile.kt",
+   "language": "kotlin",
+   "sizeLines": 95,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/PlansNeedAttentionCard.kt",
+   "language": "kotlin",
+   "sizeLines": 44,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/ProCards.kt",
+   "language": "kotlin",
+   "sizeLines": 58,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/QuickAddSheet.kt",
+   "language": "kotlin",
+   "sizeLines": 101,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/RoleWelcomeCard.kt",
+   "language": "kotlin",
+   "sizeLines": 52,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/RubStar.kt",
+   "language": "kotlin",
+   "sizeLines": 100,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/SeasonsCard.kt",
+   "language": "kotlin",
+   "sizeLines": 239,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/SegmentedTabs.kt",
+   "language": "kotlin",
+   "sizeLines": 108,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/StudentAvatar.kt",
+   "language": "kotlin",
+   "sizeLines": 82,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/TodayHero.kt",
+   "language": "kotlin",
+   "sizeLines": 146,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/Waves.kt",
+   "language": "kotlin",
+   "sizeLines": 35,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/WorkModeUi.kt",
+   "language": "kotlin",
+   "sizeLines": 52,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/DailyOperationStateEngine.kt",
+   "language": "kotlin",
+   "sizeLines": 165,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/DashboardRules.kt",
+   "language": "kotlin",
+   "sizeLines": 16,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/DashboardUiState.kt",
+   "language": "kotlin",
+   "sizeLines": 42,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/DashboardViewModel.kt",
+   "language": "kotlin",
+   "sizeLines": 403,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/FollowUpRules.kt",
+   "language": "kotlin",
+   "sizeLines": 35,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/HomeMessages.kt",
+   "language": "kotlin",
+   "sizeLines": 70,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/RolePhrases.kt",
+   "language": "kotlin",
+   "sizeLines": 86,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/guardian/GuardianBadgesCard.kt",
+   "language": "kotlin",
+   "sizeLines": 82,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/guardian/GuardianHomeScreen.kt",
+   "language": "kotlin",
+   "sizeLines": 386,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/guardian/GuardianHomeViewModel.kt",
+   "language": "kotlin",
+   "sizeLines": 87,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/guardian/GuardianPraise.kt",
+   "language": "kotlin",
+   "sizeLines": 14,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/guardian/GuardianReportText.kt",
+   "language": "kotlin",
+   "sizeLines": 59,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/guardian/GuardianUiState.kt",
+   "language": "kotlin",
+   "sizeLines": 189,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/guardian/GuardianWeeklySummary.kt",
+   "language": "kotlin",
+   "sizeLines": 77,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/guardian/UnifiedCards.kt",
+   "language": "kotlin",
+   "sizeLines": 140,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/navigation/AddActionBus.kt",
+   "language": "kotlin",
+   "sizeLines": 15,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/navigation/AppDestination.kt",
+   "language": "kotlin",
+   "sizeLines": 53,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/navigation/NavigationContract.kt",
+   "language": "kotlin",
+   "sizeLines": 13,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/navigation/RoleNavigationPolicy.kt",
+   "language": "kotlin",
+   "sizeLines": 185,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/presentation/SyncPresentationRules.kt",
+   "language": "kotlin",
+   "sizeLines": 34,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/scope/HalaqaScopeRules.kt",
+   "language": "kotlin",
+   "sizeLines": 112,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/AppSupportInfoCard.kt",
+   "language": "kotlin",
+   "sizeLines": 96,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/ApprovalsScreen.kt",
+   "language": "kotlin",
+   "sizeLines": 254,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/AuthScreens.kt",
+   "language": "kotlin",
+   "sizeLines": 648,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/AwardsScreen.kt",
+   "language": "kotlin",
+   "sizeLines": 280,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/BirthDateField.kt",
+   "language": "kotlin",
+   "sizeLines": 91,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/BroadcastCenter.kt",
+   "language": "kotlin",
+   "sizeLines": 372,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/CoreScreens.kt",
+   "language": "kotlin",
+   "sizeLines": 6804,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/DashboardScreen.kt",
+   "language": "kotlin",
+   "sizeLines": 428,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/DeletedSessionsDialog.kt",
+   "language": "kotlin",
+   "sizeLines": 117,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/DonorChatsScreen.kt",
+   "language": "kotlin",
+   "sizeLines": 158,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/DonorImpactScreen.kt",
+   "language": "kotlin",
+   "sizeLines": 188,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/DonorScreen.kt",
+   "language": "kotlin",
+   "sizeLines": 563,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/ExamsScreen.kt",
+   "language": "kotlin",
+   "sizeLines": 590,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/GuardianParityScreens.kt",
+   "language": "kotlin",
+   "sizeLines": 351,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/IdentityImport.kt",
+   "language": "kotlin",
+   "sizeLines": 50,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/InsightsScreen.kt",
+   "language": "kotlin",
+   "sizeLines": 68,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/ManagementScreens.kt",
+   "language": "kotlin",
+   "sizeLines": 2727,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/NativeReportExport.kt",
+   "language": "kotlin",
+   "sizeLines": 209,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/NativeStudentExport.kt",
+   "language": "kotlin",
+   "sizeLines": 162,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/ObserverScreens.kt",
+   "language": "kotlin",
+   "sizeLines": 465,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/OrgScreen.kt",
+   "language": "kotlin",
+   "sizeLines": 733,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/PlanRangeRebaseDialog.kt",
+   "language": "kotlin",
+   "sizeLines": 132,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/QuickActionSheet.kt",
+   "language": "kotlin",
+   "sizeLines": 47,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/QuranPicker.kt",
+   "language": "kotlin",
+   "sizeLines": 430,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/ReportStudioControls.kt",
+   "language": "kotlin",
+   "sizeLines": 119,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/ReportsAndTools.kt",
+   "language": "kotlin",
+   "sizeLines": 5172,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/RewardFlow.kt",
+   "language": "kotlin",
+   "sizeLines": 671,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/SettingsParitySections.kt",
+   "language": "kotlin",
+   "sizeLines": 405,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/SmartPlanBulkCycleUi.kt",
+   "language": "kotlin",
+   "sizeLines": 477,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/SmartPlanPhasesUi.kt",
+   "language": "kotlin",
+   "sizeLines": 1614,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/StaffMonitorScreen.kt",
+   "language": "kotlin",
+   "sizeLines": 243,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/StudentFollowUpScreen.kt",
+   "language": "kotlin",
+   "sizeLines": 159,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/StudentIdentitySection.kt",
+   "language": "kotlin",
+   "sizeLines": 185,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/StudentProfileScreen.kt",
+   "language": "kotlin",
+   "sizeLines": 858,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/SupervisorData.kt",
+   "language": "kotlin",
+   "sizeLines": 357,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/SupervisorMoreScreens.kt",
+   "language": "kotlin",
+   "sizeLines": 294,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/SupervisorScreens.kt",
+   "language": "kotlin",
+   "sizeLines": 636,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/SupportExtras.kt",
+   "language": "kotlin",
+   "sizeLines": 135,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/SupportScreens.kt",
+   "language": "kotlin",
+   "sizeLines": 660,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/SyncCenterScreen.kt",
+   "language": "kotlin",
+   "sizeLines": 376,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/TeamScreen.kt",
+   "language": "kotlin",
+   "sizeLines": 237,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/UnifiedCards.kt",
+   "language": "kotlin",
+   "sizeLines": 147,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/sessions/SessionWorkflowRules.kt",
+   "language": "kotlin",
+   "sizeLines": 111,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/theme/CairoTypography.kt",
+   "language": "kotlin",
+   "sizeLines": 75,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/theme/HalaqatiPalette.kt",
+   "language": "kotlin",
+   "sizeLines": 156,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/theme/Motion.kt",
+   "language": "kotlin",
+   "sizeLines": 28,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/theme/Theme.kt",
+   "language": "kotlin",
+   "sizeLines": 255,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/update/ForcedUpdateGate.kt",
+   "language": "kotlin",
+   "sizeLines": 166,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/java/com/mohammedsamir/halaqati/ui/update/NativeAppUpdater.kt",
+   "language": "kotlin",
+   "sizeLines": 173,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/res/drawable-nodpi/brand_eastern_khan_younis.webp",
+   "language": "webp",
+   "sizeLines": 201,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_gm_certificates.xml",
+   "language": "xml",
+   "sizeLines": 6,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_gm_community.xml",
+   "language": "xml",
+   "sizeLines": 5,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_gm_competition.xml",
+   "language": "xml",
+   "sizeLines": 4,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_gm_data.xml",
+   "language": "xml",
+   "sizeLines": 5,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_gm_halaqas.xml",
+   "language": "xml",
+   "sizeLines": 7,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_gm_home.xml",
+   "language": "xml",
+   "sizeLines": 6,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_gm_impact.xml",
+   "language": "xml",
+   "sizeLines": 5,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_gm_more.xml",
+   "language": "xml",
+   "sizeLines": 6,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_gm_notifications.xml",
+   "language": "xml",
+   "sizeLines": 5,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_gm_plans.xml",
+   "language": "xml",
+   "sizeLines": 6,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_gm_profile.xml",
+   "language": "xml",
+   "sizeLines": 5,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_gm_quran.xml",
+   "language": "xml",
+   "sizeLines": 5,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_gm_ranking.xml",
+   "language": "xml",
+   "sizeLines": 6,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_gm_reports.xml",
+   "language": "xml",
+   "sizeLines": 5,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_gm_sessions.xml",
+   "language": "xml",
+   "sizeLines": 6,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_gm_settings.xml",
+   "language": "xml",
+   "sizeLines": 5,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_gm_stats.xml",
+   "language": "xml",
+   "sizeLines": 4,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_gm_students.xml",
+   "language": "xml",
+   "sizeLines": 6,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_gm_supervision.xml",
+   "language": "xml",
+   "sizeLines": 5,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_gm_support.xml",
+   "language": "xml",
+   "sizeLines": 4,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_gm_users.xml",
+   "language": "xml",
+   "sizeLines": 6,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_launcher_background.xml",
+   "language": "xml",
+   "sizeLines": 13,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_launcher_foreground.xml",
+   "language": "xml",
+   "sizeLines": 16,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_launcher_monochrome.xml",
+   "language": "xml",
+   "sizeLines": 10,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/drawable/ic_stat_halaqati.xml",
+   "language": "xml",
+   "sizeLines": 10,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+   "language": "xml",
+   "sizeLines": 6,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+   "language": "xml",
+   "sizeLines": 6,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/raw/halaqati_ambient.json",
+   "language": "json",
+   "sizeLines": 0,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/raw/halaqati_empty.json",
+   "language": "json",
+   "sizeLines": 0,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/raw/halaqati_empty_bell.json",
+   "language": "json",
+   "sizeLines": 0,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/raw/halaqati_empty_doc.json",
+   "language": "json",
+   "sizeLines": 0,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/raw/halaqati_empty_people.json",
+   "language": "json",
+   "sizeLines": 0,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/raw/halaqati_empty_search.json",
+   "language": "json",
+   "sizeLines": 0,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/raw/halaqati_loading.json",
+   "language": "json",
+   "sizeLines": 0,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/raw/halaqati_milestone.json",
+   "language": "json",
+   "sizeLines": 0,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/raw/halaqati_offline.json",
+   "language": "json",
+   "sizeLines": 0,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/raw/halaqati_role_admin.json",
+   "language": "json",
+   "sizeLines": 0,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/raw/halaqati_role_guardian.json",
+   "language": "json",
+   "sizeLines": 0,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/raw/halaqati_role_student.json",
+   "language": "json",
+   "sizeLines": 0,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/raw/halaqati_role_supervisor.json",
+   "language": "json",
+   "sizeLines": 0,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/raw/halaqati_role_teacher.json",
+   "language": "json",
+   "sizeLines": 0,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/raw/halaqati_splash.json",
+   "language": "json",
+   "sizeLines": 0,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/raw/halaqati_success.json",
+   "language": "json",
+   "sizeLines": 0,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/raw/halaqati_sync.json",
+   "language": "json",
+   "sizeLines": 0,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/raw/halaqati_trophy.json",
+   "language": "json",
+   "sizeLines": 0,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/raw/halaqati_welcome.json",
+   "language": "json",
+   "sizeLines": 0,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/values-v31/styles.xml",
+   "language": "xml",
+   "sizeLines": 11,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/values/colors.xml",
+   "language": "xml",
+   "sizeLines": 5,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/values/styles.xml",
+   "language": "xml",
+   "sizeLines": 9,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/xml/backup_rules.xml",
+   "language": "xml",
+   "sizeLines": 15,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/main/res/xml/data_extraction_rules.xml",
+   "language": "xml",
+   "sizeLines": 24,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/SafetyScoringTest.kt",
+   "language": "kotlin",
+   "sizeLines": 39,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/data/AuthCallbackRulesTest.kt",
+   "language": "kotlin",
+   "sizeLines": 43,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/data/DeepLinkRulesTest.kt",
+   "language": "kotlin",
+   "sizeLines": 36,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/data/ImportRulesTest.kt",
+   "language": "kotlin",
+   "sizeLines": 63,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/data/LocalAccountScopeRulesTest.kt",
+   "language": "kotlin",
+   "sizeLines": 22,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/data/LocalCacheTest.kt",
+   "language": "kotlin",
+   "sizeLines": 25,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/data/RuntimeStabilityRulesTest.kt",
+   "language": "kotlin",
+   "sizeLines": 22,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/data/SmartPlanAlertRulesTest.kt",
+   "language": "kotlin",
+   "sizeLines": 41,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/data/StudentGuardianRulesTest.kt",
+   "language": "kotlin",
+   "sizeLines": 28,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/data/StudentInsightEngineTest.kt",
+   "language": "kotlin",
+   "sizeLines": 25,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/data/StudentSchemaContractTest.kt",
+   "language": "kotlin",
+   "sizeLines": 19,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/data/StudentTrackRulesTest.kt",
+   "language": "kotlin",
+   "sizeLines": 22,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/data/SyncErrorRulesClassifyTest.kt",
+   "language": "kotlin",
+   "sizeLines": 29,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/data/UiPreferencesStoreTest.kt",
+   "language": "kotlin",
+   "sizeLines": 12,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/navigation/NavigationContractTest.kt",
+   "language": "kotlin",
+   "sizeLines": 10,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/navigation/RoleNavigationPolicyTest.kt",
+   "language": "kotlin",
+   "sizeLines": 88,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/plans/SmartPlanCoreStateTest.kt",
+   "language": "kotlin",
+   "sizeLines": 125,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/plans/SmartPlanEngineTest.kt",
+   "language": "kotlin",
+   "sizeLines": 215,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/plans/SmartPlanHealthRulesTest.kt",
+   "language": "kotlin",
+   "sizeLines": 25,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/plans/SmartPlanMonthIsolationTest.kt",
+   "language": "kotlin",
+   "sizeLines": 39,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/plans/SmartPlanPhaseEngineTest.kt",
+   "language": "kotlin",
+   "sizeLines": 118,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/plans/SmartPlanTagRulesTest.kt",
+   "language": "kotlin",
+   "sizeLines": 15,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/plans/SmartPlanUiRulesTest.kt",
+   "language": "kotlin",
+   "sizeLines": 34,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/quran/QuranMetadataTest.kt",
+   "language": "kotlin",
+   "sizeLines": 31,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/quran/QuranRangeEngineTest.kt",
+   "language": "kotlin",
+   "sizeLines": 98,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/ui/ContrastTest.kt",
+   "language": "kotlin",
+   "sizeLines": 113,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/ui/dashboard/DailyOperationStateEngineTest.kt",
+   "language": "kotlin",
+   "sizeLines": 56,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/ui/dashboard/DashboardRulesTest.kt",
+   "language": "kotlin",
+   "sizeLines": 21,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/ui/guardian/GuardianWeeklySummaryTest.kt",
+   "language": "kotlin",
+   "sizeLines": 51,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/ui/screens/IdentityImportTest.kt",
+   "language": "kotlin",
+   "sizeLines": 37,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/ui/screens/NormalizeBirthDateTest.kt",
+   "language": "kotlin",
+   "sizeLines": 26,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/app/src/test/java/com/mohammedsamir/halaqati/ui/sessions/SessionWorkflowRulesTest.kt",
+   "language": "kotlin",
+   "sizeLines": 87,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/benchmark/build.gradle.kts",
+   "language": "kotlin",
+   "sizeLines": 31,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/benchmark/src/main/java/com/mohammedsamir/halaqati/benchmark/JourneyBenchmarks.kt",
+   "language": "kotlin",
+   "sizeLines": 70,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/benchmark/src/main/java/com/mohammedsamir/halaqati/benchmark/StartupBenchmark.kt",
+   "language": "kotlin",
+   "sizeLines": 33,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/build.gradle.kts",
+   "language": "kotlin",
+   "sizeLines": 7,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/ci-logs/rc20-report-layout/results.json",
+   "language": "json",
+   "sizeLines": 17,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/design/generated/Tokens.kt.txt",
+   "language": "txt",
+   "sizeLines": 29,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/design/generated/tokens.css",
+   "language": "css",
+   "sizeLines": 30,
+   "fileCategory": "markup"
+  },
+  {
+   "path": "source/design/tokens.json",
+   "language": "json",
+   "sizeLines": 10,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/docs/GO_LIVE_CHECKLIST_AR.md",
+   "language": "markdown",
+   "sizeLines": 27,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/docs/RC28_DAILY_UI_REPORT.md",
+   "language": "markdown",
+   "sizeLines": 35,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/docs/RC28_DESIGN.md",
+   "language": "markdown",
+   "sizeLines": 22,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/docs/RC28_PLAN.md",
+   "language": "markdown",
+   "sizeLines": 27,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/docs/RC28_REVIEW.md",
+   "language": "markdown",
+   "sizeLines": 17,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/docs/RC28_VERIFICATION.md",
+   "language": "markdown",
+   "sizeLines": 22,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/docs/SECURITY_AUDIT_2026-10-27_AR.md",
+   "language": "markdown",
+   "sizeLines": 19,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/docs/USER_GUIDE_AR.md",
+   "language": "markdown",
+   "sizeLines": 17,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/docs/brand/build_assets.py",
+   "language": "python",
+   "sizeLines": 91,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/docs/brand/svgmark.py",
+   "language": "python",
+   "sizeLines": 20,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/docs/motion/generate.py",
+   "language": "python",
+   "sizeLines": 267,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/docs/motion/mark.json",
+   "language": "json",
+   "sizeLines": 0,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/docs/motion/scenes.py",
+   "language": "python",
+   "sizeLines": 500,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/docs/superpowers/plans/2026-10-09-rc24-certificate-archive-rendering-core.md",
+   "language": "markdown",
+   "sizeLines": 596,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/docs/superpowers/specs/2026-10-09-rc24-certificate-archive-rendering-core-design.md",
+   "language": "markdown",
+   "sizeLines": 502,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/gradle.properties",
+   "language": "properties",
+   "sizeLines": 11,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/migration/20260926_v2461_rc11_smart_plan_phases.sql",
+   "language": "sql",
+   "sizeLines": 272,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20260926_v2462_rc11_2_phase_consistency.sql",
+   "language": "sql",
+   "sizeLines": 397,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20260927_v2463_rc11_3_bulk_cycle_stability.sql",
+   "language": "sql",
+   "sizeLines": 501,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20260927_v2471_rc12_1_stability_certificates_core.sql",
+   "language": "sql",
+   "sizeLines": 446,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20260928_v2500_rc15_tathbit_first_class_sync_integrity.sql",
+   "language": "sql",
+   "sizeLines": 109,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20260928_v2501_rc15_1_tathbit_phase_isolation.sql",
+   "language": "sql",
+   "sizeLines": 59,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20260929_v2502_rc15_2_tathbit_core_monthly.sql",
+   "language": "sql",
+   "sizeLines": 226,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20260929_v2520_rc17_guardian_experience.sql",
+   "language": "sql",
+   "sizeLines": 154,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20260929_v2521_rc17_1_consistency_performance.sql",
+   "language": "sql",
+   "sizeLines": 186,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20260930_v2522_rc17_1_build_fix3_smart_plan_continuity.sql",
+   "language": "sql",
+   "sizeLines": 385,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261002_v2540_rc18_privacy_monthly_achievements.sql",
+   "language": "sql",
+   "sizeLines": 681,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261002_v2542_rc18_2_session_monthly_continuity.sql",
+   "language": "sql",
+   "sizeLines": 720,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261002_v2550_rc19_smart_plan_control_center.sql",
+   "language": "sql",
+   "sizeLines": 341,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261002_v2551_rc19_1_month_phase_isolation_hotfix.sql",
+   "language": "sql",
+   "sizeLines": 206,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261002_v2560_rc20_ui_document_consistency.sql",
+   "language": "sql",
+   "sizeLines": 7,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261004_v2570_rc21_multi_halaqa_compact_sessions.sql",
+   "language": "sql",
+   "sizeLines": 187,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261005_v2580_rc22_program_metadata_import_ux.sql",
+   "language": "sql",
+   "sizeLines": 23,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261008_v2590_rc23_student_session_plan_consistency.sql",
+   "language": "sql",
+   "sizeLines": 193,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261009_v2600_rc24_certificate_archive_rendering_core.sql",
+   "language": "sql",
+   "sizeLines": 413,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261010_v2601_rc24_1_fix_digest_search_path.sql",
+   "language": "sql",
+   "sizeLines": 12,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261012_v2604_rc24_4_session_delete_snapshot.sql",
+   "language": "sql",
+   "sizeLines": 48,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261012_v2610_rc25_scale_and_rls_performance.sql",
+   "language": "sql",
+   "sizeLines": 115,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261013_v2630_rc27_security_and_notification_cleanup.sql",
+   "language": "sql",
+   "sizeLines": 69,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261019_v2632_rc27_32_competition_seasons.sql",
+   "language": "sql",
+   "sizeLines": 55,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261019_v2633_rc27_33_season_notifications.sql",
+   "language": "sql",
+   "sizeLines": 42,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261020_v2642_rc27_42_approval_hierarchy.sql",
+   "language": "sql",
+   "sizeLines": 506,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261021_v2649_rc27_49_broadcast_center.sql",
+   "language": "sql",
+   "sizeLines": 108,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261027_v2680_rc32_observer_role.sql",
+   "language": "sql",
+   "sizeLines": 150,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261028_v2710_rc35_placeholder_recitations.sql",
+   "language": "sql",
+   "sizeLines": 14,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261028_v2750_rc39_guard_tathbit_functions.sql",
+   "language": "sql",
+   "sizeLines": 29,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261030_v2760_rc40_observer_breakdown.sql",
+   "language": "sql",
+   "sizeLines": 38,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261030_v2780_rc42_observer_fix_and_detail.sql",
+   "language": "sql",
+   "sizeLines": 67,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261101_v2790_rc43_fix_month_start_phase_order.sql",
+   "language": "sql",
+   "sizeLines": 5,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261101_v2790_rc43_month_roll_fixes.sql",
+   "language": "sql",
+   "sizeLines": 7,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261103_v2820_rc46_awards.sql",
+   "language": "sql",
+   "sizeLines": 127,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261104_v2840_rc48_support_and_donor_scope.sql",
+   "language": "sql",
+   "sizeLines": 8,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261104_v2850_rc49_payment_and_donor_pages.sql",
+   "language": "sql",
+   "sizeLines": 8,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/20261111_v2890_rc53_supervisor_freeze_support.sql",
+   "language": "sql",
+   "sizeLines": 147,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/POWER_RC11_1_PHASE_UX_FIX2_AR.md",
+   "language": "markdown",
+   "sizeLines": 19,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/migration/POWER_RC5_BEHAVIORAL_PARITY_AR.md",
+   "language": "markdown",
+   "sizeLines": 28,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/migration/POWER_RC6_COMPILE_FIX_AR.md",
+   "language": "markdown",
+   "sizeLines": 8,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/migration/POWER_RC7_OFFLINE_FOUNDATION_AR.md",
+   "language": "markdown",
+   "sizeLines": 40,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/migration/POWER_RC8_BUILD_FIX_AR.md",
+   "language": "markdown",
+   "sizeLines": 15,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/migration/POWER_RC8_QURAN_CORE_AR.md",
+   "language": "markdown",
+   "sizeLines": 96,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/migration/POWER_STABLE_246_AR.md",
+   "language": "markdown",
+   "sizeLines": 37,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/migration/RC27_18_OPTIONAL_CHECK_ORPHAN_SESSION_DATA.sql",
+   "language": "sql",
+   "sizeLines": 23,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/RC4_GUARDIAN_HERO_COMPILE_FIX_AR.md",
+   "language": "markdown",
+   "sizeLines": 5,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/migration/RC91_revoke_anon_definer_execute.sql",
+   "language": "sql",
+   "sizeLines": 15,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/THIRD_PARTY_NOTICES_RC8.md",
+   "language": "markdown",
+   "sizeLines": 35,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/migration/TOOLS_USED.md",
+   "language": "markdown",
+   "sizeLines": 9,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/migration/UI244_FIX2_NOTES.md",
+   "language": "markdown",
+   "sizeLines": 30,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/migration/UI244_FIX3_NOTES.md",
+   "language": "markdown",
+   "sizeLines": 6,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/migration/build-fix-readme-ar.md",
+   "language": "markdown",
+   "sizeLines": 60,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/migration/build-fix-validation.txt",
+   "language": "txt",
+   "sizeLines": 42,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/migration/diagnostics/rc27_45_rls_push_audit_READONLY.sql",
+   "language": "sql",
+   "sizeLines": 35,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/hotfixes/20261023-phase-sync/README.md",
+   "language": "markdown",
+   "sizeLines": 34,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/migration/hotfixes/20261023-phase-sync/apply.sql",
+   "language": "sql",
+   "sizeLines": 44,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/hotfixes/20261023-phase-sync/rollback.sql",
+   "language": "sql",
+   "sizeLines": 33,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/legacy-reference/src/core/navigation.js",
+   "language": "javascript",
+   "sizeLines": 52,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/migration/legacy-reference/src/core/offline-store.js",
+   "language": "javascript",
+   "sizeLines": 92,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/migration/legacy-reference/src/core/runtime.js",
+   "language": "javascript",
+   "sizeLines": 304,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/migration/legacy-reference/src/features/certificates/runtime.js",
+   "language": "javascript",
+   "sizeLines": 205,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/migration/legacy-reference/src/features/guardian/runtime.js",
+   "language": "javascript",
+   "sizeLines": 80,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/migration/legacy-reference/src/features/notifications/runtime.js",
+   "language": "javascript",
+   "sizeLines": 221,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/migration/legacy-reference/src/features/operations/runtime.js",
+   "language": "javascript",
+   "sizeLines": 444,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/migration/legacy-reference/src/features/plans/engine.js",
+   "language": "javascript",
+   "sizeLines": 893,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/migration/legacy-reference/src/features/reports/runtime.js",
+   "language": "javascript",
+   "sizeLines": 1057,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/migration/legacy-reference/src/features/sessions/runtime.js",
+   "language": "javascript",
+   "sizeLines": 129,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/migration/native-uiux-pro-max.md",
+   "language": "markdown",
+   "sizeLines": 64,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/migration/parity-matrix.md",
+   "language": "markdown",
+   "sizeLines": 52,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/migration/parity/v244-parity-matrix.json",
+   "language": "json",
+   "sizeLines": 1068,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/migration/parity/v244-parity-matrix.md",
+   "language": "markdown",
+   "sizeLines": 54,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/migration/release-freeze-v2452.md",
+   "language": "markdown",
+   "sizeLines": 47,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/migration/security-review/20260909_v2452_security_hardening_REVIEW.sql",
+   "language": "sql",
+   "sizeLines": 42,
+   "fileCategory": "data"
+  },
+  {
+   "path": "source/migration/security-review/README.md",
+   "language": "markdown",
+   "sizeLines": 12,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/migration/source-contract.json",
+   "language": "json",
+   "sizeLines": 183,
+   "fileCategory": "config"
+  },
+  {
+   "path": "source/migration/supabase-performance-review.md",
+   "language": "markdown",
+   "sizeLines": 19,
+   "fileCategory": "docs"
+  },
+  {
+   "path": "source/scripts/auth-push-privacy-check.py",
+   "language": "python",
+   "sizeLines": 78,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/backup-supabase.py",
+   "language": "python",
+   "sizeLines": 83,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/behavioral-parity-check.py",
+   "language": "python",
+   "sizeLines": 78,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/cairo-contract-check.py",
+   "language": "python",
+   "sizeLines": 24,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/ci-build.py",
+   "language": "python",
+   "sizeLines": 65,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/compile-sanity-check.py",
+   "language": "python",
+   "sizeLines": 114,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/compiler-regression-check.py",
+   "language": "python",
+   "sizeLines": 45,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/compose-risk-check.py",
+   "language": "python",
+   "sizeLines": 22,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/fetch-cairo-font.py",
+   "language": "python",
+   "sizeLines": 66,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/full-release-parity-check.py",
+   "language": "python",
+   "sizeLines": 92,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/gen-tokens.py",
+   "language": "python",
+   "sizeLines": 20,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/generate-qcf4-layout.py",
+   "language": "python",
+   "sizeLines": 182,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/google-auth-flow-check.py",
+   "language": "python",
+   "sizeLines": 24,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/AuthCallbackRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 21,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/BackupRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 14,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/ConflictRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 10,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/DeepLinkRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 14,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/GoogleAuthRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 10,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/HalaqaScopeRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 52,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/HalaqatiPaletteSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 24,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/HifzSpanRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 38,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/HomeMessagesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 21,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/ImportRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 21,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/LocalAccountScopeRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 12,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/OrgAttentionRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 29,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/OrgInsightRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 53,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/PlanHistoryRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 28,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/PlanRangeRebaseRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 81,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/QuranMetadataSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 19,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/QuranRangeEngineSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 142,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/RecitationGapRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 17,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/RecitationMatrixSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 35,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/RecitationParityRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 19,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/SafetyScoringSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 20,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/SessionDeleteGuardSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 9,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/SmartPlanActivityRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 55,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/SmartPlanAlertRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 16,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/SmartPlanCoreStateSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 85,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/SmartPlanEngineSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 265,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/SmartPlanHealthRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 11,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/SmartPlanPhaseEngineSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 81,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/SmartPlanTagRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 10,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/SpanCompletionSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 68,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/StudentTrackRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 11,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/SyncPresentationRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 11,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/kotlin-selftest/WorkModeRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 51,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/local-sensitive-account-scope-check.py",
+   "language": "python",
+   "sizeLines": 111,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/make-update-publish.py",
+   "language": "python",
+   "sizeLines": 23,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/manifest-contract-check.py",
+   "language": "python",
+   "sizeLines": 72,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/navigation-contract-check.py",
+   "language": "python",
+   "sizeLines": 22,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/offline-account-scope-check.py",
+   "language": "python",
+   "sizeLines": 84,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/parity-matrix-check.py",
+   "language": "python",
+   "sizeLines": 34,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc10-23-dashboard-icon-regression-check.py",
+   "language": "python",
+   "sizeLines": 9,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc10-23-guardian-queue-regression-check.py",
+   "language": "python",
+   "sizeLines": 18,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc10-23-student-intelligence-check.py",
+   "language": "python",
+   "sizeLines": 44,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc10-daily-intelligence-check.py",
+   "language": "python",
+   "sizeLines": 31,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc13-render-fixtures.py",
+   "language": "python",
+   "sizeLines": 278,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc15-2-tathbit-core-pdf-check.py",
+   "language": "python",
+   "sizeLines": 35,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc15-tathbit-sync-integrity-check.py",
+   "language": "python",
+   "sizeLines": 22,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc16-polish-legacy-update-check.py",
+   "language": "python",
+   "sizeLines": 26,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc17-1-build-fix3-continuity-check.py",
+   "language": "python",
+   "sizeLines": 51,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc17-1-build-fix6-source-gate-compat-check.py",
+   "language": "python",
+   "sizeLines": 40,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc17-1-build-fix7-release-signing-check.py",
+   "language": "python",
+   "sizeLines": 7,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc17-1-smart-plan-uuid-null-check.py",
+   "language": "python",
+   "sizeLines": 19,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc17-role-experience-check.py",
+   "language": "python",
+   "sizeLines": 42,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc19-smart-plan-control-center-check.py",
+   "language": "python",
+   "sizeLines": 50,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc20-build-fix1-check.py",
+   "language": "python",
+   "sizeLines": 15,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc20-report-layout-visual-check.py",
+   "language": "python",
+   "sizeLines": 50,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc21-multi-halaqa-compact-ux-check.py",
+   "language": "python",
+   "sizeLines": 34,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc22-stable-import-program-check.py",
+   "language": "python",
+   "sizeLines": 22,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc23-student-session-plan-consistency-check.py",
+   "language": "python",
+   "sizeLines": 27,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc24-1-certificate-layout-archive-check.py",
+   "language": "python",
+   "sizeLines": 66,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc24-2-notifications-ayah-ranges-check.py",
+   "language": "python",
+   "sizeLines": 40,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc24-3-compact-ui-check.py",
+   "language": "python",
+   "sizeLines": 23,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc24-4-session-delete-safety-check.py",
+   "language": "python",
+   "sizeLines": 16,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc24-certificate-archive-rendering-check.py",
+   "language": "python",
+   "sizeLines": 45,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc24-certificate-db-contract-check.py",
+   "language": "python",
+   "sizeLines": 41,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc24-certificate-render-fixtures.py",
+   "language": "python",
+   "sizeLines": 182,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc25-halaqa-scope-check.py",
+   "language": "python",
+   "sizeLines": 40,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc26-plan-range-check.py",
+   "language": "python",
+   "sizeLines": 62,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc27-18-stale-session-cache-check.py",
+   "language": "python",
+   "sizeLines": 22,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc27-48-kotlin-import-sanity-check.py",
+   "language": "python",
+   "sizeLines": 12,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc27-motion-check.py",
+   "language": "python",
+   "sizeLines": 213,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc29-design-check.py",
+   "language": "python",
+   "sizeLines": 69,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc30-release-safety-check.py",
+   "language": "python",
+   "sizeLines": 28,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc31-sync-visibility-check.py",
+   "language": "python",
+   "sizeLines": 28,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc32-observer-nav-check.py",
+   "language": "python",
+   "sizeLines": 50,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc33-navigation-feel-check.py",
+   "language": "python",
+   "sizeLines": 30,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc34-sard-unbounded-check.py",
+   "language": "python",
+   "sizeLines": 15,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc35-calc-accuracy-check.py",
+   "language": "python",
+   "sizeLines": 27,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc36-sard-span-check.py",
+   "language": "python",
+   "sizeLines": 11,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc37-span-everywhere-check.py",
+   "language": "python",
+   "sizeLines": 18,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc38-choice-clarity-check.py",
+   "language": "python",
+   "sizeLines": 29,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc39-audit-fixes-check.py",
+   "language": "python",
+   "sizeLines": 15,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc40-check.py",
+   "language": "python",
+   "sizeLines": 25,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc41-check.py",
+   "language": "python",
+   "sizeLines": 16,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc42-check.py",
+   "language": "python",
+   "sizeLines": 20,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc43-check.py",
+   "language": "python",
+   "sizeLines": 24,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc44-check.py",
+   "language": "python",
+   "sizeLines": 17,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc45-check.py",
+   "language": "python",
+   "sizeLines": 11,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc46-check.py",
+   "language": "python",
+   "sizeLines": 27,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc47-check.py",
+   "language": "python",
+   "sizeLines": 23,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc48-check.py",
+   "language": "python",
+   "sizeLines": 25,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc49-check.py",
+   "language": "python",
+   "sizeLines": 26,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc50-check.py",
+   "language": "python",
+   "sizeLines": 25,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc51-check.py",
+   "language": "python",
+   "sizeLines": 15,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc52-check.py",
+   "language": "python",
+   "sizeLines": 24,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc53-check.py",
+   "language": "python",
+   "sizeLines": 29,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc7-durability-check.py",
+   "language": "python",
+   "sizeLines": 23,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc7-offline-contract-check.py",
+   "language": "python",
+   "sizeLines": 30,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc8-ci-gates.py",
+   "language": "python",
+   "sizeLines": 81,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc8-integration-check.py",
+   "language": "python",
+   "sizeLines": 42,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc82-qcf-regression.py",
+   "language": "python",
+   "sizeLines": 30,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc82-recitation-parity-check.py",
+   "language": "python",
+   "sizeLines": 39,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc83-smart-plan-quran-ux-check.py",
+   "language": "python",
+   "sizeLines": 41,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc84-direction-offline-ux-check.py",
+   "language": "python",
+   "sizeLines": 55,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc85-smart-plan-activity-performance-check.py",
+   "language": "python",
+   "sizeLines": 28,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc86-cache-sync-smartplan-ui-check.py",
+   "language": "python",
+   "sizeLines": 42,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc86-startup-crash-regression-check.py",
+   "language": "python",
+   "sizeLines": 18,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc86-v3-performance-session-ux-check.py",
+   "language": "python",
+   "sizeLines": 28,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc91-smart-plan-core-check.py",
+   "language": "python",
+   "sizeLines": 45,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/rc93-refresh-scope-regression-check.py",
+   "language": "python",
+   "sizeLines": 35,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/release-contract-check.py",
+   "language": "python",
+   "sizeLines": 105,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/release-parity-contract-check.py",
+   "language": "python",
+   "sizeLines": 61,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/run-kotlin-selftests.sh",
+   "language": "shell",
+   "sizeLines": 133,
+   "fileCategory": "script"
+  },
+  {
+   "path": "source/scripts/run-rc11-targeted-selftest.sh",
+   "language": "shell",
+   "sizeLines": 17,
+   "fileCategory": "script"
+  },
+  {
+   "path": "source/scripts/selftests/DailyOperationStateEngineSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 95,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/selftests/DashboardRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 12,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/selftests/FollowUpRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 19,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/selftests/RC93Fix3RulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 22,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/selftests/RC93RulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 21,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/selftests/SessionWorkflowRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 15,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/selftests/StudentGuardianRulesSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 13,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/selftests/StudentInsightEngineSelfTest.kt",
+   "language": "kotlin",
+   "sizeLines": 12,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/smart-plan-alerts-check.py",
+   "language": "python",
+   "sizeLines": 35,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/stable-release-check.py",
+   "language": "python",
+   "sizeLines": 36,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/static-parity-check.py",
+   "language": "python",
+   "sizeLines": 30,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/ui244-restoration-check.py",
+   "language": "python",
+   "sizeLines": 33,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/scripts/uiux-pro-max-check.py",
+   "language": "python",
+   "sizeLines": 114,
+   "fileCategory": "code"
+  },
+  {
+   "path": "source/settings.gradle.kts",
+   "language": "kotlin",
+   "sizeLines": 9,
+   "fileCategory": "code"
+  }
+ ],
+ "totalFiles": 662,
+ "filteredByIgnore": 502,
+ "estimatedComplexity": "very-large",
+ "importMap": {
+  ".ua/config.json": [],
+  "source/.github/workflows/halaqati-backup.yml": [],
+  "source/DESIGN_FIXES_AFTER_RC97_AR.md": [],
+  "source/POWER_RC10_1_DAILY_INTELLIGENCE_AR.md": [],
+  "source/POWER_RC10_2_10_3_FIX1_COMPILE_AR.md": [],
+  "source/POWER_RC10_2_10_3_STUDENT_INTELLIGENCE_AR.md": [],
+  "source/POWER_RC11_1_UI_ACCESS_FIX_AR.md": [],
+  "source/POWER_RC11_2_CORE_PHASE_CONSISTENCY_AR.md": [],
+  "source/POWER_RC11_3_UNIFIED_PHASE_CONTROL_AR.md": [],
+  "source/POWER_RC11_BUILD_FIX1_AR.md": [],
+  "source/POWER_RC11_SMART_PLAN_PHASES_AR.md": [],
+  "source/POWER_RC12_1_STABILITY_CERTIFICATES_CORE_AR.md": [],
+  "source/POWER_RC12_2_CERTIFICATES_STUDIO_AR.md": [],
+  "source/POWER_RC12_2_FIX1_BUILD_FIX2_AR.md": [],
+  "source/POWER_RC12_2_FIX1_VISUAL_RESTORATION_AR.md": [],
+  "source/POWER_RC13_BUILD_FIX2_AR.md": [],
+  "source/POWER_RC13_BUILD_FIX5_ONE_SHOT_AR.md": [],
+  "source/POWER_RC13_DOCUMENT_REPORTS_STUDIO_AR.md": [],
+  "source/POWER_RC13_FINAL_DOCUMENT_SAVE_PREVIEW_FIX_AR.md": [],
+  "source/POWER_RC14_1_PDF_V244_ENGINE_AR.md": [],
+  "source/POWER_RC14_GUARDIAN_MANAGEMENT_DOCUMENT_RELIABILITY_AR.md": [],
+  "source/POWER_RC15_1_TATHBIT_ISOLATION_PDF_AR.md": [],
+  "source/POWER_RC15_2_TATHBIT_CORE_PDF_CORE_AR.md": [],
+  "source/POWER_RC15_TATHBIT_SYNC_INTEGRITY_AR.md": [],
+  "source/POWER_RC16_2_51_0_FINAL_POLISH_AR.md": [],
+  "source/POWER_RC17_1_BUILD_FIX2_SMART_PLAN_UUID_NULL_AR.md": [],
+  "source/POWER_RC17_1_BUILD_FIX3_SMART_PLAN_CONTINUITY_AR.md": [],
+  "source/POWER_RC17_1_BUILD_FIX4_SHARED_LABEL_VISIBILITY_AR.md": [],
+  "source/POWER_RC17_1_BUILD_FIX5_UX_TILAWAH_PERFORMANCE_AR.md": [],
+  "source/POWER_RC17_1_BUILD_FIX6_SOURCE_GATE_COMPAT_AR.md": [],
+  "source/POWER_RC17_1_CONSISTENCY_PERFORMANCE_PATCH_AR.md": [],
+  "source/POWER_RC17_2_52_0_ROLE_EXPERIENCE_AR.md": [],
+  "source/POWER_RC17_BUILD_FIX1_UNIT_TEST_SYNC_AR.md": [],
+  "source/POWER_RC17_DESIGN_INTEGRATION_AR.md": [],
+  "source/POWER_RC19_1_MONTH_ISOLATION_HOTFIX_AR.md": [],
+  "source/POWER_RC19_SMART_PLAN_CONTROL_CENTER_AR.md": [],
+  "source/POWER_RC8_2_RECITATION_PARITY_AR.md": [],
+  "source/POWER_RC8_3_SMART_PLAN_QURAN_UX_AR.md": [],
+  "source/POWER_RC8_4_DIRECTION_OFFLINE_UX_AR.md": [],
+  "source/POWER_RC8_5_MULTI_ACTIVITY_SMART_PLAN_AR.md": [],
+  "source/POWER_RC8_6_CACHE_SYNC_SMART_PLAN_UX_AR.md": [],
+  "source/POWER_RC8_6_STARTUP_CRASH_HOTFIX_AR.md": [],
+  "source/POWER_RC8_6_V3_PERFORMANCE_SESSION_UX_AR.md": [],
+  "source/POWER_RC9_1_SMART_PLAN_CORE_AR.md": [],
+  "source/POWER_RC9_2_SESSION_WORKFLOW_AR.md": [],
+  "source/POWER_RC9_3_FINAL_STABILIZATION_AR.md": [],
+  "source/POWER_RC9_3_FIX2_SURPLUS_PROGRESS_AR.md": [],
+  "source/POWER_RC9_3_FIX3_RUNTIME_UX_STABILIZATION_AR.md": [],
+  "source/RC11_VALIDATION.md": [],
+  "source/RC12_2_FIX1_BUILD_FIX.md": [],
+  "source/RC13_RUNTIME_DOCUMENTS_ONE_SHOT_AR.md": [],
+  "source/RC17_1_BUILD_FIX7_RELEASE_UPDATE_AR.md": [],
+  "source/README.md": [],
+  "source/RELEASE_2_53_0_MANAGEMENT_UX_RELIABILITY_AR.md": [],
+  "source/RELEASE_2_54_0_RC18_PRIVACY_MONTHLY_ACHIEVEMENTS_AR.md": [],
+  "source/RELEASE_2_54_1_RC18_1_VISIBILITY_FIX_AR.md": [],
+  "source/RELEASE_2_54_2_RC18_2_SESSION_MONTHLY_CONTINUITY_AR.md": [],
+  "source/RELEASE_2_58_0_RC22_STABLE_IMPORT_PROGRAMS_AR.md": [],
+  "source/RELEASE_2_59_0_RC23_STUDENT_SESSION_PLAN_CONSISTENCY_AR.md": [],
+  "source/RELEASE_2_60_0_RC24_CERTIFICATE_ARCHIVE_RENDERING_CORE_AR.md": [],
+  "source/RELEASE_2_60_1_RC24_1_CERTIFICATE_LAYOUT_ARCHIVE_UX_AR.md": [],
+  "source/RELEASE_2_60_2_RC24_2_NOTIFICATIONS_AYAH_RANGES_AR.md": [],
+  "source/RELEASE_2_60_3_RC24_3_COMPACT_UI_AR.md": [],
+  "source/RELEASE_2_60_4_RC24_4_SESSION_DELETE_SAFETY_AR.md": [],
+  "source/RELEASE_2_61_0_RC25_HALAQA_SCOPE_AR.md": [],
+  "source/RELEASE_2_62_0_RC26_PLAN_RANGE_AR.md": [],
+  "source/RELEASE_2_63_12_RC27_12_MOTION_AR.md": [],
+  "source/RELEASE_2_63_13_RC27_13_MOTION_FIXES_AR.md": [],
+  "source/RELEASE_2_63_14_RC27_14_BRAND_AR.md": [],
+  "source/RELEASE_2_63_15_RC27_15_EASTERN_MOTION_AR.md": [],
+  "source/RELEASE_2_63_16_RC27_16_TRANSITIONS_AR.md": [],
+  "source/RELEASE_2_63_17_RC27_17_DRAWER_AR.md": [],
+  "source/RELEASE_2_63_18_RC27_18_STALE_SESSION_DATA_AR.md": [],
+  "source/RELEASE_2_63_19_RC27_19_PROGRAM_PARTICIPANTS_AR.md": [],
+  "source/RELEASE_2_63_20_RC27_20_INSIGHT_CARDS_WELCOME_AR.md": [],
+  "source/RELEASE_2_63_21_RC27_21_LOGIN_SPLASH_AR.md": [],
+  "source/RELEASE_2_63_22_RC27_22_MORE_HUB_COMPARE_AR.md": [],
+  "source/RELEASE_2_63_23_RC27_23_OFFLINE_CACHE_AR.md": [],
+  "source/RELEASE_2_63_24_RC27_24_SAVE_KEEPS_CACHE_AR.md": [],
+  "source/RELEASE_2_63_25_RC27_25_ROSTER_BACK_AR.md": [],
+  "source/RELEASE_2_63_26_RC27_26_REPORT_INACTIVE_AR.md": [],
+  "source/RELEASE_2_63_27_RC27_27_ANNOUNCE_ALL_AR.md": [],
+  "source/RELEASE_2_63_28_RC27_28_GUARDIAN_PRAISE_AR.md": [],
+  "source/RELEASE_2_63_29_RC27_29_FULL_MENU_BLACK_AR.md": [],
+  "source/RELEASE_2_63_30_RC27_30_PROGRAMS_NOT_COMPARED_AR.md": [],
+  "source/RELEASE_2_63_31_RC27_31_COMPARE_OPTIONS_AR.md": [],
+  "source/RELEASE_2_63_32_RC27_32_SEASONS_AR.md": [],
+  "source/RELEASE_2_63_33_RC27_33_SEASONS_ALL_ROLES_AR.md": [],
+  "source/RELEASE_2_63_34_RC27_34_DATA_USAGE_AR.md": [],
+  "source/RELEASE_2_63_35_RC27_35_FORCED_UPDATE_AR.md": [],
+  "source/RELEASE_2_63_36_RC27_36_UPDATE_HARDENING_AR.md": [],
+  "source/RELEASE_2_63_37_RC27_37_BADGES_AR.md": [],
+  "source/RELEASE_2_63_38_RC27_38_GATE_CLEANUP_AR.md": [],
+  "source/RELEASE_2_63_39_RC27_39_NAV_FIX_AR.md": [],
+  "source/RELEASE_2_63_40_RC27_40_DATA_FRESHNESS_AR.md": [],
+  "source/RELEASE_2_63_41_RC27_41_PAGED_READS_AR.md": [],
+  "source/RELEASE_2_63_42_RC27_42_APPROVALS_AR.md": [],
+  "source/RELEASE_2_63_43_RC27_43_APPROVAL_HARDENING_AR.md": [],
+  "source/RELEASE_2_63_44_RC27_44_IDENTITY_WEEKLY_AR.md": [],
+  "source/RELEASE_2_63_45_RC27_45_TESTS_AUDIT_AR.md": [],
+  "source/RELEASE_2_63_46_RC27_46_APPROVAL_PUSH_AR.md": [],
+  "source/RELEASE_2_63_47_RC27_47_IDENTITY_PICKER_AR.md": [],
+  "source/RELEASE_2_63_48_RC27_48_BUILD_FIX_AR.md": [],
+  "source/RELEASE_2_63_49_RC27_49_BROADCAST_CENTER_AR.md": [],
+  "source/RELEASE_2_63_50_RC27_50_PREP_NOTIFICATION_AR.md": [],
+  "source/RELEASE_2_64_0_RC28_AR.md": [],
+  "source/RELEASE_2_65_0_RC29_AR.md": [],
+  "source/RELEASE_2_66_0_RC30_AR.md": [],
+  "source/RELEASE_2_67_0_RC31_AR.md": [],
+  "source/RELEASE_2_68_0_RC32_AR.md": [],
+  "source/RELEASE_2_69_0_RC33_AR.md": [],
+  "source/RELEASE_2_70_0_RC34_AR.md": [],
+  "source/RELEASE_2_71_0_RC35_AR.md": [],
+  "source/RELEASE_2_72_0_RC36_AR.md": [],
+  "source/RELEASE_2_73_0_RC37_AR.md": [],
+  "source/RELEASE_2_74_0_RC38_AR.md": [],
+  "source/RELEASE_2_75_0_RC39_AR.md": [],
+  "source/RELEASE_2_76_0_RC40_AR.md": [],
+  "source/RELEASE_2_77_0_RC41_AR.md": [],
+  "source/RELEASE_2_78_0_RC42_AR.md": [],
+  "source/RELEASE_2_79_0_RC43_AR.md": [],
+  "source/RELEASE_2_80_0_RC44_AR.md": [],
+  "source/RELEASE_2_81_0_RC45_AR.md": [],
+  "source/RELEASE_2_82_0_RC46_AR.md": [],
+  "source/RELEASE_2_83_0_RC47_AR.md": [],
+  "source/RELEASE_2_84_0_RC48_AR.md": [],
+  "source/RELEASE_2_85_0_RC49_AR.md": [],
+  "source/RELEASE_2_86_0_RC50_AR.md": [],
+  "source/RELEASE_2_87_0_RC51_AR.md": [],
+  "source/RELEASE_2_88_0_RC52_AR.md": [],
+  "source/RELEASE_2_89_0_RC53_AR.md": [],
+  "source/RELEASE_2_89_1_RC54_AR.md": [],
+  "source/RELEASE_2_89_2_RC55_AR.md": [],
+  "source/RELEASE_2_89_3_RC56_AR.md": [],
+  "source/RELEASE_2_89_4_RC57_AR.md": [],
+  "source/RELEASE_2_90_10_RC97_AR.md": [],
+  "source/RELEASE_2_90_11_RC98_AR.md": [],
+  "source/RELEASE_2_90_12_RC99_AR.md": [],
+  "source/RELEASE_2_90_2_RC89_AR.md": [],
+  "source/RELEASE_2_90_6_RC93_AR.md": [],
+  "source/RELEASE_2_90_7_RC94_AR.md": [],
+  "source/RELEASE_2_90_8_RC95_AR.md": [],
+  "source/RELEASE_2_90_9_RC96_AR.md": [],
+  "source/app/build.gradle.kts": [],
+  "source/app/proguard-rules.pro": [],
+  "source/app/src/androidTest/java/com/mohammedsamir/halaqati/ui/screens/ReportStudioScrollTest.kt": [],
+  "source/app/src/main/AndroidManifest.xml": [],
+  "source/app/src/main/assets/documents/certificate-fit.js": [],
+  "source/app/src/main/assets/documents/certificate.css": [],
+  "source/app/src/main/assets/documents/report.css": [],
+  "source/app/src/main/assets/quran/qcf4-layout-source.json": [],
+  "source/app/src/main/assets/quran/qcf4-layout-v2.bin": [],
+  "source/app/src/main/baseline-prof.txt": [],
+  "source/app/src/main/java/android/print/HalaqatiWebViewPdfWriter.java": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/HalaqatiApplication.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/push/NotificationHelper.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranCore.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/MainActivity.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/ApprovalModels.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/AuthCallbackRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/BackupRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/ConflictRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/ConnectivitySyncCoordinator.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/DeepLinkRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/GoogleAuthRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/HalaqaScopeStore.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/HalaqatiRepository.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/PlanRangeRebaseRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SardAnchorResolver.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanActivityRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanEngine.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanHealthRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanPhaseEngine.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranCore.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranMetadata.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/sessions/SessionWorkflowRules.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/ImportRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/LocalAccountScopeRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/LocalCache.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/OfflineDatabase.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/OfflineLegacyImporter.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/OfflineQueue.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/PerfLog.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/PlanRebaseModels.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/PlanRangeRebaseRules.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/RefreshGate.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/RuntimeStabilityRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/SafetyScoring.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/SecureSessionStore.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/SessionDeleteGuard.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/SessionExpiry.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/SmartPlanAlertRules.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranMetadata.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/StudentGuardianRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/StudentInsightEngine.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/StudentSchemaContract.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/StudentTrackRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/SupabaseApi.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/SyncErrorRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/UiPreferencesStore.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/data/WorkModeHolder.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/WorkModeRules.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/documents/CertificateHtmlRenderer.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/documents/CertificateRenderGate.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/documents/DocumentExportManager.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/documents/DocumentImageEncoder.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/documents/HtmlDocumentPreview.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/documents/LogoPolicy.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/documents/RecitationMatrix.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/documents/ReportHtmlRenderer.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranMetadata.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/documents/VectorDocumentRenderer.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/exams/ExamRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/model/CertificateCore.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/model/CertificateRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/model/JsonCompat.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanTagRules.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/model/Models.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/StudentTrackRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/RecitationParityRules.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/plans/BadgeRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/plans/HifzSpanRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/plans/OrgAttentionRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/plans/OrgInsightRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/plans/PlanHistoryRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/plans/PlanRangeRebaseRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/plans/RecitationGapRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/plans/RecitationQualityRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SardAnchorResolver.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranMetadata.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanActivityRules.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranMetadata.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanCoreState.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranMetadata.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanEligibility.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanEngine.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranMetadata.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanHealthRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanPhaseEngine.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranMetadata.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanTagRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanUiRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/plans/WorkModeRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/push/HalaqatiMessagingService.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/push/NotificationHelper.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/MainActivity.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranCore.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranMetadata.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranRangeEngine.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/quran/RecitationParityRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/AppViewModel.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/SupabaseApi.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/CoroutineSafety.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/DeepLinkRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/navigation/AppDestination.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/navigation/RoleNavigationPolicy.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/Navigation.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/auth/NativeGoogleSignIn.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/GoogleAuthRules.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/AdaptiveControls.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/AdminHalaqaTodayCard.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/Components.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/FollowUpBoard.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/OrgAttentionRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/OrgInsightRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanEligibility.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/GazaTime.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/Girih.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/GoldenShell.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/navigation/AppDestination.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/navigation/RoleNavigationPolicy.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/HalaqaScopeUi.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/HalaqatiInsightKit.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/HalaqatiMotion.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/HalaqatiMotionKit.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/HalaqatiNavMotion.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/HomeShortcuts.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/navigation/AppDestination.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/navigation/RoleNavigationPolicy.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/IslamicPattern.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/Lattice.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/MonthPicker.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/NourButton.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/NourKit.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/NourLists.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/OneLineName.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/OrgAttentionCard.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/OrgAttentionRules.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/OrgInsightCards.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/OrgInsightRules.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/OrgLogo.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/PatternTile.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/PlansNeedAttentionCard.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/PlanRangeRebaseRules.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/ProCards.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/QuickAddSheet.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/RoleWelcomeCard.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/RolePhrases.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/RubStar.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/SeasonsCard.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/OrgInsightRules.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/SegmentedTabs.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/StudentAvatar.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/TodayHero.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/Waves.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/WorkModeUi.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/WorkModeHolder.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/WorkModeRules.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/DailyOperationStateEngine.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/DashboardRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/DashboardUiState.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/DashboardViewModel.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/HalaqatiRepository.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanActivityRules.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/FollowUpRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/HomeMessages.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/RolePhrases.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/guardian/GuardianBadgesCard.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/BadgeRules.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/guardian/GuardianHomeScreen.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/guardian/GuardianHomeViewModel.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/guardian/GuardianPraise.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/guardian/GuardianReportText.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/guardian/GuardianUiState.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/RecitationParityRules.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/guardian/GuardianWeeklySummary.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/guardian/UnifiedCards.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/NourButton.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/navigation/AddActionBus.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/navigation/AppDestination.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/navigation/NavigationContract.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/navigation/RoleNavigationPolicy.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/presentation/SyncPresentationRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/scope/HalaqaScopeRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/AppSupportInfoCard.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/ApprovalsScreen.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/AuthScreens.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/auth/NativeGoogleSignIn.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/AwardsScreen.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/BirthDateField.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/BroadcastCenter.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/CoreScreens.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/OfflineQueue.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/SafetyScoring.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/StudentGuardianRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/PlanHistoryRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanActivityRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanEngine.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanHealthRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanUiRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranCore.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranMetadata.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/RecitationParityRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/sessions/SessionWorkflowRules.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/DashboardScreen.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/DailyOperationStateEngine.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/DashboardRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/DashboardViewModel.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/FollowUpRules.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/DeletedSessionsDialog.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/DonorChatsScreen.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/DonorImpactScreen.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/DonorScreen.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/SegmentedTabs.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/StudentAvatar.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/ExamsScreen.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/OfflineQueue.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/exams/ExamRules.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/GuardianParityScreens.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/IdentityImport.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/InsightsScreen.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/WorkModeRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/FollowUpBoard.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/PlansNeedAttentionCard.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/SeasonsCard.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/ManagementScreens.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/RecitationParityRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/sessions/SessionWorkflowRules.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/NativeReportExport.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/NativeStudentExport.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/ObserverScreens.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/OrgScreen.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/PlanRangeRebaseDialog.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/PlanRangeRebaseRules.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/QuickActionSheet.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/QuranPicker.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranCore.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranMetadata.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/ReportStudioControls.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/ReportsAndTools.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/ImportRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/LocalAccountScopeRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/SafetyScoring.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/StudentTrackRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/documents/CertificateHtmlRenderer.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/documents/DocumentExportManager.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/documents/HtmlDocumentPreview.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/documents/ReportHtmlRenderer.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/documents/VectorDocumentRenderer.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/model/CertificateRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranCore.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranMetadata.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/GazaTime.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/OneLineName.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/SegmentedTabs.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/RewardFlow.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/SegmentedTabs.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/SettingsParitySections.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/StudentAvatar.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/update/NativeAppUpdater.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/SmartPlanBulkCycleUi.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/StudentTrackRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanPhaseEngine.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/OneLineName.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/SmartPlanPhasesUi.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanActivityRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanEngine.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanPhaseEngine.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranCore.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranMetadata.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/OneLineName.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/StaffMonitorScreen.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/navigation/AddActionBus.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/StudentFollowUpScreen.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/DashboardViewModel.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/FollowUpRules.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/StudentIdentitySection.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/StudentProfileScreen.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/StudentGuardianRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/StudentInsightEngine.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanEngine.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/RecitationParityRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/OneLineName.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/DailyOperationStateEngine.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/SupervisorData.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/OfflineQueue.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/SupervisorMoreScreens.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/SupervisorScreens.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/navigation/AddActionBus.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/SupportExtras.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/documents/DocumentImageEncoder.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/SupportScreens.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/documents/DocumentImageEncoder.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/SegmentedTabs.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/SyncCenterScreen.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/OfflineQueue.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/presentation/SyncPresentationRules.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/TeamScreen.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/UnifiedCards.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/components/NourButton.kt"
+  ],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/sessions/SessionWorkflowRules.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/theme/CairoTypography.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/theme/HalaqatiPalette.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/theme/Motion.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/theme/Theme.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/update/ForcedUpdateGate.kt": [],
+  "source/app/src/main/java/com/mohammedsamir/halaqati/ui/update/NativeAppUpdater.kt": [],
+  "source/app/src/main/res/drawable-nodpi/brand_eastern_khan_younis.webp": [],
+  "source/app/src/main/res/drawable/ic_gm_certificates.xml": [],
+  "source/app/src/main/res/drawable/ic_gm_community.xml": [],
+  "source/app/src/main/res/drawable/ic_gm_competition.xml": [],
+  "source/app/src/main/res/drawable/ic_gm_data.xml": [],
+  "source/app/src/main/res/drawable/ic_gm_halaqas.xml": [],
+  "source/app/src/main/res/drawable/ic_gm_home.xml": [],
+  "source/app/src/main/res/drawable/ic_gm_impact.xml": [],
+  "source/app/src/main/res/drawable/ic_gm_more.xml": [],
+  "source/app/src/main/res/drawable/ic_gm_notifications.xml": [],
+  "source/app/src/main/res/drawable/ic_gm_plans.xml": [],
+  "source/app/src/main/res/drawable/ic_gm_profile.xml": [],
+  "source/app/src/main/res/drawable/ic_gm_quran.xml": [],
+  "source/app/src/main/res/drawable/ic_gm_ranking.xml": [],
+  "source/app/src/main/res/drawable/ic_gm_reports.xml": [],
+  "source/app/src/main/res/drawable/ic_gm_sessions.xml": [],
+  "source/app/src/main/res/drawable/ic_gm_settings.xml": [],
+  "source/app/src/main/res/drawable/ic_gm_stats.xml": [],
+  "source/app/src/main/res/drawable/ic_gm_students.xml": [],
+  "source/app/src/main/res/drawable/ic_gm_supervision.xml": [],
+  "source/app/src/main/res/drawable/ic_gm_support.xml": [],
+  "source/app/src/main/res/drawable/ic_gm_users.xml": [],
+  "source/app/src/main/res/drawable/ic_launcher_background.xml": [],
+  "source/app/src/main/res/drawable/ic_launcher_foreground.xml": [],
+  "source/app/src/main/res/drawable/ic_launcher_monochrome.xml": [],
+  "source/app/src/main/res/drawable/ic_stat_halaqati.xml": [],
+  "source/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml": [],
+  "source/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml": [],
+  "source/app/src/main/res/raw/halaqati_ambient.json": [],
+  "source/app/src/main/res/raw/halaqati_empty.json": [],
+  "source/app/src/main/res/raw/halaqati_empty_bell.json": [],
+  "source/app/src/main/res/raw/halaqati_empty_doc.json": [],
+  "source/app/src/main/res/raw/halaqati_empty_people.json": [],
+  "source/app/src/main/res/raw/halaqati_empty_search.json": [],
+  "source/app/src/main/res/raw/halaqati_loading.json": [],
+  "source/app/src/main/res/raw/halaqati_milestone.json": [],
+  "source/app/src/main/res/raw/halaqati_offline.json": [],
+  "source/app/src/main/res/raw/halaqati_role_admin.json": [],
+  "source/app/src/main/res/raw/halaqati_role_guardian.json": [],
+  "source/app/src/main/res/raw/halaqati_role_student.json": [],
+  "source/app/src/main/res/raw/halaqati_role_supervisor.json": [],
+  "source/app/src/main/res/raw/halaqati_role_teacher.json": [],
+  "source/app/src/main/res/raw/halaqati_splash.json": [],
+  "source/app/src/main/res/raw/halaqati_success.json": [],
+  "source/app/src/main/res/raw/halaqati_sync.json": [],
+  "source/app/src/main/res/raw/halaqati_trophy.json": [],
+  "source/app/src/main/res/raw/halaqati_welcome.json": [],
+  "source/app/src/main/res/values-v31/styles.xml": [],
+  "source/app/src/main/res/values/colors.xml": [],
+  "source/app/src/main/res/values/styles.xml": [],
+  "source/app/src/main/res/xml/backup_rules.xml": [],
+  "source/app/src/main/res/xml/data_extraction_rules.xml": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/SafetyScoringTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/SafetyScoring.kt"
+  ],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/data/AuthCallbackRulesTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/data/DeepLinkRulesTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/data/ImportRulesTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/data/LocalAccountScopeRulesTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/data/LocalCacheTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/data/RuntimeStabilityRulesTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/data/SmartPlanAlertRulesTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/data/StudentGuardianRulesTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/data/StudentInsightEngineTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/data/StudentSchemaContractTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/data/StudentTrackRulesTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/data/SyncErrorRulesClassifyTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/data/UiPreferencesStoreTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/navigation/NavigationContractTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/navigation/NavigationContract.kt"
+  ],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/navigation/RoleNavigationPolicyTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/navigation/RoleNavigationPolicy.kt"
+  ],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/plans/SmartPlanCoreStateTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/plans/SmartPlanEngineTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/plans/SmartPlanHealthRulesTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/plans/SmartPlanMonthIsolationTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/plans/SmartPlanPhaseEngineTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/plans/SmartPlanTagRulesTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/plans/SmartPlanUiRulesTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/quran/QuranMetadataTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/quran/QuranRangeEngineTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/ui/ContrastTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/theme/HalaqatiPalette.kt"
+  ],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/ui/dashboard/DailyOperationStateEngineTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/ui/dashboard/DashboardRulesTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/ui/guardian/GuardianWeeklySummaryTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/ui/screens/IdentityImportTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/ui/screens/NormalizeBirthDateTest.kt": [],
+  "source/app/src/test/java/com/mohammedsamir/halaqati/ui/sessions/SessionWorkflowRulesTest.kt": [],
+  "source/benchmark/build.gradle.kts": [],
+  "source/benchmark/src/main/java/com/mohammedsamir/halaqati/benchmark/JourneyBenchmarks.kt": [],
+  "source/benchmark/src/main/java/com/mohammedsamir/halaqati/benchmark/StartupBenchmark.kt": [],
+  "source/build.gradle.kts": [],
+  "source/ci-logs/rc20-report-layout/results.json": [],
+  "source/design/generated/Tokens.kt.txt": [],
+  "source/design/generated/tokens.css": [],
+  "source/design/tokens.json": [],
+  "source/docs/GO_LIVE_CHECKLIST_AR.md": [],
+  "source/docs/RC28_DAILY_UI_REPORT.md": [],
+  "source/docs/RC28_DESIGN.md": [],
+  "source/docs/RC28_PLAN.md": [],
+  "source/docs/RC28_REVIEW.md": [],
+  "source/docs/RC28_VERIFICATION.md": [],
+  "source/docs/SECURITY_AUDIT_2026-10-27_AR.md": [],
+  "source/docs/USER_GUIDE_AR.md": [],
+  "source/docs/brand/build_assets.py": [
+   "source/docs/brand/svgmark.py"
+  ],
+  "source/docs/brand/svgmark.py": [],
+  "source/docs/motion/generate.py": [],
+  "source/docs/motion/mark.json": [],
+  "source/docs/motion/scenes.py": [
+   "source/docs/motion/generate.py"
+  ],
+  "source/docs/superpowers/plans/2026-10-09-rc24-certificate-archive-rendering-core.md": [],
+  "source/docs/superpowers/specs/2026-10-09-rc24-certificate-archive-rendering-core-design.md": [],
+  "source/gradle.properties": [],
+  "source/migration/20260926_v2461_rc11_smart_plan_phases.sql": [],
+  "source/migration/20260926_v2462_rc11_2_phase_consistency.sql": [],
+  "source/migration/20260927_v2463_rc11_3_bulk_cycle_stability.sql": [],
+  "source/migration/20260927_v2471_rc12_1_stability_certificates_core.sql": [],
+  "source/migration/20260928_v2500_rc15_tathbit_first_class_sync_integrity.sql": [],
+  "source/migration/20260928_v2501_rc15_1_tathbit_phase_isolation.sql": [],
+  "source/migration/20260929_v2502_rc15_2_tathbit_core_monthly.sql": [],
+  "source/migration/20260929_v2520_rc17_guardian_experience.sql": [],
+  "source/migration/20260929_v2521_rc17_1_consistency_performance.sql": [],
+  "source/migration/20260930_v2522_rc17_1_build_fix3_smart_plan_continuity.sql": [],
+  "source/migration/20261002_v2540_rc18_privacy_monthly_achievements.sql": [],
+  "source/migration/20261002_v2542_rc18_2_session_monthly_continuity.sql": [],
+  "source/migration/20261002_v2550_rc19_smart_plan_control_center.sql": [],
+  "source/migration/20261002_v2551_rc19_1_month_phase_isolation_hotfix.sql": [],
+  "source/migration/20261002_v2560_rc20_ui_document_consistency.sql": [],
+  "source/migration/20261004_v2570_rc21_multi_halaqa_compact_sessions.sql": [],
+  "source/migration/20261005_v2580_rc22_program_metadata_import_ux.sql": [],
+  "source/migration/20261008_v2590_rc23_student_session_plan_consistency.sql": [],
+  "source/migration/20261009_v2600_rc24_certificate_archive_rendering_core.sql": [],
+  "source/migration/20261010_v2601_rc24_1_fix_digest_search_path.sql": [],
+  "source/migration/20261012_v2604_rc24_4_session_delete_snapshot.sql": [],
+  "source/migration/20261012_v2610_rc25_scale_and_rls_performance.sql": [],
+  "source/migration/20261013_v2630_rc27_security_and_notification_cleanup.sql": [],
+  "source/migration/20261019_v2632_rc27_32_competition_seasons.sql": [],
+  "source/migration/20261019_v2633_rc27_33_season_notifications.sql": [],
+  "source/migration/20261020_v2642_rc27_42_approval_hierarchy.sql": [],
+  "source/migration/20261021_v2649_rc27_49_broadcast_center.sql": [],
+  "source/migration/20261027_v2680_rc32_observer_role.sql": [],
+  "source/migration/20261028_v2710_rc35_placeholder_recitations.sql": [],
+  "source/migration/20261028_v2750_rc39_guard_tathbit_functions.sql": [],
+  "source/migration/20261030_v2760_rc40_observer_breakdown.sql": [],
+  "source/migration/20261030_v2780_rc42_observer_fix_and_detail.sql": [],
+  "source/migration/20261101_v2790_rc43_fix_month_start_phase_order.sql": [],
+  "source/migration/20261101_v2790_rc43_month_roll_fixes.sql": [],
+  "source/migration/20261103_v2820_rc46_awards.sql": [],
+  "source/migration/20261104_v2840_rc48_support_and_donor_scope.sql": [],
+  "source/migration/20261104_v2850_rc49_payment_and_donor_pages.sql": [],
+  "source/migration/20261111_v2890_rc53_supervisor_freeze_support.sql": [],
+  "source/migration/POWER_RC11_1_PHASE_UX_FIX2_AR.md": [],
+  "source/migration/POWER_RC5_BEHAVIORAL_PARITY_AR.md": [],
+  "source/migration/POWER_RC6_COMPILE_FIX_AR.md": [],
+  "source/migration/POWER_RC7_OFFLINE_FOUNDATION_AR.md": [],
+  "source/migration/POWER_RC8_BUILD_FIX_AR.md": [],
+  "source/migration/POWER_RC8_QURAN_CORE_AR.md": [],
+  "source/migration/POWER_STABLE_246_AR.md": [],
+  "source/migration/RC27_18_OPTIONAL_CHECK_ORPHAN_SESSION_DATA.sql": [],
+  "source/migration/RC4_GUARDIAN_HERO_COMPILE_FIX_AR.md": [],
+  "source/migration/RC91_revoke_anon_definer_execute.sql": [],
+  "source/migration/THIRD_PARTY_NOTICES_RC8.md": [],
+  "source/migration/TOOLS_USED.md": [],
+  "source/migration/UI244_FIX2_NOTES.md": [],
+  "source/migration/UI244_FIX3_NOTES.md": [],
+  "source/migration/build-fix-readme-ar.md": [],
+  "source/migration/build-fix-validation.txt": [],
+  "source/migration/diagnostics/rc27_45_rls_push_audit_READONLY.sql": [],
+  "source/migration/hotfixes/20261023-phase-sync/README.md": [],
+  "source/migration/hotfixes/20261023-phase-sync/apply.sql": [],
+  "source/migration/hotfixes/20261023-phase-sync/rollback.sql": [],
+  "source/migration/legacy-reference/src/core/navigation.js": [],
+  "source/migration/legacy-reference/src/core/offline-store.js": [],
+  "source/migration/legacy-reference/src/core/runtime.js": [],
+  "source/migration/legacy-reference/src/features/certificates/runtime.js": [],
+  "source/migration/legacy-reference/src/features/guardian/runtime.js": [],
+  "source/migration/legacy-reference/src/features/notifications/runtime.js": [],
+  "source/migration/legacy-reference/src/features/operations/runtime.js": [],
+  "source/migration/legacy-reference/src/features/plans/engine.js": [],
+  "source/migration/legacy-reference/src/features/reports/runtime.js": [],
+  "source/migration/legacy-reference/src/features/sessions/runtime.js": [],
+  "source/migration/native-uiux-pro-max.md": [],
+  "source/migration/parity-matrix.md": [],
+  "source/migration/parity/v244-parity-matrix.json": [],
+  "source/migration/parity/v244-parity-matrix.md": [],
+  "source/migration/release-freeze-v2452.md": [],
+  "source/migration/security-review/20260909_v2452_security_hardening_REVIEW.sql": [],
+  "source/migration/security-review/README.md": [],
+  "source/migration/source-contract.json": [],
+  "source/migration/supabase-performance-review.md": [],
+  "source/scripts/auth-push-privacy-check.py": [],
+  "source/scripts/backup-supabase.py": [],
+  "source/scripts/behavioral-parity-check.py": [],
+  "source/scripts/cairo-contract-check.py": [],
+  "source/scripts/ci-build.py": [],
+  "source/scripts/compile-sanity-check.py": [],
+  "source/scripts/compiler-regression-check.py": [],
+  "source/scripts/compose-risk-check.py": [],
+  "source/scripts/fetch-cairo-font.py": [],
+  "source/scripts/full-release-parity-check.py": [],
+  "source/scripts/gen-tokens.py": [],
+  "source/scripts/generate-qcf4-layout.py": [],
+  "source/scripts/google-auth-flow-check.py": [],
+  "source/scripts/kotlin-selftest/AuthCallbackRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/AuthCallbackRules.kt"
+  ],
+  "source/scripts/kotlin-selftest/BackupRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/BackupRules.kt"
+  ],
+  "source/scripts/kotlin-selftest/ConflictRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/ConflictRules.kt"
+  ],
+  "source/scripts/kotlin-selftest/DeepLinkRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/DeepLinkRules.kt"
+  ],
+  "source/scripts/kotlin-selftest/GoogleAuthRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/GoogleAuthRules.kt"
+  ],
+  "source/scripts/kotlin-selftest/HalaqaScopeRulesSelfTest.kt": [],
+  "source/scripts/kotlin-selftest/HalaqatiPaletteSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/theme/HalaqatiPalette.kt"
+  ],
+  "source/scripts/kotlin-selftest/HifzSpanRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/HifzSpanRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/PlanRangeRebaseRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanEligibility.kt"
+  ],
+  "source/scripts/kotlin-selftest/HomeMessagesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/HomeMessages.kt"
+  ],
+  "source/scripts/kotlin-selftest/ImportRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/ImportRules.kt"
+  ],
+  "source/scripts/kotlin-selftest/LocalAccountScopeRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/LocalAccountScopeRules.kt"
+  ],
+  "source/scripts/kotlin-selftest/OrgAttentionRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/OrgAttentionRules.kt"
+  ],
+  "source/scripts/kotlin-selftest/OrgInsightRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/OrgInsightRules.kt"
+  ],
+  "source/scripts/kotlin-selftest/PlanHistoryRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/PlanHistoryRules.kt"
+  ],
+  "source/scripts/kotlin-selftest/PlanRangeRebaseRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/PlanRangeRebaseRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanEngine.kt"
+  ],
+  "source/scripts/kotlin-selftest/QuranMetadataSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/QuranMetadata.kt"
+  ],
+  "source/scripts/kotlin-selftest/QuranRangeEngineSelfTest.kt": [],
+  "source/scripts/kotlin-selftest/RecitationGapRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/RecitationGapRules.kt"
+  ],
+  "source/scripts/kotlin-selftest/RecitationMatrixSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/documents/RecitationMatrix.kt"
+  ],
+  "source/scripts/kotlin-selftest/RecitationParityRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/quran/RecitationParityRules.kt"
+  ],
+  "source/scripts/kotlin-selftest/SafetyScoringSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/SafetyScoring.kt"
+  ],
+  "source/scripts/kotlin-selftest/SessionDeleteGuardSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/SessionDeleteGuard.kt"
+  ],
+  "source/scripts/kotlin-selftest/SmartPlanActivityRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanActivityRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanEngine.kt"
+  ],
+  "source/scripts/kotlin-selftest/SmartPlanAlertRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/SmartPlanAlertRules.kt"
+  ],
+  "source/scripts/kotlin-selftest/SmartPlanCoreStateSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanEngine.kt"
+  ],
+  "source/scripts/kotlin-selftest/SmartPlanEngineSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanEngine.kt"
+  ],
+  "source/scripts/kotlin-selftest/SmartPlanHealthRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanHealthRules.kt"
+  ],
+  "source/scripts/kotlin-selftest/SmartPlanPhaseEngineSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanEngine.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanPhaseEngine.kt"
+  ],
+  "source/scripts/kotlin-selftest/SmartPlanTagRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanTagRules.kt"
+  ],
+  "source/scripts/kotlin-selftest/SpanCompletionSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/PlanRangeRebaseRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanEngine.kt"
+  ],
+  "source/scripts/kotlin-selftest/StudentTrackRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/StudentTrackRules.kt"
+  ],
+  "source/scripts/kotlin-selftest/SyncPresentationRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/presentation/SyncPresentationRules.kt"
+  ],
+  "source/scripts/kotlin-selftest/WorkModeRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/WorkModeRules.kt"
+  ],
+  "source/scripts/local-sensitive-account-scope-check.py": [],
+  "source/scripts/make-update-publish.py": [],
+  "source/scripts/manifest-contract-check.py": [],
+  "source/scripts/navigation-contract-check.py": [],
+  "source/scripts/offline-account-scope-check.py": [],
+  "source/scripts/parity-matrix-check.py": [],
+  "source/scripts/rc10-23-dashboard-icon-regression-check.py": [],
+  "source/scripts/rc10-23-guardian-queue-regression-check.py": [],
+  "source/scripts/rc10-23-student-intelligence-check.py": [],
+  "source/scripts/rc10-daily-intelligence-check.py": [],
+  "source/scripts/rc13-render-fixtures.py": [],
+  "source/scripts/rc15-2-tathbit-core-pdf-check.py": [],
+  "source/scripts/rc15-tathbit-sync-integrity-check.py": [],
+  "source/scripts/rc16-polish-legacy-update-check.py": [],
+  "source/scripts/rc17-1-build-fix3-continuity-check.py": [],
+  "source/scripts/rc17-1-build-fix6-source-gate-compat-check.py": [],
+  "source/scripts/rc17-1-build-fix7-release-signing-check.py": [],
+  "source/scripts/rc17-1-smart-plan-uuid-null-check.py": [],
+  "source/scripts/rc17-role-experience-check.py": [],
+  "source/scripts/rc19-smart-plan-control-center-check.py": [],
+  "source/scripts/rc20-build-fix1-check.py": [],
+  "source/scripts/rc20-report-layout-visual-check.py": [],
+  "source/scripts/rc21-multi-halaqa-compact-ux-check.py": [],
+  "source/scripts/rc22-stable-import-program-check.py": [],
+  "source/scripts/rc23-student-session-plan-consistency-check.py": [],
+  "source/scripts/rc24-1-certificate-layout-archive-check.py": [],
+  "source/scripts/rc24-2-notifications-ayah-ranges-check.py": [],
+  "source/scripts/rc24-3-compact-ui-check.py": [],
+  "source/scripts/rc24-4-session-delete-safety-check.py": [],
+  "source/scripts/rc24-certificate-archive-rendering-check.py": [],
+  "source/scripts/rc24-certificate-db-contract-check.py": [],
+  "source/scripts/rc24-certificate-render-fixtures.py": [],
+  "source/scripts/rc25-halaqa-scope-check.py": [],
+  "source/scripts/rc26-plan-range-check.py": [],
+  "source/scripts/rc27-18-stale-session-cache-check.py": [],
+  "source/scripts/rc27-48-kotlin-import-sanity-check.py": [],
+  "source/scripts/rc27-motion-check.py": [],
+  "source/scripts/rc29-design-check.py": [],
+  "source/scripts/rc30-release-safety-check.py": [],
+  "source/scripts/rc31-sync-visibility-check.py": [],
+  "source/scripts/rc32-observer-nav-check.py": [],
+  "source/scripts/rc33-navigation-feel-check.py": [],
+  "source/scripts/rc34-sard-unbounded-check.py": [],
+  "source/scripts/rc35-calc-accuracy-check.py": [],
+  "source/scripts/rc36-sard-span-check.py": [],
+  "source/scripts/rc37-span-everywhere-check.py": [],
+  "source/scripts/rc38-choice-clarity-check.py": [],
+  "source/scripts/rc39-audit-fixes-check.py": [],
+  "source/scripts/rc40-check.py": [],
+  "source/scripts/rc41-check.py": [],
+  "source/scripts/rc42-check.py": [],
+  "source/scripts/rc43-check.py": [],
+  "source/scripts/rc44-check.py": [],
+  "source/scripts/rc45-check.py": [],
+  "source/scripts/rc46-check.py": [],
+  "source/scripts/rc47-check.py": [],
+  "source/scripts/rc48-check.py": [],
+  "source/scripts/rc49-check.py": [],
+  "source/scripts/rc50-check.py": [],
+  "source/scripts/rc51-check.py": [],
+  "source/scripts/rc52-check.py": [],
+  "source/scripts/rc53-check.py": [],
+  "source/scripts/rc7-durability-check.py": [],
+  "source/scripts/rc7-offline-contract-check.py": [],
+  "source/scripts/rc8-ci-gates.py": [],
+  "source/scripts/rc8-integration-check.py": [],
+  "source/scripts/rc82-qcf-regression.py": [],
+  "source/scripts/rc82-recitation-parity-check.py": [],
+  "source/scripts/rc83-smart-plan-quran-ux-check.py": [],
+  "source/scripts/rc84-direction-offline-ux-check.py": [],
+  "source/scripts/rc85-smart-plan-activity-performance-check.py": [],
+  "source/scripts/rc86-cache-sync-smartplan-ui-check.py": [],
+  "source/scripts/rc86-startup-crash-regression-check.py": [],
+  "source/scripts/rc86-v3-performance-session-ux-check.py": [],
+  "source/scripts/rc91-smart-plan-core-check.py": [],
+  "source/scripts/rc93-refresh-scope-regression-check.py": [],
+  "source/scripts/release-contract-check.py": [],
+  "source/scripts/release-parity-contract-check.py": [],
+  "source/scripts/run-kotlin-selftests.sh": [],
+  "source/scripts/run-rc11-targeted-selftest.sh": [],
+  "source/scripts/selftests/DailyOperationStateEngineSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/DailyOperationStateEngine.kt"
+  ],
+  "source/scripts/selftests/DashboardRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/dashboard/DashboardRules.kt"
+  ],
+  "source/scripts/selftests/FollowUpRulesSelfTest.kt": [],
+  "source/scripts/selftests/RC93Fix3RulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/RuntimeStabilityRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanUiRules.kt"
+  ],
+  "source/scripts/selftests/RC93RulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/plans/SmartPlanUiRules.kt",
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/sessions/SessionWorkflowRules.kt"
+  ],
+  "source/scripts/selftests/SessionWorkflowRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/sessions/SessionWorkflowRules.kt"
+  ],
+  "source/scripts/selftests/StudentGuardianRulesSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/StudentGuardianRules.kt"
+  ],
+  "source/scripts/selftests/StudentInsightEngineSelfTest.kt": [
+   "source/app/src/main/java/com/mohammedsamir/halaqati/data/StudentInsightEngine.kt"
+  ],
+  "source/scripts/smart-plan-alerts-check.py": [],
+  "source/scripts/stable-release-check.py": [],
+  "source/scripts/static-parity-check.py": [],
+  "source/scripts/ui244-restoration-check.py": [],
+  "source/scripts/uiux-pro-max-check.py": [],
+  "source/settings.gradle.kts": []
+ }
+}
