@@ -127,7 +127,7 @@ fun SeasonsCard(modifier: Modifier = Modifier, canManage: Boolean) {
         var name by remember { mutableStateOf("") }
         var level by remember { mutableStateOf("halaqa") }
         var days by remember { mutableIntStateOf(30) }
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { if (!busy) showNew = false },
             title = { Text("موسم جديد") },
             text = {
@@ -177,7 +177,7 @@ fun SeasonsCard(modifier: Modifier = Modifier, canManage: Boolean) {
     }
 
     if (confirmClose && active != null) {
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { if (!busy) confirmClose = false },
             title = { Text("إنهاء الموسم") },
             text = { Text("سيُحفظ الترتيب الحالي كنتيجة نهائية لموسم «${active.optString("name")}» ويُغلق الموسم.") },

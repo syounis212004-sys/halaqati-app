@@ -1,5 +1,7 @@
 package com.mohammedsamir.halaqati.ui.screens
 
+import com.mohammedsamir.halaqati.ui.components.HalaqatiAlertDialog
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import com.mohammedsamir.halaqati.ui.components.items
@@ -43,7 +45,7 @@ fun DeletedSessionsDialog(halaqaNames: Map<String, String>, onDismiss: () -> Uni
     }
     LaunchedEffect(Unit) { load() }
 
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("الجلسات المحذوفة", fontWeight = FontWeight.Bold) },
         text = {

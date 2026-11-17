@@ -281,7 +281,7 @@ fun HalaqatiMonthPickerDialog(
     var year by remember(initial) { mutableIntStateOf(initial.year) }
     var month by remember(initial) { mutableIntStateOf(initial.monthValue) }
     val monthNames = listOf("يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر")
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("اختر الشهر") },
         text = {

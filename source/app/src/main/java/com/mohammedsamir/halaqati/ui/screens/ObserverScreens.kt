@@ -2,6 +2,8 @@
 
 package com.mohammedsamir.halaqati.ui.screens
 
+import com.mohammedsamir.halaqati.ui.components.HalaqatiAlertDialog
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import com.mohammedsamir.halaqati.ui.components.items
@@ -227,7 +229,7 @@ fun ObserverScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, embedd
         var kind by remember { mutableStateOf("reward") }
         var note by remember { mutableStateOf("") }
         var sending by remember { mutableStateOf(false) }
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { if (!sending) requestFor = null },
             title = { Text("طلب بخصوص ${student.optString("name")}") },
             text = {
@@ -352,7 +354,7 @@ fun ObserverRequestsAdminScreen(profile: Profile) {
     deciding?.let { (request, approve) ->
         var note by remember { mutableStateOf("") }
         var busy by remember { mutableStateOf(false) }
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { if (!busy) deciding = null },
             title = { Text(if (approve) "الموافقة على الطلب" else "رفض الطلب") },
             text = {

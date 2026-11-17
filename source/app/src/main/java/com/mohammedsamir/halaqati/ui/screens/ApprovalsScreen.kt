@@ -2,6 +2,8 @@
 
 package com.mohammedsamir.halaqati.ui.screens
 
+import com.mohammedsamir.halaqati.ui.components.HalaqatiAlertDialog
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -160,7 +162,7 @@ fun ApprovalsScreen(profile: Profile) {
 
     rejecting?.let { req ->
         var reason by remember(req.id) { mutableStateOf("") }
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { rejecting = null },
             title = { Text("رفض طلب ${req.name}") },
             text = {
@@ -218,7 +220,7 @@ fun AddChildCard(modifier: Modifier = Modifier, retry: Boolean = false) {
     result?.takeIf { !open }?.let { StateNotice(it, if (isError) "error" else "success", Modifier.padding(top = 6.dp)) }
 
     if (open) {
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { if (!busy) open = false },
             title = { Text("ربط ابن/ابنة") },
             text = {

@@ -297,7 +297,7 @@ fun OrgScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, navigate: (
         }
     }
     deleting?.let { c ->
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { deleting = null },
             title = { Text("حذف ${c.name}؟") },
             text = { Text("تبقى الحلقات كما هي وتصير «غير مرتبطة بمركز». لا يُحذف أي طالب أو حلقة.") },
@@ -307,7 +307,7 @@ fun OrgScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, navigate: (
     }
     removing?.let { (person, role) ->
         val roleName = when (role) { "admin" -> "مسؤول الجمعية"; "supervisor" -> "المشرف"; else -> "المحفّظ" }
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { removing = null },
             title = { Text("إزالة ${person.name} من الجمعية؟") },
             text = { Text("يُفصل $roleName عن «${assoc?.name.orEmpty()}»" + (if (role != "admin") " ويُرفع عن حلقاتها" else "") + ". يبقى حسابه وبياناته كما هي، ويمكنك إعادة إضافته لاحقًا.") },
@@ -326,7 +326,7 @@ fun OrgScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, navigate: (
         )
     }
     detaching?.let { h ->
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { detaching = null },
             title = { Text("فصل ${h.name} عن الجمعية؟") },
             text = { Text("تصير الحلقة حلقة مستقلة: يراها مسؤول النظام فقط، إضافةً إلى من أُسند إليها مباشرة من مشرفين ومحفّظين. يبقى طلابها ومحفّظوها ومشرفوها كما هم، ولا يُحذف أي طالب أو تسميع. يمكنك ربطها بجمعية في أي وقت.") },

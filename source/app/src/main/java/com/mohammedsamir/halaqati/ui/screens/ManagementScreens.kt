@@ -412,7 +412,7 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
     }
     logoHalaqa?.let { h ->
         var pending by remember(h) { mutableStateOf(h.mgmtStr("logo_path").ifBlank { null }) }
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { logoHalaqa = null },
             title = { Text("شعار ${h.optString("name", "الحلقة")}") },
             text = { LogoPicker(pending, { pending = it }, Icons.Default.Groups) },
@@ -527,7 +527,7 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
                 .mapNotNull { l -> halaqas.firstOrNull { it.optString("id") == l.optString("halaqa_id") }?.takeIf { it.mgmtStr("halaqa_type").ifBlank { "regular" } == "regular" } }.firstOrNull()
             from?.let { (teachers.firstOrNull { t -> t.optString("id") == tid }?.optString("full_name") ?: "المحفّظ") + " من «" + it.optString("name") + "»" }
         }
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { pendingMove = null },
             title = { Text("نقل محفّظ بين حلقتين") },
             text = { Text("المحفّظ يعمل في حلقة عادية واحدة فقط، لذلك سيُنقل:\n• " + lines.joinToString("\n• ") + "\nإلى «${h.optString("name")}». يبقى له كل ما يشارك فيه من برامج.") },
@@ -685,7 +685,7 @@ private fun HalaqaStaffDialog(
 ) {
     var wantedTeachers by remember(halaqa.optString("id")) { mutableStateOf(currentTeacherIds) }
     var wantedSupervisors by remember(halaqa.optString("id")) { mutableStateOf(currentSupervisorIds) }
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = close,
         title = { Text("طاقم ${halaqa.optString("name", "الحلقة")}") },
         text = {
@@ -744,7 +744,7 @@ private fun HalaqaStaffDialog(
 private fun DeleteHalaqaDialog(halaqa: JSONObject, close: () -> Unit, confirm: () -> Unit) {
     val expected = halaqa.optString("name")
     var typed by remember(expected) { mutableStateOf("") }
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = close,
         icon = { Icon(Icons.Default.WarningAmber, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
         title = { Text("حذف الحلقة نهائيًا") },
@@ -831,7 +831,7 @@ private fun HalaqaDialog(
     var endsOn by remember(current) { mutableStateOf(current?.optString("ends_on")?.takeIf { it.isNotBlank() && it != "null" }?.let { runCatching { LocalDate.parse(it.take(10)) }.getOrNull() } ?: LocalDate.now().plusMonths(1)) }
     var pickStart by remember { mutableStateOf(false) }
     var pickEnd by remember { mutableStateOf(false) }
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = close,
         title = { Text(if (current == null) "إضافة حلقة" else "تعديل الحلقة") },
         text = {
@@ -936,7 +936,7 @@ private fun CategoriesDialog(
         error = null
     }
 
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = close,
         title = { Text("فئات ${halaqa.optString("name", "الحلقة")}") },
         text = {
@@ -1066,7 +1066,7 @@ private fun CategoriesDialog(
             }
             Triple(assign.toList(), listOf(noDob, outside, ambiguous), listOf(keptExisting, already))
         }
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { showAutoClassify = false },
             title = { Text("تصنيف الطلاب حسب العمر") },
             text = {
@@ -1110,7 +1110,7 @@ private fun CategoriesDialog(
     }
 
     pendingDeleteCategory?.let { category ->
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { pendingDeleteCategory = null },
             title = { Text("حذف الفئة") },
             text = {
@@ -1596,7 +1596,7 @@ private fun AnnouncementDialog(
     var priority by remember(current?.optString("id")) { mutableStateOf(current?.optString("priority", "normal") ?: "normal") }
     var category by remember(current?.optString("id")) { mutableStateOf(current?.optString("category", "general") ?: "general") }
     var pinned by remember(current?.optString("id")) { mutableStateOf(current?.optBoolean("pinned", false) ?: false) }
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = close,
         title = { Text(if (current == null) "إعلان جديد" else "تعديل الإعلان") },
         text = {
@@ -1668,7 +1668,7 @@ private fun ForumPostDialog(
     var body by remember(current?.optString("id")) { mutableStateOf(current?.optString("body").orEmpty()) }
     var commentsEnabled by remember(current?.optString("id")) { mutableStateOf(current?.optBoolean("comments_enabled", true) ?: true) }
     var pinned by remember(current?.optString("id")) { mutableStateOf(current?.optBoolean("pinned", false) ?: false) }
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = close,
         title = { Text(if (current != null) "تعديل المنشور" else if (roleCanManage(profile.role)) "منشور جديد" else "استفسار جديد") },
         text = {
@@ -1704,7 +1704,7 @@ private fun ForumPostDialog(
 @Composable
 private fun CommentDialog(close: () -> Unit, save: (String) -> Unit) {
     var body by remember { mutableStateOf("") }
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = close,
         title = { Text("إضافة تعليق") },
         text = { OutlinedTextField(body, { body = it }, label = { Text("التعليق") }, minLines = 2, modifier = Modifier.fillMaxWidth()) },
@@ -1715,7 +1715,7 @@ private fun CommentDialog(close: () -> Unit, save: (String) -> Unit) {
 
 @Composable
 private fun ConfirmDeleteDialog(title: String, message: String, close: () -> Unit, confirm: () -> Unit) {
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = close,
         icon = { Icon(Icons.Default.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
         title = { Text(title) },
@@ -1955,7 +1955,7 @@ internal fun NotificationPreferencesDialog(
         Triple("الإعلانات", "إعلانات الحلقة والمواعيد", announcements),
         Triple("الإنجازات", "الشهادات والإنجازات", achievements),
     )
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = close,
         title = { Text("تفضيلات الإشعارات") },
         text = {
@@ -2350,7 +2350,7 @@ private fun SupervisorVisitDialog(halaqas: List<JSONObject>, close: () -> Unit, 
     var follow by remember { mutableIntStateOf(3) }
     var notes by remember { mutableStateOf("") }
     var actions by remember { mutableStateOf("") }
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = close,
         title = { Text("زيارة إشرافية") },
         text = {

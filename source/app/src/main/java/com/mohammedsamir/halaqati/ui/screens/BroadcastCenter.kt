@@ -1,5 +1,7 @@
 package com.mohammedsamir.halaqati.ui.screens
 
+import com.mohammedsamir.halaqati.ui.components.HalaqatiAlertDialog
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -250,7 +252,7 @@ private fun BroadcastComposer(profile: Profile, onSent: () -> Unit) {
     }
 
     confirmCount?.let { n ->
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { if (!sending) confirmCount = null },
             title = { Text("تأكيد الإرسال") },
             text = { Text("سيصل الإشعار إلى $n شخصًا ($scopeLabel — ${bcAudienceAr(audience)}). لا يمكن التراجع بعد الإرسال.") },
@@ -336,7 +338,7 @@ private fun BroadcastDetailDialog(b: JSONObject, close: () -> Unit) {
     val readList = people.filter { !(it.isNull("read_at") || it.optString("read_at").isBlank()) }
     val shown = if (showRead) readList else unreadList
 
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = close,
         title = { Text(b.optString("title"), maxLines = 2, overflow = TextOverflow.Ellipsis) },
         text = {

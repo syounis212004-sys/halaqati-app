@@ -903,7 +903,7 @@ private fun StudentDetailSheet(
         )
     }
     if (showArchiveConfirm) {
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { showArchiveConfirm = false },
             title = { Text(if (status == "withdrawn") "استعادة الطالب" else "أرشفة الطالب") },
             text = { Text(if (status == "withdrawn") "سيعود الطالب إلى قائمة الطلاب الحاليين مع بقاء سجله كاملًا." else "سيُنقل الطالب إلى المنسحبين / الأرشيف دون حذف الجلسات أو التسميعات أو التقارير.") },
@@ -1027,7 +1027,7 @@ private fun StudentEditorDialog(student: Student?, raw: JSONObject?, close: () -
         if (categoryId.isNotBlank() && visibleCategories.none { it.optString("id") == categoryId }) categoryId = ""
     }
 
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = { if (!saving) close() },
         title = { Text(if (student == null) "إضافة طالب" else "تعديل بيانات الطالب") },
         text = {
@@ -1736,7 +1736,7 @@ GoldenSessionCard(
     }
 
     deleteCandidate?.let { session ->
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { deleteCandidate = null },
             title = { Text("حذف الجلسة") },
             text = { Text("سيتم حذف الجلسة وتسميعاتها وحضورها وملاحظاتها فورًا. استخدم الأرشفة بدل الحذف إذا كنت تريد الاحتفاظ بالسجل التاريخي.") },
@@ -2065,7 +2065,7 @@ private fun NewSessionDialog(
         if (hType in setOf("tajweed", "tilawah", "training", "course")) type = "tilawah"
     }
 
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = close,
         title = { Text("جلسة جديدة") },
         text = {
@@ -2122,7 +2122,7 @@ private fun EditSessionDialog(
     val halaqaOptions = halaqas.filter { it.optBoolean("active", true) || it.optString("id") == session.halaqaId }
         .map { it.optString("id") to it.optString("name").ifBlank { "حلقة" } }
 
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = close,
         title = { Text(if (session.archived) "تعديل جلسة مؤرشفة" else "تعديل بيانات الجلسة") },
         text = {
@@ -2819,7 +2819,7 @@ private fun SessionRosterScreen(
     }
 
     deleteRecitationTarget?.let { (student, recitation) ->
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { deleteRecitationTarget = null },
             icon = { Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
             title = { Text("حذف التسميع") },
@@ -2858,7 +2858,7 @@ private fun SessionRosterScreen(
     }
 
     if (closeConfirm) {
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { closeConfirm = false },
             title = { Text("ملخص الجلسة قبل الإغلاق") },
             text = {
@@ -4587,7 +4587,7 @@ fun PlansScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
         )
     }
     if (confirmRollMonth) {
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { if (!rollingMonth) confirmRollMonth = false },
             title = { Text("بدء دورة شهر جديدة") },
             text = {
@@ -5056,7 +5056,7 @@ private fun SmartPlanSearchChoiceField(
     }
     if (open) {
         val filtered = options.filter { (_, name) -> query.isBlank() || name.contains(query, ignoreCase = true) }.take(100)
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { open = false },
             title = { Text("اختيار $label") },
             text = {
@@ -5289,7 +5289,7 @@ private fun SmartPlanEditorDialog(
         )
     }
 
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(when { isStudentOverride -> "تجاوز خاص بالطالب"; current == null -> "خطة ذكية جديدة"; phaseManaged -> "تعديل بيانات الخطة"; else -> "تعديل الخطة الذكية" }) },
         text = {
@@ -6443,7 +6443,7 @@ fun UsersScreen(pending: Int, onRefresh: () -> Unit) {
 
     freezeUser?.let { row ->
         var reason by remember(row) { mutableStateOf("") }
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { freezeUser = null },
             title = { Text("تجميد حساب ${row.optString("full_name")}") },
             text = {
@@ -6534,7 +6534,7 @@ private fun roleAr(value: String) = when (value) {
 @Composable
 private fun RejectAccountDialog(name: String, close: () -> Unit, save: (String) -> Unit) {
     var reason by remember { mutableStateOf("") }
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = close,
         title = { Text("رفض حساب $name") },
         text = { OutlinedTextField(value = reason, onValueChange = { reason = it }, label = { Text("سبب الرفض (اختياري)") }, minLines = 2, modifier = Modifier.fillMaxWidth()) },
@@ -6548,7 +6548,7 @@ private fun RoleAccountDialog(name: String, current: String, close: () -> Unit, 
     val isOwner = com.mohammedsamir.halaqati.ui.components.PlatformOwnerState.isOwner
     val roles = buildList { add("guardian"); add("teacher"); add("supervisor"); add("observer"); if (isOwner) add("admin") }
     var role by remember { mutableStateOf(current.takeIf { it in roles } ?: "guardian") }
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = close,
         title = { Text("صلاحية $name") },
         text = {
@@ -6573,7 +6573,7 @@ private fun RoleAccountDialog(name: String, current: String, close: () -> Unit, 
 @Composable
 private fun DeleteAccountDialog(name: String, close: () -> Unit, confirm: () -> Unit) {
     var typed by remember { mutableStateOf("") }
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = close,
         title = { Text("حذف الحساب نهائيًا") },
         text = {
@@ -6633,7 +6633,7 @@ private fun GuardianLinkDialog(close: () -> Unit, onSaved: () -> Unit, initialSt
         }
     }
 
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = { if (!saving) close() },
         title = { Text("ربط ولي الأمر بالطالب") },
         text = {

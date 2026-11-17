@@ -1,5 +1,7 @@
 package com.mohammedsamir.halaqati.ui.screens
 
+import com.mohammedsamir.halaqati.ui.components.HalaqatiAlertDialog
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -142,7 +144,7 @@ fun StudentIdentitySection(modifier: Modifier = Modifier) {
         val byName = remember(missing) { missing.groupBy { IdentityImport.normName(it.fullName) } }
         val matched = parsed.first.filter { byName[IdentityImport.normName(it.name)]?.size == 1 }
         val notMatched = parsed.first.filter { byName[IdentityImport.normName(it.name)]?.size != 1 }
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { if (!busy) showImport = false },
             title = { Text("لصق قائمة الهويات") },
             text = {

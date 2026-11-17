@@ -238,7 +238,7 @@ fun StaffMonitorScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, na
             }
         }
     }
-    if (showInfo) AlertDialog(
+    if (showInfo) HalaqatiAlertDialog(
         onDismissRequest = { showInfo = false },
         title = { Text("كيف يُحسب التقييم؟") },
         text = { Text("تقييم المحفّظ يجمع خمسة مؤشرات: الالتزام بالحضور 30٪، حضور الطلاب 20٪، تغطية التسميع 25٪، إنهاء الجلسات 10٪، تقييم زيارات المشرف 15٪. المؤشر غير المتوفر يُستبعد وتُعاد الأوزان. المشرف: الحلقات التي زارها ÷ حلقاته.") },

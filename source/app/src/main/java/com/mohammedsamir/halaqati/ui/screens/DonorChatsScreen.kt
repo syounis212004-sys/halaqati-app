@@ -2,6 +2,8 @@
 
 package com.mohammedsamir.halaqati.ui.screens
 
+import com.mohammedsamir.halaqati.ui.components.HalaqatiAlertDialog
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.draw.clip
@@ -155,7 +157,7 @@ fun DonorChatsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
     }
 
     if (picking) {
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { picking = false },
             title = { Text("محادثة جديدة مع مانح") },
             text = {

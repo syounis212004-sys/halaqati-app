@@ -202,7 +202,7 @@ private fun MainShell(
     val sessionExpired by com.mohammedsamir.halaqati.data.SessionExpiry.expired.collectAsStateWithLifecycle()
     var expiredDismissed by remember { mutableStateOf(false) }
     if (sessionExpired && !expiredDismissed) {
-        androidx.compose.material3.AlertDialog(
+        com.mohammedsamir.halaqati.ui.components.HalaqatiAlertDialog(
             onDismissRequest = { expiredDismissed = true },
             title = { androidx.compose.material3.Text("انتهت جلسة الدخول") },
             text = { androidx.compose.material3.Text("تعذر تجديد الدخول تلقائيًا. سجّل الدخول من جديد لمتابعة الرفع. ما لم يُرفع بعد يبقى محفوظًا على جهازك.") },

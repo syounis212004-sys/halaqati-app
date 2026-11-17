@@ -2,6 +2,8 @@
 
 package com.mohammedsamir.halaqati.ui.screens
 
+import com.mohammedsamir.halaqati.ui.components.HalaqatiAlertDialog
+
 import android.graphics.BitmapFactory
 import android.util.Base64
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -338,7 +340,7 @@ private fun SupportCardEditor(initial: JSONObject?, halaqas: List<JSONObject>, o
     var currency by remember { mutableStateOf(initial?.optString("currency")?.takeIf { it.isNotBlank() && it != "null" } ?: "ILS") }
     var useDefault by remember { mutableStateOf(initial?.optBoolean("uses_default_payment", true) ?: true) }
     val pay = remember { PaymentForm(if (initial?.optBoolean("uses_default_payment", true) == false) initial?.optJSONObject("pay") else null) }
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (initial == null) "بطاقة دعم جديدة" else "تعديل البطاقة") },
         text = {
@@ -406,7 +408,7 @@ internal fun DeliverDialog(pledge: JSONObject, onDismiss: () -> Unit, onSubmit: 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) image = DocumentImageEncoder.uriJpeg(context, uri, maxDimension = 1024, quality = 70)
     }
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("إثبات التسليم") },
         text = {
@@ -426,7 +428,7 @@ internal fun DeliverDialog(pledge: JSONObject, onDismiss: () -> Unit, onSubmit: 
 @Composable
 private fun HalaqaAssignDialog(donorName: String, halaqas: List<JSONObject>, initial: Set<String>, onDismiss: () -> Unit, onSave: (List<String>) -> Unit) {
     var selected by remember { mutableStateOf(initial) }
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("حلقات $donorName") },
         text = {
@@ -460,7 +462,7 @@ private fun ProofDialog(pledgeId: String, kind: String, onDismiss: () -> Unit) {
         }
         if (bmp == null) failed = true else bitmap = bmp
     }
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("صورة الإثبات") },
         text = {
@@ -585,7 +587,7 @@ internal fun DonorSupportTab(refreshTick: Int) {
         val periods = c.optJSONArray("periods")?.objs().orEmpty().filter { it.optInt("taken") < c.optInt("slots", 1) && it.str("mine").isBlank() }
         var chosen by remember(c) { mutableStateOf(if (periods.size == 1) setOf(periods.first().optString("period")) else emptySet()) }
         var anonymous by remember(c) { mutableStateOf(false) }
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { pledgeFor = null },
             title = { Text("التكفّل: ${c.optString("title")}") },
             text = {

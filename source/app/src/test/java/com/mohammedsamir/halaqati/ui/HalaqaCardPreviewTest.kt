@@ -1,12 +1,14 @@
 package com.mohammedsamir.halaqati.ui
 
 import android.graphics.Bitmap
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -45,7 +47,10 @@ import androidx.compose.ui.unit.dp
 import com.mohammedsamir.halaqati.data.UiPreferences
 import com.mohammedsamir.halaqati.ui.components.AppTopBar
 import com.mohammedsamir.halaqati.ui.components.CollapsingFab
+import com.mohammedsamir.halaqati.ui.components.DialogOrnament
 import com.mohammedsamir.halaqati.ui.components.EmptyState
+import com.mohammedsamir.halaqati.ui.components.PatternLevel
+import com.mohammedsamir.halaqati.ui.components.nourPattern
 import com.mohammedsamir.halaqati.ui.components.StateNotice
 import com.mohammedsamir.halaqati.ui.components.FabClearance
 import com.mohammedsamir.halaqati.ui.components.GradientPair
@@ -195,4 +200,44 @@ class HalaqaCardPreviewTest {
 
     @Test fun identity_pieces_light() = identityPieces(dark = false)
     @Test fun identity_pieces_dark() = identityPieces(dark = true)
+
+    // RC104: what a HalaqatiAlertDialog draws (the dialog window itself is not part of the root image, so its content is shown on a scrim).
+    private fun dialogLook(dark: Boolean) {
+        rule.setContent {
+            Themed(dark) {
+                Box(Modifier.width(411.dp).padding(24.dp)) {
+                    Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh, tonalElevation = 6.dp) {
+                        Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            DialogOrnament()
+                            Text("حذف الحلقة؟", style = MaterialTheme.typography.headlineSmall)
+                            Text("سيتم نقل الحلقة إلى المحذوفات ويمكن استعادتها لاحقًا.", style = MaterialTheme.typography.bodyMedium)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = {}) { Text("إلغاء") }
+                                FilledTonalButton(onClick = {}) { Text("حذف") }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        save("dialog_look_${if (dark) "dark" else "light"}")
+    }
+
+    @Test fun dialog_look_light() = dialogLook(dark = false)
+    @Test fun dialog_look_dark() = dialogLook(dark = true)
+
+    // RC104: the sign-in header band now uses the shared Hero pattern level.
+    private fun authBand(dark: Boolean) {
+        rule.setContent {
+            Themed(dark) {
+                Box(Modifier.width(411.dp).height(150.dp).background(MaterialTheme.colorScheme.primary).nourPattern(PatternLevel.Hero)) {
+                    Text("حلقاتي", Modifier.align(androidx.compose.ui.Alignment.Center), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.headlineMedium)
+                }
+            }
+        }
+        save("auth_band_${if (dark) "dark" else "light"}")
+    }
+
+    @Test fun auth_band_light() = authBand(dark = false)
+    @Test fun auth_band_dark() = authBand(dark = true)
 }

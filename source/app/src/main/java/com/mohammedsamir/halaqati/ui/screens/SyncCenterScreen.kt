@@ -2,6 +2,8 @@
 
 package com.mohammedsamir.halaqati.ui.screens
 
+import com.mohammedsamir.halaqati.ui.components.HalaqatiAlertDialog
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.selection.SelectionContainer
 import com.mohammedsamir.halaqati.ui.presentation.SyncPresentationRules
@@ -317,7 +319,7 @@ fun SyncCenterScreen(sync: SyncState, onSync: () -> Unit) {
         }
     }
     discardId?.let { id ->
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { discardId = null },
             title = { Text("حذف العملية المعلّقة؟") },
             text = { Text("سيُحذف هذا التعديل من قائمة الرفع، وقد لا يصل إلى الأجهزة الأخرى. راجع التفاصيل قبل المتابعة.") },

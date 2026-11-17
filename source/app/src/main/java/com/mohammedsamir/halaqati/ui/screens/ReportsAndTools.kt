@@ -2,6 +2,8 @@
 
 package com.mohammedsamir.halaqati.ui.screens
 
+import com.mohammedsamir.halaqati.ui.components.HalaqatiAlertDialog
+
 import com.mohammedsamir.halaqati.ui.components.nourHeroFill
 import com.mohammedsamir.halaqati.ui.components.OneLineName
 import android.content.Context
@@ -2044,7 +2046,7 @@ fun CertificatesScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
 
     manageTarget?.let { cert ->
         val isHidden = cert.id in hiddenIds
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { manageTarget = null },
             title = { Text(officialNameOf(cert), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
             text = {
@@ -2067,7 +2069,7 @@ fun CertificatesScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
         )
     }
     permanentDeleteTarget?.let { cert ->
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { permanentDeleteTarget = null },
             title = { Text("حذف نهائي؟") },
             text = {
@@ -2080,7 +2082,7 @@ fun CertificatesScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
         )
     }
     localDeleteTarget?.let { item ->
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { localDeleteTarget = null },
             title = { Text("حذف من هذا الجهاز؟") },
             text = { Text("سيُزال ${item.studentName} (${item.number} · v${item.revisionNo}) من فهرس هذا الجهاز فقط. السجل الرسمي في Supabase وملف PDF المحفوظ في Downloads لا يتأثران.") },
@@ -4795,7 +4797,7 @@ fun SettingsScreen(profile: Profile, onLogout: () -> Unit) {
     }
 
     if (showPasswordDialog) {
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { if (!savingPassword) showPasswordDialog = false },
             title = { Text("تغيير كلمة المرور") },
             text = {
@@ -4839,7 +4841,7 @@ fun SettingsScreen(profile: Profile, onLogout: () -> Unit) {
     }
 
     if (showLogoutConfirm) {
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { showLogoutConfirm = false },
             title = { Text("هناك بيانات لم تُرفع بعد") },
             text = {

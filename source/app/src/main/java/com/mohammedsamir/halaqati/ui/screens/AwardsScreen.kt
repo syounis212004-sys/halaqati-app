@@ -2,6 +2,8 @@
 
 package com.mohammedsamir.halaqati.ui.screens
 
+import com.mohammedsamir.halaqati.ui.components.HalaqatiAlertDialog
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -179,7 +181,7 @@ fun AwardsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, navigate
         }
     }
 
-    if (confirmApprove) AlertDialog(
+    if (confirmApprove) HalaqatiAlertDialog(
         onDismissRequest = { confirmApprove = false },
         title = { Text("اعتماد تكريم ${month?.let { awardMonthLabel(it) }.orEmpty()}") },
         text = { Text("بعد الاعتماد يرى المانح الأسماء الكاملة وأفضل ٣ في كل فئة، ويصله إشعار. لا يمكن التراجع من التطبيق.") },
@@ -200,7 +202,7 @@ fun AwardsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, navigate
     )
 
     excludeFor?.let { w ->
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { excludeFor = null },
             title = { Text("استبعاد ${w.optString("name")}") },
             text = {

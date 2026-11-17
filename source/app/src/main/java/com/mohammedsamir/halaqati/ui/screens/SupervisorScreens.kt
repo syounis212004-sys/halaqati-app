@@ -101,7 +101,7 @@ internal fun SupAlertDialog(
     var body by remember { mutableStateOf(presetBody) }
     var sending by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = { if (!sending) close() },
         title = { Text("تنبيه محفّظ") },
         text = {
@@ -556,7 +556,7 @@ fun SupervisorVisitsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit
     }
     deleting?.let { v ->
         var typed by remember(v) { mutableStateOf("") }
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { deleting = null },
             title = { Text("حذف الزيارة") },
             text = {
@@ -605,7 +605,7 @@ private fun SupVisitDialog(
     var attended by remember { mutableStateOf(initial?.takeIf { !it.isNull("teacher_attendance") }?.optBoolean("teacher_attendance", true) ?: true) }
     var notes by remember { mutableStateOf(initial?.supStr("notes").orEmpty().takeIf { it != "null" }.orEmpty()) }
     var actions by remember { mutableStateOf(initial?.supStr("action_items").orEmpty().takeIf { it != "null" }.orEmpty()) }
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = close,
         title = { Text(if (initial == null) "زيارة إشرافية" else "تعديل الزيارة") },
         text = {

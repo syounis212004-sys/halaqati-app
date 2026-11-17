@@ -2,6 +2,8 @@
 
 package com.mohammedsamir.halaqati.ui.screens
 
+import com.mohammedsamir.halaqati.ui.components.HalaqatiAlertDialog
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
@@ -67,7 +69,7 @@ internal fun PaymentFormFields(form: PaymentForm) {
 internal fun DefaultsDialog(initial: JSONObject?, onDismiss: () -> Unit, onSave: (JSONObject) -> Unit) {
     var currency by remember { mutableStateOf(initial?.optString("currency")?.takeIf { it.isNotBlank() && it != "null" } ?: "ILS") }
     val form = remember { PaymentForm(initial) }
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("حساب الدعم الافتراضي") },
         text = {
@@ -118,7 +120,7 @@ internal fun TransferDialog(onDismiss: () -> Unit, onSubmit: (String, String?) -
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) image = DocumentImageEncoder.uriJpeg(context, uri, maxDimension = 1024, quality = 70)
     }
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("إثبات التحويل") },
         text = {

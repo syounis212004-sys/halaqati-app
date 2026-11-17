@@ -2,6 +2,8 @@
 
 package com.mohammedsamir.halaqati.ui.screens
 
+import com.mohammedsamir.halaqati.ui.components.HalaqatiAlertDialog
+
 import com.mohammedsamir.halaqati.ui.theme.motionEnter
 import com.mohammedsamir.halaqati.ui.theme.motionExit
 import androidx.compose.animation.AnimatedVisibility
@@ -40,7 +42,8 @@ import com.mohammedsamir.halaqati.R
 import com.mohammedsamir.halaqati.model.Profile
 import com.mohammedsamir.halaqati.model.UserRole
 import com.mohammedsamir.halaqati.ui.components.ProFilterChip
-import com.mohammedsamir.halaqati.ui.components.latticeOverlay
+import com.mohammedsamir.halaqati.ui.components.PatternLevel
+import com.mohammedsamir.halaqati.ui.components.nourPattern
 import com.mohammedsamir.halaqati.ui.components.StateNotice
 import com.mohammedsamir.halaqati.ui.theme.HalaqatiUiTokens
 import com.mohammedsamir.halaqati.ui.auth.NativeGoogleSignIn
@@ -85,7 +88,7 @@ fun AuthScreen(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(bottomStart = 36.dp, bottomEnd = 36.dp))
                     .background(MaterialTheme.colorScheme.primary)
-                    .then(Modifier.latticeOverlay())
+                    .nourPattern(PatternLevel.Hero)
                     .statusBarsPadding(),
             ) {
                 com.mohammedsamir.halaqati.ui.components.HalaqatiAmbient(
@@ -311,7 +314,7 @@ fun AuthScreen(
 
     if (resetDialog) {
         var resetEmail by remember(resetDialog) { mutableStateOf(email) }
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { resetDialog = false },
             title = { Text("استرجاع كلمة المرور") },
             text = {

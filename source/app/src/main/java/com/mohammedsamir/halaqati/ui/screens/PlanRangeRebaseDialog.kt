@@ -1,5 +1,7 @@
 package com.mohammedsamir.halaqati.ui.screens
 
+import com.mohammedsamir.halaqati.ui.components.HalaqatiAlertDialog
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import com.mohammedsamir.halaqati.ui.components.items
@@ -48,7 +50,7 @@ fun PlanRangeRebaseDialog(halaqaId: String?, onDismiss: () -> Unit, onApplied: (
         }
     }
 
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = { if (!applying) onDismiss() },
         title = { Text("إعادة ضبط نطاق الشهر", fontWeight = FontWeight.Bold) },
         text = {

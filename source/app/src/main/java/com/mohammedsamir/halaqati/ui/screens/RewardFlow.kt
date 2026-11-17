@@ -2,6 +2,8 @@
 
 package com.mohammedsamir.halaqati.ui.screens
 
+import com.mohammedsamir.halaqati.ui.components.HalaqatiAlertDialog
+
 import android.graphics.BitmapFactory
 import android.util.Base64
 import androidx.compose.foundation.Image
@@ -151,7 +153,7 @@ internal fun RewardRequestDialog(winner: JSONObject, month: String, onDismiss: (
         else -> chosen != null
     }
 
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
         title = { Text("مكافأة ${winner.optString("name")}") },
         text = {
@@ -346,7 +348,7 @@ internal fun RewardProofDialog(id: String, kind: String, onDismiss: () -> Unit) 
         }
         if (bmp == null) failed = true else bitmap = bmp
     }
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("صورة الإثبات") },
         text = {
@@ -598,7 +600,7 @@ internal fun AdminRewardsPanel(modifier: Modifier = Modifier) {
     )
     decide?.let { (r, approve) ->
         var note by remember(r.rs("id")) { mutableStateOf("") }
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { decide = null },
             title = { Text(if (approve) "الموافقة على الطلب" else "الاعتذار عن الطلب") },
             text = {
@@ -634,7 +636,7 @@ private fun RewardOptionDialog(initial: JSONObject?, onDismiss: () -> Unit, onSa
     var currency by remember { mutableStateOf(initial?.rs("currency")?.takeIf { it.isNotBlank() } ?: "ILS") }
     var description by remember { mutableStateOf(initial?.rs("description").orEmpty()) }
     var active by remember { mutableStateOf(initial?.optBoolean("active", true) ?: true) }
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (initial == null) "خيار مكافأة جديد" else "تعديل الخيار") },
         text = {

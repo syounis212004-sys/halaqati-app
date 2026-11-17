@@ -5,6 +5,8 @@
 
 package com.mohammedsamir.halaqati.ui.screens
 
+import com.mohammedsamir.halaqati.ui.components.HalaqatiAlertDialog
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -246,7 +248,7 @@ fun QuranRangePickerDialog(
     val range = attempt.getOrNull()
     val rangeError = attempt.exceptionOrNull()?.message
 
-    AlertDialog(
+    HalaqatiAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("اختيار المقرر من المصحف", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge) },
         text = {

@@ -2,6 +2,8 @@
 
 package com.mohammedsamir.halaqati.ui.screens
 
+import com.mohammedsamir.halaqati.ui.components.HalaqatiAlertDialog
+
 import com.mohammedsamir.halaqati.ui.components.OneLineName
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -420,7 +422,7 @@ fun SmartPlanBulkCycleManagerSheet(
             )
         }
         val invalidCount = selectedRows.size - requests.size
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { if (!applying) showConfirm = false },
             title = { Text("اعتماد دورة الحفظ ← السرد") },
             text = {

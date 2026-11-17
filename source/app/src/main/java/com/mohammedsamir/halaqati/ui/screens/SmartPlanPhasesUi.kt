@@ -2,6 +2,8 @@
 
 package com.mohammedsamir.halaqati.ui.screens
 
+import com.mohammedsamir.halaqati.ui.components.HalaqatiAlertDialog
+
 import com.mohammedsamir.halaqati.ui.components.OneLineName
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -726,7 +728,7 @@ fun SmartPlanPhasesManagerSheet(
         val customCount = if (customizeSardTargets) included.count { snap ->
             perStudentSardTargets[snap.student.id]?.toDoubleOrNull()?.let { kotlin.math.abs(it - commonTarget) > .001 } == true
         } else 0
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { showBulkConfirm = false },
             title = { Text("معاينة الانتقال الجماعي") },
             text = {
@@ -790,7 +792,7 @@ fun SmartPlanPhasesManagerSheet(
         val percent = if (target > .001) completed / target * 100.0 else 0.0
         val priorShortfall = previousShortfalls[snap.student.id] ?: 0.0
         val lastHifz = snap.activities.firstOrNull { it.key == "hifz" }?.lastRecitation
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { transitionOne = null },
             title = { Text("إنهاء مرحلة الحفظ") },
             text = {
@@ -837,7 +839,7 @@ fun SmartPlanPhasesManagerSheet(
 
     if (showBulkEndSard) {
         val candidates = snapshots.distinctBy { it.student.id }.filter { it.phase?.phaseType == "sard" && it.phaseProgress != null }.sortedBy { it.student.fullName }
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { if (!bulkEndRunning) showBulkEndSard = false },
             title = { Text("إنهاء السرد لعدة طلاب") },
             text = {
@@ -905,7 +907,7 @@ fun SmartPlanPhasesManagerSheet(
         val phase = snap.phase
         val pp = snap.phaseProgress
         if (phase != null && pp != null) {
-            AlertDialog(
+            HalaqatiAlertDialog(
                 onDismissRequest = { closePhaseOne = null },
                 title = { Text("إنهاء مرحلة السرد") },
                 text = { Text("${snap.student.fullName}: ${phaseNumber(pp.completedPages)}${pp.targetPages?.let { " / ${phaseNumber(it)} صفحة · ${phaseNumber(pp.percentage ?: 0.0)}%" } ?: " صفحة"}. سيتم تجميد النتيجة ولن يُولد مقرر جديد.") },
@@ -1354,7 +1356,7 @@ private fun PhaseEditorDialog(
                 .count { (it.dayOfWeek.value % 7) in draft.scheduleWeekdays }
         } else 0
         val sampleRemaining = if (sampleCompleted != null && newTarget != null) max(0.0, newTarget - sampleCompleted) else null
-        AlertDialog(
+        HalaqatiAlertDialog(
             onDismissRequest = { pendingDraft = null },
             title = { Text("معاينة تأثير التعديل") },
             text = {
