@@ -129,6 +129,12 @@ private const val CACHE_GUARDIAN_COMPETITION_PREFIX = "guardian:competition:"
 private const val CACHE_REPORT_RECITATIONS_PREFIX = "reports:recitations:"
 private const val CACHE_REPORT_SUMMARY_PREFIX = "reports:summary:"
 /** RC27.18: tables whose rows are only meaningful together with their session. */
+/** Row ceilings for list queries. SupabaseApi.select reads anything above one page in pages, so these are safety
+ *  limits, not page sizes. They used to be 500 / 2000 / 10000 / 20000 and silently dropped rows past that. */
+private const val PLAN_ROWS_CEILING = 50_000
+private const val PLAN_RECITATION_CEILING = 60_000
+private const val REPORT_STUDENT_CEILING = 50_000
+private const val REPORT_ROW_CEILING = 200_000
 private const val STUDENT_COLUMNS_NO_PHOTO = "id,full_name,user_id,halaqa_id,primary_teacher_id,date_of_birth,phone,guardian_phone,enrollment_date,status,notes,target_pages_weekly,target_review_pages_weekly,created_at,updated_at,guardian_email,gender,national_id,program_name,school_grade,address,category_id,track_code,withdrawn_at,withdrawn_by,donor_contact_allowed,association_id"
 private val SESSION_DERIVED_TABLES = setOf("recitation_entries", "attendance_records", "student_daily_notes", "student_points", "sessions")
 private const val CACHE_ACCOUNTS = "accounts:profiles"
@@ -177,6 +183,16 @@ class HalaqatiRepository(
         // RC18 privacy: never keep role-specific in-memory plan snapshots across an account switch.
         planSnapshotMemoryDate = null
         planSnapshotMemory = emptyList()
+        // Revoke the session on the server and drop this account's downloaded student data from the device.
+        // Unsynced work (outbox rows and dirty students) is kept on purpose: it belongs to the same owner id
+        // and is uploaded after that user signs in again.
+        val owner = store.load()?.userId?.takeIf { it.isNotBlank() }
+        api.logoutRemote()
+        if (owner != null) {
+            runCatching { cache.clearOwner(owner) }
+            runCatching { offlineDb.students().clearClean(owner) }
+            runCatching { context.getSharedPreferences("halaqati_native_report_cache", Context.MODE_PRIVATE).edit().clear().apply() }
+        }
         store.clear()
     }
 
@@ -1086,7 +1102,7 @@ class HalaqatiRepository(
         val owner = currentUserId() ?: return emptyList()
         val stale = cachedPlans(owner, maxAge = null).orEmpty()
         if (!online()) return stale
-        val arr = runCatching { withAuthRetry { api.select("smart_plans", "select=*&order=updated_at.desc&limit=500") } }
+        val arr = runCatching { withAuthRetry { api.select("smart_plans", "select=*&order=updated_at.desc&limit=$PLAN_ROWS_CEILING") } }
             .getOrElse { return stale }
         cache.put(owner, CACHE_PLANS, arr.toString())
         invalidatePlanSnapshotMemory()
@@ -1380,7 +1396,7 @@ class HalaqatiRepository(
             cached
         } else if (!online()) cached else {
             runCatching {
-                val arr = withAuthRetry { api.select("smart_plan_phases", "select=*&order=plan_id.asc,phase_order.asc&limit=2000") }
+                val arr = withAuthRetry { api.select("smart_plan_phases", "select=*&order=plan_id.asc,phase_order.asc&limit=$PLAN_ROWS_CEILING") }
                 cache.put(owner, CACHE_PLAN_PHASES, arr.toString())
                 invalidatePlanSnapshotMemory()
                 phasesFromJson(arr.toString())
@@ -2307,8 +2323,8 @@ class HalaqatiRepository(
         }
         if (arr == null && online()) {
             arr = runCatching {
-                val query = "$planRecCols&sessions.session_date=gte.$from&sessions.session_date=lte.$to&order=created_at.asc&limit=10000"
-                withAuthRetry { api.select("recitation_entries", query) }
+                val query = "$planRecCols&sessions.session_date=gte.$from&sessions.session_date=lte.$to&order=created_at.desc&limit=$PLAN_RECITATION_CEILING"
+                QueryWindowRules.oldestFirst(withAuthRetry { api.select("recitation_entries", query) })
             }.getOrNull()
             if (arr != null && owner != null) cache.put(owner, CACHE_PLAN_RECITATIONS, arr.toString())
         }
@@ -2387,8 +2403,8 @@ class HalaqatiRepository(
                 withAuthRetry {
                     api.select(
                         "smart_plan_events",
-                        "select=client_event_id,plan_id,phase_id,student_id,event_type,payload,event_date,created_at&order=created_at.asc&limit=5000",
-                    )
+                        "select=client_event_id,plan_id,phase_id,student_id,event_type,payload,event_date,created_at&order=created_at.desc&limit=$PLAN_RECITATION_CEILING",
+                    ).let(QueryWindowRules::oldestFirst)
                 }
             }.onSuccess { remote ->
                 arr = remote
@@ -3463,7 +3479,7 @@ class HalaqatiRepository(
         }
         val students = table(
             "students",
-            "select=id,full_name,track_code,category_id,halaqa_id,status&status=eq.active$studentTrack$studentHalaqa&order=full_name.asc&limit=2000",
+            "select=id,full_name,track_code,category_id,halaqa_id,status&status=eq.active$studentTrack$studentHalaqa&order=full_name.asc&limit=$REPORT_STUDENT_CEILING",
             forceRefresh = forceRefresh,
         )
         val categories = table("student_categories", "select=id,name&limit=1000", forceRefresh = forceRefresh)
@@ -3481,12 +3497,12 @@ class HalaqatiRepository(
         val recitations = table(
             "recitation_entries",
             "select=student_id,phase_id,activity_type,start_surah,start_ayah,end_surah,end_ayah,pages_count,mistakes,prompts,points,evaluation,safety_percentage," +
-                "sessions!inner(session_date,halaqa_id,session_type,status)$sessionFilters&limit=20000",
+                "sessions!inner(session_date,halaqa_id,session_type,status)$sessionFilters&limit=$REPORT_ROW_CEILING",
             forceRefresh = forceRefresh,
         )
         val attendance = table(
             "attendance_records",
-            "select=student_id,status,sessions!inner(session_date,halaqa_id,session_type,status)$sessionFilters&limit=20000",
+            "select=student_id,status,sessions!inner(session_date,halaqa_id,session_type,status)$sessionFilters&limit=$REPORT_ROW_CEILING",
             forceRefresh = forceRefresh,
         )
         val extraPoints = table(
@@ -3701,7 +3717,7 @@ class HalaqatiRepository(
         require(rankingTrack in setOf("hifz", "review", "sard")) { "مسار الترتيب غير صالح" }
         val query = "select=student_id,pages_count,mistakes,prompts,points,activity_type,selection_data,start_surah,start_ayah,end_surah,end_ayah," +
             "students!inner(full_name,category_id,track_code),sessions!inner(session_date)" +
-            "&sessions.session_date=gte.$from&sessions.session_date=lte.$to&limit=10000"
+            "&sessions.session_date=gte.$from&sessions.session_date=lte.$to&sessions.status=neq.cancelled&limit=$REPORT_ROW_CEILING"
         val owner = currentUserId()
         val rankingCacheKey = "$CACHE_RANKING_PREFIX$from:$to:$canonicalProgram:$rankingTrack"
         // The cached copy only covers the recent window: use it only when the requested range lies inside it.
@@ -3722,7 +3738,7 @@ class HalaqatiRepository(
                     api.select(
                         "recitation_entries",
                         "select=student_id,pages_count,mistakes,prompts,points,activity_type,selection_data,start_surah,start_ayah,end_surah,end_ayah," +
-                            "students!inner(full_name,category_id,track_code),sessions!inner(session_date)&sessions.session_date=gte.$tailStart&limit=5000",
+                            "students!inner(full_name,category_id,track_code),sessions!inner(session_date)&sessions.session_date=gte.$tailStart&sessions.status=neq.cancelled&limit=5000",
                     )
                 }
             }.getOrNull()
@@ -4068,6 +4084,16 @@ class HalaqatiRepository(
         // This prevents ConnectivitySync/WorkManager/manual actions from sending the same
         // phase transition concurrently and exhausting PostgREST's connection pool.
         return synchronized(pushLock) {
+            // Older writes still waiting in the Outbox may be what this RPC depends on (a session, a plan, a phase).
+            // Send them first; if some remain, this call takes its place behind them instead of jumping the queue
+            // and being rejected by the server for a parent that has not arrived yet.
+            if (queue.size(owner) > 0) {
+                runCatching { flushQueue() }
+                if (queue.size(owner) > 0) {
+                    queued("POST", path, args, dedupe)
+                    return@synchronized ""
+                }
+            }
             try {
                 val result = withAuthRetry { api.rpc(name, args) }
                 // A previous timeout may have left the exact same deterministic mutation
@@ -6298,7 +6324,16 @@ class HalaqatiRepository(
         val failedPlanIds = blockedSnapshot.filter { it.entityTable == "smart_plans" }.mapNotNull { it.entityId }.toMutableSet()
         val failedPhaseIds = blockedSnapshot.filter { it.entityTable == "smart_plan_phases" }.mapNotNull { it.entityId }.toMutableSet()
         for (item in queue.all(owner)) {
-            if (detectConflict(owner, item)) continue
+            val conflicted = try {
+                detectConflict(owner, item)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Offline / expired session: stop and retry later. Anything else: let the server judge the write itself.
+                if (shouldQueue(e) || (e as? SupabaseException)?.status == 401) throw e
+                false
+            }
+            if (conflicted) continue
             val parsed = item.body?.let { runCatching { JSONObject(it) }.getOrNull() }
             val parentPlan = parsed?.optString("plan_id")?.takeIf { it.isNotBlank() }
             val parentPhase = parsed?.optString("phase_id")?.takeIf { it.isNotBlank() }
@@ -6319,7 +6354,9 @@ class HalaqatiRepository(
                 if (item.method == "DELETE" && item.entityTable == "sessions") {
                     val sid = SessionDeleteGuard.sessionIdFromPath(item.path)
                     if (sid != null && withAuthRetry { serverSessionHasData(sid) }) {
-                        queue.done(item.id, owner)
+                        // Keep the refused delete visible in the sync centre instead of dropping it silently:
+                        // the user was told the session is gone, and it will come back on the next refresh.
+                        queue.markBlocked(item.id, owner, "لم تُحذف الجلسة من الخادم لأن فيها تسميعًا أو حضورًا أو ملاحظات محفوظة. أرشف الجلسة بدل حذفها، ثم تجاهل هذا العنصر.")
                         signalLocalMutation()
                         continue
                     }
@@ -6362,14 +6399,15 @@ class HalaqatiRepository(
                     SyncErrorRules.Kind.SESSION, SyncErrorRules.Kind.TRANSIENT, SyncErrorRules.Kind.PARENT_MISSING -> {
                         // RC27.43: a request that keeps failing on the server itself (HTTP 5xx / timeout, not "offline")
                         // must not freeze every later change. After 6 failed tries park it as blocked and go on.
-                        if (kind == SyncErrorRules.Kind.TRANSIENT && (status in 500..599 || status == 408) && item.attempts >= 6) {
+                        val localFailure = e !is SupabaseException && e !is IOException
+                        if (kind == SyncErrorRules.Kind.TRANSIENT && (status in 500..599 || status == 408 || localFailure) && item.attempts >= 6) {
                             queue.markBlocked(item.id, owner, message)
                             continue
                         }
                         queue.fail(item.id, owner, message)
                         // RC31: only a lost connection or an expired session stops the whole flush. A server error on ONE
                         // request (HTTP 5xx / timeout) is retried later, while everything queued after it still goes up now.
-                        if (kind == SyncErrorRules.Kind.TRANSIENT && (status in 500..599 || status == 408)) continue
+                        if (kind == SyncErrorRules.Kind.TRANSIENT && (status in 500..599 || status == 408 || localFailure)) continue
                         throw e
                     }
                 }
@@ -6422,7 +6460,7 @@ class HalaqatiRepository(
                 api.select(
                     "recitation_entries",
                     "select=student_id,pages_count,mistakes,prompts,points,activity_type,selection_data,start_surah,start_ayah,end_surah,end_ayah," +
-                        "students!inner(full_name,category_id,track_code),sessions!inner(session_date)&sessions.session_date=gte.$windowStart&limit=10000",
+                        "students!inner(full_name,category_id,track_code),sessions!inner(session_date)&sessions.session_date=gte.$windowStart&sessions.status=neq.cancelled&limit=$REPORT_ROW_CEILING",
                 )
             }
             cache.put(owner, CACHE_RANKING_SOURCE, rankingSource.toString())

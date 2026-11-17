@@ -20,3 +20,26 @@ class StudentTrackRulesTest {
         assertEquals("track_code=eq.tathbit", StudentTrackRules.postgrestFilter("track_code", "tathbit"))
     }
 }
+
+class QuickSaveActivityTest {
+    /** The audit finding: a general-hifz student on a retry ("tathbit" assignment) could not be saved from the quick button. */
+    @org.junit.Test fun retryAssignmentOfAHifzStudentIsSavedAsTheSessionActivity() {
+        org.junit.Assert.assertEquals("new_hifz", TrackActivityPolicy.quickSaveActivity("general_hifz", "tathbit", "hifz"))
+        org.junit.Assert.assertEquals("sard", TrackActivityPolicy.quickSaveActivity("general_hifz", "tathbit", "sard"))
+        org.junit.Assert.assertEquals("review_near", TrackActivityPolicy.quickSaveActivity("general_hifz", "tathbit", "review"))
+    }
+
+    @org.junit.Test fun ordinaryAssignmentsKeepTheirActivity() {
+        org.junit.Assert.assertEquals("new_hifz", TrackActivityPolicy.quickSaveActivity("general_hifz", "hifz", "hifz"))
+        org.junit.Assert.assertEquals("sard", TrackActivityPolicy.quickSaveActivity("general_hifz", "sard", "hifz"))
+        org.junit.Assert.assertEquals("review_near", TrackActivityPolicy.quickSaveActivity("general_hifz", "review", "hifz"))
+        org.junit.Assert.assertEquals("test", TrackActivityPolicy.quickSaveActivity("general_hifz", "test", "hifz"))
+    }
+
+    @org.junit.Test fun tathbitTrackStudentsStayOnTathbit() {
+        org.junit.Assert.assertEquals("tathbit", TrackActivityPolicy.quickSaveActivity("tathbit", "tathbit", "hifz"))
+        org.junit.Assert.assertEquals("tathbit", TrackActivityPolicy.quickSaveActivity("tathbit", "review", "hifz"))
+        // A hifz/sard assignment is not recordable for this track: fall back to tathbit instead of failing.
+        org.junit.Assert.assertEquals("tathbit", TrackActivityPolicy.quickSaveActivity("tathbit", "sard", "sard"))
+    }
+}

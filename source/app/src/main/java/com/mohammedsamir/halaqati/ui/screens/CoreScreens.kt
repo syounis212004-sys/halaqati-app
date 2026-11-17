@@ -4111,7 +4111,7 @@ fun QuickMemorizationScreen(pending: Int, onRefresh: () -> Unit) {
                                                 AppGraph.repo.saveRecitation(RecitationDraft(
                                                     studentId = entry.student.id,
                                                     sessionId = session.id,
-                                                    activityType = when (a.kind) { "sard" -> "sard"; "review" -> "review_near"; "tathbit" -> "tathbit"; "test" -> "test"; else -> "new_hifz" },
+                                                    activityType = com.mohammedsamir.halaqati.data.TrackActivityPolicy.quickSaveActivity(entry.student.track, a.kind, session.type),
                                                     startPage = a.startPage,
                                                     endPage = a.endPage,
                                                     pages = a.pages,

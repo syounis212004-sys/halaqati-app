@@ -90,4 +90,30 @@ object TrackActivityPolicy {
         require(r != TATHBIT) { "التثبيت نشاط خاص بطلاب مسار التثبيت" }
         return r
     }
+
+    /**
+     * Activity for the one-tap "recited" button, from the smart-plan assignment kind.
+     *
+     * A general-hifz student who must repeat a failed portion gets an assignment of kind "tathbit" (a retry),
+     * which is not a recordable activity for that track. Like the full recitation form, fall back to the
+     * activity of the session instead of refusing to save.
+     */
+    fun quickSaveActivity(track: String?, assignmentKind: String, sessionType: String?): String {
+        val requested = when (assignmentKind.trim().lowercase()) {
+            "sard" -> "sard"
+            "review" -> "review_near"
+            TATHBIT -> TATHBIT
+            "test" -> "test"
+            else -> "new_hifz"
+        }
+        return runCatching { recitationActivityFor(track, requested) }.getOrElse {
+            if (isTathbit(track)) TATHBIT else when (sessionType?.trim()?.lowercase()) {
+                "sard" -> "sard"
+                "review" -> "review_near"
+                "test" -> "test"
+                "tajweed", "tilawah" -> "tilawah"
+                else -> "new_hifz"
+            }
+        }
+    }
 }
