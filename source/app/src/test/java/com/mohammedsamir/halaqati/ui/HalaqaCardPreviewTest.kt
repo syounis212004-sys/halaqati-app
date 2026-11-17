@@ -49,8 +49,7 @@ import com.mohammedsamir.halaqati.ui.components.AppTopBar
 import com.mohammedsamir.halaqati.ui.components.CollapsingFab
 import com.mohammedsamir.halaqati.ui.components.DialogOrnament
 import com.mohammedsamir.halaqati.ui.components.EmptyState
-import com.mohammedsamir.halaqati.ui.components.PatternLevel
-import com.mohammedsamir.halaqati.ui.components.nourPattern
+import com.mohammedsamir.halaqati.ui.components.nourHeroFill
 import com.mohammedsamir.halaqati.ui.components.StateNotice
 import com.mohammedsamir.halaqati.ui.components.FabClearance
 import com.mohammedsamir.halaqati.ui.components.GradientPair
@@ -116,7 +115,7 @@ class HalaqaCardPreviewTest {
     @Composable
     private fun Themed(dark: Boolean, content: @Composable () -> Unit) {
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-            HalaqatiTheme(UiPreferences.defaults().copy(themeMode = if (dark) ThemeMode.DARK else ThemeMode.LIGHT)) {
+            HalaqatiTheme(UiPreferences.defaults().copy(themeMode = if (dark) ThemeMode.DARK else ThemeMode.LIGHT, motion = com.mohammedsamir.halaqati.data.MotionLevel.REDUCED)) {
                 Surface(color = MaterialTheme.colorScheme.background) { content() }
             }
         }
@@ -257,8 +256,8 @@ class HalaqaCardPreviewTest {
     private fun authBand(dark: Boolean) {
         rule.setContent {
             Themed(dark) {
-                Box(Modifier.width(411.dp).height(150.dp).background(MaterialTheme.colorScheme.primary).nourPattern(PatternLevel.Hero)) {
-                    Text("حلقاتي", Modifier.align(androidx.compose.ui.Alignment.Center), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.headlineMedium)
+                Box(Modifier.width(411.dp).height(150.dp).nourHeroFill(MaterialTheme.colorScheme.primary)) {
+                    Text("حلقاتي", Modifier.align(androidx.compose.ui.Alignment.Center), color = Color.White, style = MaterialTheme.typography.headlineMedium)
                 }
             }
         }

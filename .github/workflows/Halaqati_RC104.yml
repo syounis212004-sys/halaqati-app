@@ -30,7 +30,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  ARCHIVE_SHA256: daad4e59861b044836f76c4db1bcb9a78b1dd722ee8f924251e3a9b6fa068b1c
+  ARCHIVE_SHA256: e47f1d4d4414ae88064296aced43b4dd07eacc0e7bfcdbcc42f762d5aabbd45d
   PROJECT_DIR: ${{ github.workspace }}/extracted/Halaqati_Native_Kotlin_v2.50.0_RC15
   GRADLE_VERSION: '8.13'
 

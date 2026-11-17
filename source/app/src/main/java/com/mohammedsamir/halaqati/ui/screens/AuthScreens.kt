@@ -42,8 +42,7 @@ import com.mohammedsamir.halaqati.R
 import com.mohammedsamir.halaqati.model.Profile
 import com.mohammedsamir.halaqati.model.UserRole
 import com.mohammedsamir.halaqati.ui.components.ProFilterChip
-import com.mohammedsamir.halaqati.ui.components.PatternLevel
-import com.mohammedsamir.halaqati.ui.components.nourPattern
+import com.mohammedsamir.halaqati.ui.components.nourHeroFill
 import com.mohammedsamir.halaqati.ui.components.StateNotice
 import com.mohammedsamir.halaqati.ui.theme.HalaqatiUiTokens
 import com.mohammedsamir.halaqati.ui.auth.NativeGoogleSignIn
@@ -87,8 +86,7 @@ fun AuthScreen(
                 Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(bottomStart = 36.dp, bottomEnd = 36.dp))
-                    .background(MaterialTheme.colorScheme.primary)
-                    .nourPattern(PatternLevel.Hero)
+                    .nourHeroFill(MaterialTheme.colorScheme.primary)
                     .statusBarsPadding(),
             ) {
                 com.mohammedsamir.halaqati.ui.components.HalaqatiAmbient(
