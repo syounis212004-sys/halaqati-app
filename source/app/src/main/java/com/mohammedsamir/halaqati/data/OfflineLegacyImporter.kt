@@ -36,6 +36,8 @@ object OfflineLegacyImporter {
                 }
             }
         }
+        // The rows now live in the account-scoped Room cache; do not leave a second plain copy of student data behind.
+        runCatching { context.deleteDatabase("halaqati-cache.db") }
     }
 
     private fun importQueue(context: Context, db: HalaqatiOfflineDatabase) {

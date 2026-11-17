@@ -194,6 +194,8 @@ class AppViewModel : ViewModel() {
 
     fun handleDeepLink(url: String?) {
         if (url.isNullOrBlank() || !url.startsWith(SupabaseApi.APP_DEEP_LINK)) return
+        // A callback link can come from any app. Remember where we were so a bad link cannot throw a signed-in user out.
+        val before = _auth.value
         _auth.value = AuthState.Loading
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -209,7 +211,10 @@ class AppViewModel : ViewModel() {
             } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-                _auth.value = AuthState.Error("تعذر إكمال رابط الدخول: ${e.message ?: "خطأ غير معروف"}")
+                _auth.value = when (before) {
+                    is AuthState.Ready, is AuthState.Pending, is AuthState.NeedsSetup, is AuthState.Frozen -> before
+                    else -> AuthState.Error("تعذر إكمال رابط الدخول: ${e.message ?: "خطأ غير معروف"}")
+                }
             }
         }
     }

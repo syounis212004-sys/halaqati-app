@@ -12,4 +12,8 @@
     <exclude domain="database" path="halaqati-offline.db"/>
     <exclude domain="database" path="halaqati-offline.db-wal"/>
     <exclude domain="database" path="halaqati-offline.db-shm"/>
+    <!-- Legacy pre-RC7 JSON cache of students; still on upgraded devices until the importer removes it. -->
+    <exclude domain="database" path="halaqati-cache.db"/>
+    <exclude domain="database" path="halaqati-cache.db-wal"/>
+    <exclude domain="database" path="halaqati-cache.db-shm"/>
 </full-backup-content>

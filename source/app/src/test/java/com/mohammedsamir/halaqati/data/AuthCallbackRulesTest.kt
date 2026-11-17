@@ -41,3 +41,33 @@ class AuthCallbackRulesTest {
         assertEquals("abc123", AuthCallbackRules.parse("$prefix?code=abc123", prefix)!!.code)
     }
 }
+
+class AuthTokenLinkGateTest {
+    private val day = AuthCallbackRules.EMAIL_LINK_TTL_MS
+
+    @org.junit.Test fun forgedRecoveryLinkIsRefusedWhenNothingWasRequested() {
+        // The audit finding: `type=recovery` alone used to be enough to accept somebody else's tokens.
+        org.junit.Assert.assertFalse(AuthCallbackRules.tokenLinkAllowed("recovery", pkcePending = false, pendingEmail = null, pendingAtMs = 0, nowMs = 1_000))
+        org.junit.Assert.assertFalse(AuthCallbackRules.tokenLinkAllowed("signup", pkcePending = true, pendingEmail = "", pendingAtMs = 0, nowMs = 1_000))
+    }
+
+    @org.junit.Test fun requestedRecoveryLinkIsAcceptedOnlyInsideItsWindow() {
+        org.junit.Assert.assertTrue(AuthCallbackRules.tokenLinkAllowed("recovery", false, "t@example.com", pendingAtMs = 1_000, nowMs = 1_000 + day))
+        org.junit.Assert.assertFalse(AuthCallbackRules.tokenLinkAllowed("recovery", false, "t@example.com", pendingAtMs = 1_000, nowMs = 1_001 + day))
+        // A clock set back must not extend the window.
+        org.junit.Assert.assertFalse(AuthCallbackRules.tokenLinkAllowed("recovery", false, "t@example.com", pendingAtMs = 5_000, nowMs = 1_000))
+    }
+
+    @org.junit.Test fun untypedTokensNeedOurOwnPendingSignIn() {
+        org.junit.Assert.assertTrue(AuthCallbackRules.tokenLinkAllowed("", pkcePending = true, pendingEmail = null, pendingAtMs = 0, nowMs = 1))
+        org.junit.Assert.assertFalse(AuthCallbackRules.tokenLinkAllowed("", pkcePending = false, pendingEmail = "t@example.com", pendingAtMs = 0, nowMs = 1))
+    }
+
+    @org.junit.Test fun emailedLinkMustBelongToTheRequestedAccount() {
+        org.junit.Assert.assertTrue(AuthCallbackRules.tokenEmailMatches("recovery", " Teacher@Example.com ", "teacher@example.com"))
+        org.junit.Assert.assertFalse(AuthCallbackRules.tokenEmailMatches("recovery", "teacher@example.com", "attacker@example.com"))
+        org.junit.Assert.assertFalse(AuthCallbackRules.tokenEmailMatches("recovery", "teacher@example.com", ""))
+        org.junit.Assert.assertFalse(AuthCallbackRules.tokenEmailMatches("recovery", null, "attacker@example.com"))
+        org.junit.Assert.assertTrue(AuthCallbackRules.tokenEmailMatches("", null, "anyone@example.com"))
+    }
+}

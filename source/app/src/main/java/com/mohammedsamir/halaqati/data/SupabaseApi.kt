@@ -124,8 +124,18 @@ class SupabaseApi(private val sessionStore: SecureSessionStore) {
             ),
         )
         val accessToken = json.optString("access_token")
-        if (accessToken.isBlank()) return null
+        if (accessToken.isBlank()) {
+            // Email confirmation is required: remember which address the confirmation link is expected for.
+            sessionStore.savePendingEmailLink(email)
+            return null
+        }
         return sessionFromAuthJson(json, email).also(sessionStore::save)
+    }
+
+    /** Revokes this device's refresh token on the server. Best effort: sign-out must also work offline. */
+    fun logoutRemote() {
+        if (sessionStore.load()?.accessToken.isNullOrBlank()) return
+        runCatching { call("${BuildConfig.SUPABASE_URL}/auth/v1/logout?scope=local", "POST", "{}") }
     }
 
     /** The access token currently stored, so a caller can tell whether another thread already refreshed it. */
@@ -211,8 +221,13 @@ class SupabaseApi(private val sessionStore: SecureSessionStore) {
         val access = callback.accessToken
         val refresh = callback.refreshToken
         if (access.isBlank() || refresh.isBlank()) return null
-        // Tokens in a link are accepted only for recovery/confirmation links (they carry a type) or while our own sign-in is pending.
-        if (callback.type.isBlank() && !sessionStore.takePkceFlag()) throw SupabaseException("رابط الدخول غير موثوق. ابدأ من زر Google داخل التطبيق.")
+        // Tokens in a link are accepted only while this install is waiting for them: our own Google sign-in (no type)
+        // or an email link we requested ourselves. The `type` in the link is chosen by its sender and proves nothing.
+        val pendingEmail = sessionStore.pendingEmailLink()
+        val pkcePending = callback.type.isBlank() && sessionStore.takePkceFlag()
+        if (!AuthCallbackRules.tokenLinkAllowed(callback.type, pkcePending, pendingEmail, sessionStore.pendingEmailLinkAt(), System.currentTimeMillis())) {
+            throw SupabaseException("رابط الدخول غير موثوق. ابدأ من داخل التطبيق: زر Google أو «نسيت كلمة المرور».")
+        }
         // Validate the access token with Supabase before persisting it.  The JWT
         // payload is only used as a fallback for older auth responses; RLS will
         // still validate the bearer token on every data request.
@@ -221,6 +236,11 @@ class SupabaseApi(private val sessionStore: SecureSessionStore) {
         val userId = verifiedUser.optString("id").ifBlank { payload.optString("sub") }
         if (userId.isBlank()) throw SupabaseException("تعذر تحديد حساب Google من جلسة Supabase")
         val email = verifiedUser.optString("email").ifBlank { payload.optString("email") }
+        // The emailed link must belong to the account it was requested for; anything else is somebody else's session.
+        if (!AuthCallbackRules.tokenEmailMatches(callback.type, pendingEmail, verifiedUser.optString("email"))) {
+            throw SupabaseException("رابط الدخول لا يخص الحساب الذي طلبته من هذا الجهاز.")
+        }
+        if (callback.type.isNotBlank()) sessionStore.clearPendingEmailLink()
         return UserSession(access, refresh, userId, email).also(sessionStore::save)
     }
 
@@ -228,6 +248,7 @@ class SupabaseApi(private val sessionStore: SecureSessionStore) {
 
     fun requestPasswordReset(email: String) {
         val redirect = URLEncoder.encode(APP_DEEP_LINK, StandardCharsets.UTF_8.name())
+        sessionStore.savePendingEmailLink(email)
         call(
             "${BuildConfig.SUPABASE_URL}/auth/v1/recover?redirect_to=$redirect",
             "POST",

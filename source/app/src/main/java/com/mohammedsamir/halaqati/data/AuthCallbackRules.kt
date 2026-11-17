@@ -20,6 +20,33 @@ object AuthCallbackRules {
         val error: String? = null,
     )
 
+    /** How long an email link we asked Supabase to send (password recovery / sign-up confirmation) stays acceptable. */
+    const val EMAIL_LINK_TTL_MS: Long = 24L * 60L * 60L * 1000L
+
+    /**
+     * Gate for callbacks that carry session tokens directly in the link (implicit flow).
+     *
+     * A link from any other app or web page can carry somebody else's valid tokens, so tokens are only
+     * accepted when this install started the matching flow itself:
+     *  - no `type`: our own Google sign-in is pending (one-shot PKCE flag);
+     *  - with a `type` (recovery, signup, ...): this install requested an email link recently.
+     * A `type` on its own proves nothing - the sender of the link chooses it.
+     */
+    fun tokenLinkAllowed(type: String, pkcePending: Boolean, pendingEmail: String?, pendingAtMs: Long, nowMs: Long): Boolean {
+        if (type.isBlank()) return pkcePending
+        if (pendingEmail.isNullOrBlank()) return false
+        val age = nowMs - pendingAtMs
+        return age in 0..EMAIL_LINK_TTL_MS
+    }
+
+    /** The account behind an emailed link must be the one the link was requested for. */
+    fun tokenEmailMatches(type: String, pendingEmail: String?, tokenEmail: String?): Boolean {
+        if (type.isBlank()) return true
+        val expected = pendingEmail?.trim().orEmpty()
+        val actual = tokenEmail?.trim().orEmpty()
+        return expected.isNotEmpty() && expected.equals(actual, ignoreCase = true)
+    }
+
     fun parse(url: String?, expectedPrefix: String): Callback? {
         val raw = url?.trim().orEmpty()
         if (raw.isBlank()) return null

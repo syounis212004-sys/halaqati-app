@@ -73,7 +73,7 @@ object CertificateHtmlRenderer {
         val numberClass = if (topNumber.isNotEmpty()) " cert-num-top" else ""
         // RC24.1 fixed zones: .cert-main (head + body) / dates / signatures / footer. See certificate.css.
         val inner = """
-          <article class="halaqati-certificate cert-template-${hAttr(style.template)}$numberClass" dir="rtl" style="$variables">
+          <article class="halaqati-certificate cert-template-${hAttr(style.template)}$numberClass" dir="rtl" style="${hAttr(variables)}">
             ${islamicPatternSvg()}
             <div class="cert-frame"></div>
             ${islamicCornerSvg("c1")}${islamicCornerSvg("c2")}${islamicCornerSvg("c3")}${islamicCornerSvg("c4")}

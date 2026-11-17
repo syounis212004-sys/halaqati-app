@@ -39,6 +39,15 @@ class SecureSessionStore(ctx: Context) {
     fun takePkceFlag(): Boolean = hasPkce().also { if (it) prefs.edit().remove("pkce").apply() }
     fun takePkce(): String? = prefs.getString("pkce", null)?.takeIf { it.isNotBlank() }.also { prefs.edit().remove("pkce").apply() }
 
+    /** Email of the recovery / confirmation link this install asked for, so a link for another account is refused. */
+    fun savePendingEmailLink(email: String, nowMs: Long = System.currentTimeMillis()) {
+        if (email.isBlank()) return
+        prefs.edit().putString("email_link", email.trim()).putLong("email_link_at", nowMs).apply()
+    }
+    fun pendingEmailLink(): String? = prefs.getString("email_link", null)?.takeIf { it.isNotBlank() }
+    fun pendingEmailLinkAt(): Long = prefs.getLong("email_link_at", 0L)
+    fun clearPendingEmailLink() { prefs.edit().remove("email_link").remove("email_link_at").apply() }
+
     /** The current FCM registration belongs to the physical app install, not the auth session. */
     fun savePushToken(token: String) {
         if (token.isBlank()) return

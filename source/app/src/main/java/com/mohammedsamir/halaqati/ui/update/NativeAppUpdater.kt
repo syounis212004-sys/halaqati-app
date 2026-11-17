@@ -56,6 +56,7 @@ object NativeAppUpdater {
             val code = json.optInt("versionCode", 0)
             val url = json.optString("apkUrl")
             require(code > 0 && url.startsWith("https://")) { "ملف التحديث غير مكتمل" }
+            require(UpdateTrustRules.trustedApkUrl(url, UPDATE_MANIFEST_URL)) { "رابط التحديث ليس من مصدر النشر المعتمد" }
             val rawNotes = json.opt("notes")
             val notes = when (rawNotes) {
                 is org.json.JSONArray -> (0 until rawNotes.length()).mapNotNull { rawNotes.optString(it).takeIf(String::isNotBlank) }
@@ -65,7 +66,7 @@ object NativeAppUpdater {
             UpdateInfo(
                 code, json.optString("versionName", code.toString()), url, notes,
                 json.optBoolean("mandatory", true), json.optInt("minVersionCode", 0),
-                json.optString("sha256").takeIf { it.length == 64 },
+                json.optString("sha256").takeIf { UpdateTrustRules.validSha256(it) },
             )
         } finally { conn.disconnect() }
     }
@@ -146,9 +147,9 @@ object NativeAppUpdater {
         e.apply()
     }
 
-    /** True when the downloaded file matches the published SHA-256 (or when the manifest has none). Guards against a stale/corrupt APK. */
+    /** True only when the downloaded file matches the published SHA-256. A manifest without a digest is not trusted. */
     suspend fun verifyDownload(context: Context, downloadId: Long, expected: String?): Boolean = withContext(Dispatchers.IO) {
-        if (expected.isNullOrBlank()) return@withContext true
+        if (!UpdateTrustRules.validSha256(expected)) return@withContext false
         runCatching {
             val manager = context.getSystemService(DownloadManager::class.java)
             val digest = java.security.MessageDigest.getInstance("SHA-256")
