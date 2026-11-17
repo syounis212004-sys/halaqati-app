@@ -6,9 +6,10 @@
 --    protect_profile_security_fields() guarded role/active/approval/frozen but not `is_platform_owner`
 --    and `association_id`, and UPDATE is granted on every column.  is_platform_owner() is
 --    "flag AND role = admin", so an association administrator could raise himself above every association.
---    From now on only the platform owner (or service_role / a server-side review function) may change them.
---    Compatible with the clients: the only writers of profiles.association_id are the platform-owner
---    screens (Android OrgScreen, web rc85 portal); no SQL function updates either column.
+--    From now on is_platform_owner changes only by the platform owner, and association_id only by the platform
+--    owner or by an association administrator for OTHER people joining/leaving HIS OWN association.
+--    Compatible with the clients: the only writers of profiles.association_id are the organisation screens
+--    (Android OrgScreen, web rc85 portal), which do exactly that; no SQL function updates either column.
 -- 2) anon: remove write privileges that no policy ever allowed (defence in depth; RLS already blocks them).
 --    SELECT is left untouched so no client call changes behaviour.
 -- 3) anon/PUBLIC: stop exposing the assoc_of_* lookup helpers as unauthenticated RPCs.
@@ -25,12 +26,31 @@ create or replace function public.protect_profile_security_fields()
 as $function$
 begin
   if coalesce(auth.role(),'') <> 'service_role' then
-    -- Platform scope: not even an association administrator may change these.
-    if (new.is_platform_owner is distinct from old.is_platform_owner
-        or new.association_id is distinct from old.association_id)
+    -- is_platform_owner: platform owner only.
+    if new.is_platform_owner is distinct from old.is_platform_owner
        and not public.is_platform_owner()
        and coalesce(current_setting('halaqati.review_ok', true), '') <> '1' then
-      raise exception 'هذه الحقول لا يغيرها إلا مالك المنصة' using errcode = '42501';
+      raise exception 'هذا الحقل لا يغيره إلا مالك المنصة' using errcode = '42501';
+    end if;
+    -- association_id: the platform owner may move anybody. An association administrator may only
+    --   * attach ANOTHER person to his own association, or
+    --   * detach ANOTHER person who is currently in his own association
+    -- (that is what the organisation screens of the Android app and the web portal do).
+    -- Nobody may change his own association, and ordinary users may not change it at all.
+    if new.association_id is distinct from old.association_id
+       and not public.is_platform_owner()
+       and coalesce(current_setting('halaqati.review_ok', true), '') <> '1' then
+      if not (
+        public.is_admin()
+        and old.id is distinct from auth.uid()
+        and public.my_association() is not null
+        and (
+          new.association_id = public.my_association()
+          or (new.association_id is null and old.association_id = public.my_association())
+        )
+      ) then
+        raise exception 'تغيير الجمعية مسموح لمالك المنصة، أو لمسؤول الجمعية على أعضاء جمعيته فقط' using errcode = '42501';
+      end if;
     end if;
     if not public.is_admin()
        and coalesce(current_setting('halaqati.review_ok', true), '') <> '1' then
@@ -74,4 +94,4 @@ commit;
 -- select has_table_privilege('anon','public.centers','select');                     -- true (unchanged)
 -- select has_function_privilege('anon','public.assoc_of_student(uuid)','execute');  -- false
 -- select has_function_privilege('authenticated','public.assoc_of_student(uuid)','execute'); -- true
--- select prosrc like '%is_platform_owner is distinct%' from pg_proc where proname='protect_profile_security_fields'; -- true
+-- select prosrc like '%is_platform_owner is distinct%' and prosrc like '%my_association()%' from pg_proc where proname='protect_profile_security_fields'; -- true
