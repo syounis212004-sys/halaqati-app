@@ -213,7 +213,7 @@ class AppViewModel : ViewModel() {
         } catch (e: Exception) {
                 _auth.value = when (before) {
                     is AuthState.Ready, is AuthState.Pending, is AuthState.NeedsSetup, is AuthState.Frozen -> before
-                    else -> AuthState.Error("تعذر إكمال رابط الدخول: ${e.message ?: "خطأ غير معروف"}")
+                    else -> AuthState.Error(if (e is java.io.IOException) "لا يوجد اتصال بالإنترنت. تحقق من الشبكة ثم أعد المحاولة." else "تعذر إكمال رابط الدخول: ${e.message ?: "خطأ غير معروف"}")
                 }
             }
         }

@@ -15,6 +15,7 @@ class SupabaseException(message: String, val status: Int = 0, val sqlState: Stri
 
 class SupabaseApi(private val sessionStore: SecureSessionStore) {
     @Volatile private var refreshFailures = 0
+    @Volatile private var firstRefreshFailureAt = 0L
     companion object {
         const val APP_DEEP_LINK = "com.mohammedsamir.halaqati://auth/callback"
         /** PostgREST returns at most this many rows per request unless the project raises "Max rows". */
@@ -171,6 +172,7 @@ class SupabaseApi(private val sessionStore: SecureSessionStore) {
             refreshBlockedUntil = 0L
             refreshBlockedError = null
             refreshFailures = 0
+            firstRefreshFailureAt = 0L
             SessionExpiry.expired.value = false
             sessionFromAuthJson(json, old.email).also(sessionStore::save)
         } catch (e: SupabaseException) {
@@ -179,7 +181,13 @@ class SupabaseApi(private val sessionStore: SecureSessionStore) {
                 SupabaseException("تعذر تجديد جلسة الدخول. أعد المحاولة بعد قليل أو سجّل الدخول من جديد.", 401, e.sqlState)
             } else e
             refreshBlockedUntil = now + if (limited) 90_000L else 30_000L
-            if (!limited && (e.status == 400 || e.status == 401 || e.status == 403)) { refreshFailures++; if (refreshFailures >= 3) SessionExpiry.expired.value = true }
+            if (!limited && (e.status == 400 || e.status == 401 || e.status == 403)) {
+                // v2.91.1: one bad refresh (rotated token, server hiccup, a refresh interrupted mid-save) must never end the session.
+                // Only a rejection that keeps repeating over at least 10 minutes asks the user to sign in again.
+                if (refreshFailures == 0) firstRefreshFailureAt = now
+                refreshFailures++
+                if (refreshFailures >= 3 && now - firstRefreshFailureAt >= 600_000L) SessionExpiry.expired.value = true
+            }
             refreshBlockedError = wrapped
             throw wrapped
         }
