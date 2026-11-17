@@ -181,7 +181,7 @@ internal fun SupHalaqaCard(
                 }
                 Text(if (hasTeacher) h.teacherLine else "بلا محفّظ", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .88f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            StatusPill(label, kind = kind)
+            EntityPill(label, kind = kind)
         }
 }, body = {        if (h.students > 0) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -464,7 +464,7 @@ fun SupervisorVisitsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit
                             Text(halaqaNames[v.optString("halaqa_id")] ?: "حلقة", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(v.optString("visit_date"), style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = .88f))
                         }
-                        if (pend) StatusPill("بانتظار الرفع", kind = "warning")
+                        if (pend) EntityPill("بانتظار الرفع", kind = "warning")
                         Box {
                             IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(48.dp)) { Icon(Icons.Default.MoreVert, contentDescription = "خيارات الزيارة") }
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {

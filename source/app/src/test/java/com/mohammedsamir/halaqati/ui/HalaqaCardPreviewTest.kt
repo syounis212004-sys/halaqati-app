@@ -110,7 +110,7 @@ class HalaqaCardPreviewTest {
      * Robolectric main looper is paused (ComposeTimeoutException in forceRedraw), so the view is drawn directly instead.
      * A single-colour result means nothing was painted: fail loudly instead of saving an empty PNG.
      */
-    private fun save(name: String) {
+    private fun save(name: String): Bitmap {
         rule.waitForIdle()
         val view = rule.onRoot().fetchSemanticsNode().root as android.view.View
         val bmp = Bitmap.createBitmap(view.width.coerceAtLeast(1), view.height.coerceAtLeast(1), Bitmap.Config.ARGB_8888)
@@ -119,6 +119,7 @@ class HalaqaCardPreviewTest {
         assertTrue("$name: nothing was painted (single colour)", sample.toSet().size > 1)
         val dir = File("build/preview").also { it.mkdirs() }
         File(dir, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        return bmp
     }
 
     @Composable
@@ -297,6 +298,32 @@ class HalaqaCardPreviewTest {
         }
         save("entity_units_${if (dark) "dark" else "light"}")
     }
+
+    // RC104 fix: the ornament must reach both card edges (a padded-then-filled box leaves white margins and square corners).
+    private fun entityFullWidth(dark: Boolean) {
+        rule.setContent {
+            Themed(dark) {
+                Column(Modifier.width(411.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    EntityCard(Entity.HALAQA, header = { Text("حلقة معاوية بن أبي سفيان", style = MaterialTheme.typography.titleMedium) })
+                    EntityRow(Entity.TEACHER) { Text("محفّظ: أ. محمد كامل", style = MaterialTheme.typography.titleSmall) }
+                    EntityHeader(Entity.SUPERVISOR, "مشرف: Saja Younis")
+                }
+            }
+        }
+        val bmp = save("entity_full_width_${if (dark) "dark" else "light"}")
+        val bg = bmp.getPixel(0, bmp.height - 1)
+        // Scan every row: in each coloured band the pixel 6px from each edge must be a dark gradient colour, not the page background.
+        var bands = 0
+        for (y in 0 until bmp.height) {
+            val l = bmp.getPixel(10, y); val r = bmp.getPixel(bmp.width - 11, y)
+            val dk = { c: Int -> (android.graphics.Color.red(c) + android.graphics.Color.green(c) + android.graphics.Color.blue(c)) / 3 < 140 }
+            if (dk(l) && dk(r)) bands++
+        }
+        assertTrue("coloured bands do not reach both edges (bands=$bands, bg=$bg)", bands > bmp.height / 4)
+    }
+
+    @Test fun entity_full_width_light() = entityFullWidth(dark = false)
+    @Test fun entity_full_width_dark() = entityFullWidth(dark = true)
 
     @Test fun entity_units_light() = entityUnits(dark = false)
     @Test fun entity_units_dark() = entityUnits(dark = true)

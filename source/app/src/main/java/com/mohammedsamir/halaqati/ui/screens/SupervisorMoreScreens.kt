@@ -148,7 +148,7 @@ fun SupervisorSessionsScreen(profile: Profile, pending: Int, onRefresh: () -> Un
                                 Text(r.halaqaName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Text(r.teacherName, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .88f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
-                            StatusPill(if (ended) "مُنهاة" else "جارية", kind = if (ended) "success" else "warning")
+                            EntityPill(if (ended) "مُنهاة" else "جارية", kind = if (ended) "success" else "warning")
                         }
 }, body = {                        Spacer(Modifier.height(6.dp))
                         Text("حضور ${r.present} · غياب ${r.absent}" + (if (r.excused > 0) " · بعذر ${r.excused}" else "") + " · سُمّع ${r.recited}", style = MaterialTheme.typography.bodyMedium)
@@ -168,7 +168,7 @@ fun SupervisorSessionsScreen(profile: Profile, pending: Int, onRefresh: () -> Un
                                 Text(h.second, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Text(teachersOf[h.first].orEmpty().ifBlank { "بلا محفّظ" }, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .88f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
-                            StatusPill("لم تُعقد جلسة", kind = "neutral")
+                            EntityPill("لم تُعقد جلسة", kind = "neutral")
                         }
                     }
                 }

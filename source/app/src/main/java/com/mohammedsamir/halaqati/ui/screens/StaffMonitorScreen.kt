@@ -181,8 +181,8 @@ fun StaffMonitorScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, na
                                 if (r.halaqas.isEmpty()) (if (r.isSupervisor) "بلا حلقات" else "بلا حلقة") else r.halaqas.joinToString("، ") { it.second },
                                 style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .88f), maxLines = 1, overflow = TextOverflow.Ellipsis,
                             )
-                            if (!noHalaqa) StatusPill(if (c != null) "$label · $c٪" else label, kind = kind)
-                            else StatusPill("بلا حلقة", kind = "info")
+                            if (!noHalaqa) EntityPill(if (c != null) "$label · $c٪" else label, kind = kind)
+                            else EntityPill("بلا حلقة", kind = "info")
                         }
                         Icon(if (open) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = if (open) "طيّ" else "توسيع", modifier = Modifier.size(NourIcon.Action))
                     }

@@ -5,6 +5,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,25 +43,36 @@ fun Entity.gradient(): GradientPair = when (this) {
     Entity.STUDENT -> GradientPair(Color(0xFF0B5F85), Color(0xFF1478A8))
 }
 
-/** Gradient + girih pattern; white content colour for everything drawn inside. */
+/** Gradient + girih pattern drawn on the FULL box first, then the padding (padding before background would inset the fill). */
 @Composable
-private fun EntityFill(entity: Entity, modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier.background(entity.gradient().brush()).nourPattern(PatternLevel.Card), content = {
+private fun EntityFill(entity: Entity, modifier: Modifier, padding: PaddingValues, content: @Composable ColumnScope.() -> Unit) {
+    Column(modifier.background(entity.gradient().brush()).nourPattern(PatternLevel.Card).padding(padding), content = {
         CompositionLocalProvider(LocalContentColor provides Color.White) { content() }
     })
 }
 
-/** A small row (a teacher, a supervisor, a halaqa line): the whole row is the ornamented, coloured background. */
+/** A status label that stays readable on any entity gradient: white text on a dark translucent pill. */
+@Composable
+fun EntityPill(text: String, modifier: Modifier = Modifier, kind: String = "info") {
+    Surface(modifier, shape = RoundedCornerShape(50), color = Color.Black.copy(alpha = .28f), contentColor = Color.White) {
+        Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            // The status colour survives as a dot (the pill itself is neutral so it reads on every entity colour).
+            androidx.compose.foundation.layout.Box(Modifier.size(8.dp).clip(androidx.compose.foundation.shape.CircleShape).background(nourTone(kind).second))
+            Text(text, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, maxLines = 1)
+        }
+    }
+}
+
+/** A small row (a teacher, a supervisor, a halaqa line): the whole row is the ornamented, coloured background, edge to edge. */
 @Composable
 fun EntityRow(entity: Entity, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
-    val shape = RoundedCornerShape(20.dp)
-    val base = modifier.fillMaxWidth().clip(shape)
-    EntityFill(entity, (if (onClick != null) base.clickable(onClick = onClick) else base).padding(14.dp)) {
+    val base = modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
+    EntityFill(entity, if (onClick != null) base.clickable(onClick = onClick) else base, PaddingValues(14.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
     }
 }
 
-/** A full card: ornamented header (white text) + plain body, the structure of HalaqaManagementCard. */
+/** A full card: ornamented header (white text, edge to edge) + plain body, the structure of HalaqaManagementCard. */
 @Composable
 fun EntityCard(
     entity: Entity,
@@ -63,7 +83,7 @@ fun EntityCard(
 ) {
     ElevatedCard(modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
         Column(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier) {
-            EntityFill(entity, Modifier.fillMaxWidth().padding(14.dp)) {
+            EntityFill(entity, Modifier.fillMaxWidth(), PaddingValues(14.dp)) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp), content = header)
             }
             if (body != null) Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = body)
@@ -71,7 +91,7 @@ fun EntityCard(
     }
 }
 
-/** An ornamented title bar (gradient + girih + white title) for the top of a padded card or above a list group. */
+/** An ornamented title bar (gradient + girih + white title), edge to edge of its container. */
 @Composable
 fun EntityHeader(
     entity: Entity,
@@ -80,14 +100,11 @@ fun EntityHeader(
     subtitle: String = "",
     trailing: (@Composable () -> Unit)? = null,
 ) {
-    EntityFill(entity, modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).padding(horizontal = 12.dp, vertical = 10.dp)) {
-        androidx.compose.foundation.layout.Row(
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
+    EntityFill(entity, modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)), PaddingValues(horizontal = 12.dp, vertical = 10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Column(Modifier.weight(1f)) {
-                androidx.compose.material3.Text(title, style = androidx.compose.material3.MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                if (subtitle.isNotBlank()) androidx.compose.material3.Text(subtitle, style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .88f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .88f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             trailing?.invoke()
         }
