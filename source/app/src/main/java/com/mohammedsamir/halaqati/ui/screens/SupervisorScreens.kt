@@ -60,14 +60,14 @@ internal fun SupStat(label: String, value: String, modifier: Modifier = Modifier
 /** RC84: a person row used in the follow-up lists: photo, name, a short line, and one action. */
 @Composable
 internal fun SupPersonRow(photo: String?, name: String, subtitle: String, @Suppress("UNUSED_PARAMETER") pair: GradientPair, action: String?, actionEnabled: Boolean = true, onAction: () -> Unit = {}) {
-    NourCard(entity = com.mohammedsamir.halaqati.ui.theme.Entity.TEACHER) {
+    com.mohammedsamir.halaqati.ui.components.EntityRow(com.mohammedsamir.halaqati.ui.theme.Entity.TEACHER) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             NourAvatar(photo, name, NourAvatarSize.Medium)
             Column(Modifier.weight(1f)) {
                 Text(name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .88f), maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
-            if (action != null) FilledTonalButton(onClick = onAction, enabled = actionEnabled, modifier = Modifier.heightIn(min = 48.dp)) {
+            if (action != null) FilledTonalButton(onClick = onAction, enabled = actionEnabled, modifier = Modifier.heightIn(min = 48.dp), colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color.Black.copy(alpha = .25f), contentColor = Color.White)) {
                 Icon(Icons.Default.NotificationsActive, null, modifier = Modifier.size(NourIcon.Inline)); Spacer(Modifier.width(4.dp)); Text(action)
             }
         }
@@ -169,21 +169,21 @@ internal fun SupHalaqaCard(
     }
     val label = if (h.state == TeacherDayState.NOT_STARTED && offDay) "اليوم إجازة" else h.stateLabel
     val hasTeacher = h.teacherNames.isNotEmpty()
-    NourCard(onClick = onOpen, marker = if (kind == "warning") nourTone("warning").first else null, entity = com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA) {
+    com.mohammedsamir.halaqati.ui.components.EntityCard(com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA, onClick = onOpen, header = {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(Modifier.clip(CircleShape).background(teacherTone.container).padding(2.dp)) {
                 NourAvatar(if (hasTeacher) h.teacherPhotos.firstOrNull() else h.logo, if (hasTeacher) h.teacherNames.first() else h.name, NourAvatarSize.Small)
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Icon(Icons.Default.Groups, null, tint = halaqaTone.accent, modifier = Modifier.size(16.dp))
-                    Text((if (h.isProgram) "برنامج · " else "") + h.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = halaqaTone.accent, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Icon(Icons.Default.Groups, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    Text((if (h.isProgram) "برنامج · " else "") + h.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                Text(if (hasTeacher) h.teacherLine else "بلا محفّظ", style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(if (hasTeacher) h.teacherLine else "بلا محفّظ", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .88f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             StatusPill(label, kind = kind)
         }
-        if (h.students > 0) {
+}, body = {        if (h.students > 0) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("سُمّع ${h.recited} من ${h.students}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 Text("${h.recitedPercent}٪", style = MaterialTheme.typography.labelMedium.copy(fontFamily = com.mohammedsamir.halaqati.ui.theme.CairoFamily), fontWeight = FontWeight.Bold, color = halaqaTone.accent)
@@ -212,7 +212,7 @@ internal fun SupHalaqaCard(
                 Icon(Icons.Default.Visibility, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("زيارة", maxLines = 1, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             }
         }
-    }
+    })
 }
 
 /** Compact stat: icon + number + label on one line. */
@@ -457,12 +457,12 @@ fun SupervisorVisitsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit
                 val done = v.optBoolean("action_done", false)
                 var menuOpen by remember { mutableStateOf(false) }
                 val halaqaTone = com.mohammedsamir.halaqati.ui.theme.EntityColors.of(com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA)
-                BorderedCard(accent = if (pend) MaterialTheme.colorScheme.tertiary else null, padding = 10.dp, entity = com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA) {
+                com.mohammedsamir.halaqati.ui.components.EntityCard(com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA, header = {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Icon(Icons.Default.Visibility, null, tint = halaqaTone.accent, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Visibility, null, tint = Color.White, modifier = Modifier.size(18.dp))
                         Column(Modifier.weight(1f)) {
                             Text(halaqaNames[v.optString("halaqa_id")] ?: "حلقة", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(v.optString("visit_date"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(v.optString("visit_date"), style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = .88f))
                         }
                         if (pend) StatusPill("بانتظار الرفع", kind = "warning")
                         Box {
@@ -480,7 +480,7 @@ fun SupervisorVisitsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit
                             }
                         }
                     }
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+}, body = {                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         listOf("تنظيم" to "organization_score", "تدريس" to "teaching_score", "متابعة" to "followup_score").forEach { (l, k) ->
                             Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
                                 Text("$l ${supScore(v, k)}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
@@ -493,7 +493,7 @@ fun SupervisorVisitsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit
                     }
                     if (v.supStr("notes").isNotBlank()) Text(v.supStr("notes"), style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
                     if (hasActions) Text("المطلوب: ${v.supStr("action_items")}" + if (done) " ✓ نُفّذ" else "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                })
             }
         }
     }

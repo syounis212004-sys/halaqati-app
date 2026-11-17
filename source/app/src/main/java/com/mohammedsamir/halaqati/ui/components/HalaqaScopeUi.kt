@@ -119,18 +119,15 @@ fun HalaqaOverviewCard(
         tonalElevation = 1.dp,
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            EntityRule(com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                val todayColor = if (row.hasTodaySession) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.tertiaryContainer
-                Surface(shape = RoundedCornerShape(10.dp), color = todayColor) {
+            EntityHeader(com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA, name, trailing = {
+                Surface(shape = RoundedCornerShape(10.dp), color = androidx.compose.ui.graphics.Color.Black.copy(alpha = .22f)) {
                     Text(
                         if (row.hasTodaySession) "جلسة اليوم مفتوحة" else "لا جلسة اليوم",
                         style = MaterialTheme.typography.labelMedium,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     )
                 }
-            }
+            })
             if (subtitle.isNotBlank()) {
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }

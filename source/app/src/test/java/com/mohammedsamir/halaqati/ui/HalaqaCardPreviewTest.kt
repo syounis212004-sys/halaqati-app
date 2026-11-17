@@ -48,8 +48,10 @@ import com.mohammedsamir.halaqati.data.UiPreferences
 import com.mohammedsamir.halaqati.ui.components.AppTopBar
 import com.mohammedsamir.halaqati.ui.components.CollapsingFab
 import com.mohammedsamir.halaqati.ui.components.DialogOrnament
-import com.mohammedsamir.halaqati.ui.components.EntityBand
-import com.mohammedsamir.halaqati.ui.components.EntityRule
+import androidx.compose.ui.text.font.FontWeight
+import com.mohammedsamir.halaqati.ui.components.EntityCard
+import com.mohammedsamir.halaqati.ui.components.EntityHeader
+import com.mohammedsamir.halaqati.ui.components.EntityRow
 import com.mohammedsamir.halaqati.ui.components.MetricCard
 import com.mohammedsamir.halaqati.ui.components.NourCard
 import com.mohammedsamir.halaqati.ui.components.NourStatTile
@@ -280,25 +282,16 @@ class HalaqaCardPreviewTest {
             Themed(dark) {
                 Column(Modifier.width(411.dp).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     NourSectionTitle("حلقة معاوية بن أبي سفيان · 41 طالب", entity = Entity.HALAQA)
-                    NourCard(entity = Entity.HALAQA, marker = MaterialTheme.colorScheme.tertiary) {
-                        Text("حلقة معاوية بن أبي سفيان", style = MaterialTheme.typography.titleSmall)
+                    EntityCard(Entity.HALAQA, header = {
+                        Text("حلقة معاوية بن أبي سفيان", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
                         Text("د. محمد سمير أبو يونس", style = MaterialTheme.typography.bodySmall)
+                    }, body = {
                         OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)) { Text("زيارة") }
-                    }
-                    NourCard(entity = Entity.TEACHER) { Text("محفّظ: أ. محمد كامل", style = MaterialTheme.typography.titleSmall) }
-                    NourCard(entity = Entity.SUPERVISOR) { Text("مشرف: Saja Younis", style = MaterialTheme.typography.titleSmall) }
-                    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceVariant) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            EntityRule(Entity.HALAQA)
-                            Text("صف حلقة داخل بطاقة مبطّنة", style = MaterialTheme.typography.titleMedium)
-                        }
-                    }
-                    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface) {
-                        Column {
-                            EntityBand(Entity.TEACHER)
-                            Text("بطاقة محفّظ بشريط كامل العرض", Modifier.padding(12.dp), style = MaterialTheme.typography.titleMedium)
-                        }
-                    }
+                    })
+                    EntityRow(Entity.TEACHER) { Text("محفّظ: أ. محمد كامل", style = MaterialTheme.typography.titleSmall) }
+                    EntityRow(Entity.SUPERVISOR) { Text("مشرف: Saja Younis", style = MaterialTheme.typography.titleSmall) }
+                    EntityRow(Entity.DONOR) { Text("مانح: أبو أحمد", style = MaterialTheme.typography.titleSmall) }
+                    EntityHeader(Entity.CATEGORY, "فئة المتقدمين", subtitle = "12 طالبًا")
                 }
             }
         }
@@ -326,8 +319,7 @@ class HalaqaCardPreviewTest {
                     }
                     Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            EntityRule(Entity.DONOR)
-                            Text("ضيافة أسبوعية", style = MaterialTheme.typography.titleLarge)
+                            EntityHeader(Entity.DONOR, "ضيافة أسبوعية")
                             Text("30 شيكل · حلقة معاوية بن أبي سفيان", style = MaterialTheme.typography.bodyMedium)
                         }
                     }

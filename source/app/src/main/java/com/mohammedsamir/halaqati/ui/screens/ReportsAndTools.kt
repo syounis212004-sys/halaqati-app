@@ -3617,8 +3617,6 @@ fun RankingsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
                 itemsIndexed(rows) { index, item ->
                     ElevatedCard(Modifier.fillMaxWidth()) {
                       Column {
-                        // RC104: the first three carry the gold ornament band (the medal tone of the entity colours).
-                        if (index < 3) com.mohammedsamir.halaqati.ui.components.EntityBand(com.mohammedsamir.halaqati.ui.theme.Entity.CATEGORY)
                         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(14.dp)) {
                                 Text("${index + 1}", modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp), fontWeight = FontWeight.Bold)
@@ -3646,8 +3644,6 @@ fun RankingsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
                     val student = item.optJSONObject("students")
                     ElevatedCard(Modifier.fillMaxWidth()) {
                       Column {
-                        // RC104: the first three carry the gold ornament band (the medal tone of the entity colours).
-                        if (index < 3) com.mohammedsamir.halaqati.ui.components.EntityBand(com.mohammedsamir.halaqati.ui.theme.Entity.CATEGORY)
                         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Surface(color = if (index < 3) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant, shape = androidx.compose.foundation.shape.CircleShape, modifier = Modifier.size(36.dp)) {
                                 Box(contentAlignment = Alignment.Center) {

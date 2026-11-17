@@ -25,8 +25,6 @@ fun BorderedCard(
     accent: Color? = null,
     onClick: (() -> Unit)? = null,
     padding: Dp = 12.dp,
-    /** RC104: set for a card about a halaqa, a teacher or a supervisor: adds the entity ornament band on top. */
-    entity: com.mohammedsamir.halaqati.ui.theme.Entity? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val line = accent ?: MaterialTheme.colorScheme.primary.copy(alpha = .55f)
@@ -43,7 +41,6 @@ fun BorderedCard(
         shadowElevation = 0.dp,
     ) {
         Column {
-            if (entity != null) EntityBand(entity)
             Column(Modifier.padding(padding), content = content)
         }
     }

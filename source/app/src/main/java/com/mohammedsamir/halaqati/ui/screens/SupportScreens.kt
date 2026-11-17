@@ -561,9 +561,7 @@ internal fun DonorSupportTab(refreshTick: Int) {
             val anyFree = periods.any { it.optInt("taken") < c.optInt("slots", 1) && it.str("mine").isBlank() }
             Surface(Modifier.fillMaxWidth().halaqatiEnter(), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.5.dp, border = cardHairline()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    com.mohammedsamir.halaqati.ui.components.EntityRule(com.mohammedsamir.halaqati.ui.theme.Entity.DONOR)
-                    Text(kindLabel(c.optString("kind")) + " · " + recurrenceLabel(c.optString("recurrence")), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.tertiary)
-                    Text(c.optString("title"), style = MaterialTheme.typography.titleLarge)
+                    com.mohammedsamir.halaqati.ui.components.EntityHeader(com.mohammedsamir.halaqati.ui.theme.Entity.DONOR, c.optString("title"), subtitle = kindLabel(c.optString("kind")) + " · " + recurrenceLabel(c.optString("recurrence")))
                     c.str("description").takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
                     val meta = listOfNotNull(c.amountOrNull(), c.str("amount_text").takeIf { it.isNotBlank() }, c.optInt("beneficiaries", -1).takeIf { it >= 0 }?.let { "$it طالبًا مستفيدًا" }, c.str("halaqa_name").takeIf { it.isNotBlank() }).joinToString(" · ")
                     if (meta.isNotBlank()) Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

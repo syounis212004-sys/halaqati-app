@@ -71,8 +71,6 @@ fun NourCard(
     onClick: (() -> Unit)? = null,
     marker: Color? = null,
     depth: NourDepth = LocalNourDepth.current,
-    /** RC104: set for a card that is about a halaqa, a teacher or a supervisor: adds the entity ornament band on top. */
-    entity: com.mohammedsamir.halaqati.ui.theme.Entity? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
@@ -85,7 +83,6 @@ fun NourCard(
         border = BorderStroke(1.dp, cs.outlineVariant),
     ) {
         Column(Modifier.then(if (marker != null) Modifier.padding(0.dp) else Modifier)) {
-            if (entity != null) EntityBand(entity)
             if (marker != null) Box(Modifier.fillMaxWidth().height(3.dp).background(marker))
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
         }
@@ -174,17 +171,19 @@ fun NourStar(modifier: Modifier = Modifier, size: Dp = 14.dp, color: Color = Mat
 /** RC95: a section title with the gold star before it and a hairline after it. One style for every role. */
 @Composable
 fun NourSectionTitle(text: String, modifier: Modifier = Modifier, entity: com.mohammedsamir.halaqati.ui.theme.Entity? = null, trailing: (@Composable () -> Unit)? = null) {
-    val tone = entity?.let { com.mohammedsamir.halaqati.ui.theme.EntityColors.of(it) }
+    // RC104: a title that names a halaqa / teacher / supervisor is a whole ornamented bar in the entity colour.
+    if (entity != null) {
+        EntityHeader(entity, text, modifier.padding(top = 6.dp), trailing = trailing)
+        return
+    }
     androidx.compose.foundation.layout.Row(
         modifier.fillMaxWidth().padding(top = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Box(Modifier.size(26.dp).clip(CircleShape).background(tone?.container ?: MaterialTheme.colorScheme.tertiaryContainer), contentAlignment = Alignment.Center) {
-            if (tone != null) NourStar(size = 16.dp, color = tone.accent, hole = tone.container) else NourStar(size = 16.dp)
-        }
-        Text(text, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = tone?.onContainer ?: MaterialTheme.colorScheme.onSurface)
-        Box(Modifier.weight(1f).height(1.dp).background(tone?.accent?.copy(alpha = .35f) ?: MaterialTheme.colorScheme.outlineVariant))
+        Box(Modifier.size(26.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiaryContainer), contentAlignment = Alignment.Center) { NourStar(size = 16.dp) }
+        Text(text, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
+        Box(Modifier.weight(1f).height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
         trailing?.invoke()
     }
 }

@@ -2466,15 +2466,7 @@ private fun GuardianProgramsSection(programs: List<GuardianProgramSummary>) {
             }
             Surface(color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .55f), shape = MaterialTheme.shapes.medium) {
                 Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    com.mohammedsamir.halaqati.ui.components.EntityRule(com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.School, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(8.dp))
-                        Column {
-                            Text(p.name, fontWeight = FontWeight.Bold)
-                            Text(kind, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
+                    com.mohammedsamir.halaqati.ui.components.EntityHeader(com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA, p.name, subtitle = kind)
                     Text(
                         "هذا الشهر: ${p.sessions} جلسة · حضور ${p.present} · غياب ${p.absent}",
                         style = MaterialTheme.typography.bodyMedium,

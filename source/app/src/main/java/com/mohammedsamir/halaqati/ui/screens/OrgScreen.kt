@@ -502,14 +502,13 @@ private fun PersonCard(p: OrgPerson, pair: GradientPair, roleText: String, halaq
     val cs = MaterialTheme.colorScheme
     Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), color = cs.surface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
       Column {
-        com.mohammedsamir.halaqati.ui.components.EntityBand(if (roleText == "مشرف") com.mohammedsamir.halaqati.ui.theme.Entity.SUPERVISOR else com.mohammedsamir.halaqati.ui.theme.Entity.TEACHER)
-        Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant).padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.fillMaxWidth().background((if (roleText == "مشرف") com.mohammedsamir.halaqati.ui.theme.Entity.SUPERVISOR else com.mohammedsamir.halaqati.ui.theme.Entity.TEACHER).let { it.gradient() }.brush()).padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.size(60.dp).background(Color.White, CircleShape).padding(3.dp)) { StudentAvatar(p.photo, p.name, size = 54.dp) }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(p.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface, maxLines = 2)
-                Text(roleText + if (halaqat.isNotEmpty()) " · " + halaqat.joinToString("، ") else "", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(p.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 2)
+                Text(roleText + if (halaqat.isNotEmpty()) " · " + halaqat.joinToString("، ") else "", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = .88f), maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
-            if (onRemove != null) IconButton(onClick = onRemove, modifier = Modifier.size(48.dp)) { Icon(Icons.Default.LinkOff, "إزالة من الجمعية", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (onRemove != null) IconButton(onClick = onRemove, modifier = Modifier.size(48.dp)) { Icon(Icons.Default.LinkOff, "إزالة من الجمعية", tint = Color.White) }
         }
       }
     }
@@ -577,17 +576,16 @@ private fun OrgHalaqaRow(h: OrgHalaqa, pair: GradientPair, canMove: Boolean, onM
     val cs = MaterialTheme.colorScheme
     Surface(shape = RoundedCornerShape(18.dp), color = cs.surfaceVariant) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            com.mohammedsamir.halaqati.ui.components.EntityRule(com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            com.mohammedsamir.halaqati.ui.components.EntityRow(com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA) { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OrgLogo(h.logo, Icons.Default.MenuBook, pair, tile = 40.dp, glyph = 22.dp)
                 Column(Modifier.weight(1f)) {
                     Text(h.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 2)
-                    Text("${h.students} طالبًا", style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant)
+                    Text("${h.students} طالبًا", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = .88f))
                 }
                 if (canMove) IconButton(onClick = { onLogo(h) }, modifier = Modifier.size(48.dp)) { Icon(Icons.Default.AddPhotoAlternate, "شعار الحلقة") }
-                if (canMove) TextButton(onClick = { onMove(h) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("نقل") }
-                if (onDetach != null) IconButton(onClick = { onDetach(h) }, modifier = Modifier.size(48.dp)) { Icon(Icons.Default.LinkOff, "فصل الحلقة عن الجمعية", tint = MaterialTheme.colorScheme.error) }
-            }
+                if (canMove) TextButton(onClick = { onMove(h) }, modifier = Modifier.heightIn(min = 48.dp), colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) { Text("نقل") }
+                if (onDetach != null) IconButton(onClick = { onDetach(h) }, modifier = Modifier.size(48.dp)) { Icon(Icons.Default.LinkOff, "فصل الحلقة عن الجمعية", tint = Color.White) }
+            } }
             if (h.supervisors.isNotEmpty()) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("المشرف:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                 h.supervisors.forEach { PersonChip(it, supervisor = true) }

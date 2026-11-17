@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import com.mohammedsamir.halaqati.ui.components.items
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -141,31 +142,31 @@ fun SupervisorSessionsScreen(profile: Profile, pending: Int, onRefresh: () -> Un
                 val rowsOfDay = shown.filter { it.date == ds }
                 items(rowsOfDay, key = { it.id }) { r ->
                     val ended = r.closed || d.isBefore(today)
-                    NourCard(marker = if (ended) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary, entity = com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA) {
+                    com.mohammedsamir.halaqati.ui.components.EntityCard(com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA, header = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(r.halaqaName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(r.teacherName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(r.teacherName, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .88f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                             StatusPill(if (ended) "مُنهاة" else "جارية", kind = if (ended) "success" else "warning")
                         }
-                        Spacer(Modifier.height(6.dp))
+}, body = {                        Spacer(Modifier.height(6.dp))
                         Text("حضور ${r.present} · غياب ${r.absent}" + (if (r.excused > 0) " · بعذر ${r.excused}" else "") + " · سُمّع ${r.recited}", style = MaterialTheme.typography.bodyMedium)
                         r.planPercent?.let { pct ->
                             Spacer(Modifier.height(4.dp))
                             Text("إنجاز الخطط في الحلقة: $pct%", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             NourProgress(pct / 100f)
                         }
-                    }
+                    })
                 }
                 // A study day on which a halaqa held no session is shown, so a teacher who never opened one is visible.
                 val missing = halaqasShown.filter { h -> rowsOfDay.none { it.halaqaId == h.first } }
                 items(missing, key = { "m-$ds-${it.first}" }) { h ->
-                    NourCard(entity = com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA) {
+                    com.mohammedsamir.halaqati.ui.components.EntityRow(com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(h.second, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(teachersOf[h.first].orEmpty().ifBlank { "بلا محفّظ" }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(teachersOf[h.first].orEmpty().ifBlank { "بلا محفّظ" }, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .88f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                             StatusPill("لم تُعقد جلسة", kind = "neutral")
                         }

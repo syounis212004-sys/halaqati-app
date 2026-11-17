@@ -172,21 +172,21 @@ fun StaffMonitorScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, na
                 val noHalaqa = r.halaqas.isEmpty() && !r.isSupervisor
                 val open = expanded == r.id
                 val tone = nourTone(if (noHalaqa) "neutral" else kind).first
-                NourCard(onClick = { expanded = if (open) null else r.id }, marker = if (noHalaqa) null else tone, entity = if (r.isSupervisor) com.mohammedsamir.halaqati.ui.theme.Entity.SUPERVISOR else com.mohammedsamir.halaqati.ui.theme.Entity.TEACHER) {
+                com.mohammedsamir.halaqati.ui.components.EntityCard(if (r.isSupervisor) com.mohammedsamir.halaqati.ui.theme.Entity.SUPERVISOR else com.mohammedsamir.halaqati.ui.theme.Entity.TEACHER, onClick = { expanded = if (open) null else r.id }, header = {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         NourAvatar(r.photo, r.name, NourAvatarSize.Small)
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(r.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = com.mohammedsamir.halaqati.ui.theme.EntityColors.of(if (r.isSupervisor) com.mohammedsamir.halaqati.ui.theme.Entity.SUPERVISOR else com.mohammedsamir.halaqati.ui.theme.Entity.TEACHER).accent, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(r.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(
                                 if (r.halaqas.isEmpty()) (if (r.isSupervisor) "بلا حلقات" else "بلا حلقة") else r.halaqas.joinToString("، ") { it.second },
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .88f), maxLines = 1, overflow = TextOverflow.Ellipsis,
                             )
                             if (!noHalaqa) StatusPill(if (c != null) "$label · $c٪" else label, kind = kind)
                             else StatusPill("بلا حلقة", kind = "info")
                         }
                         Icon(if (open) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = if (open) "طيّ" else "توسيع", modifier = Modifier.size(NourIcon.Action))
                     }
-                    if (!r.isSupervisor) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+}, body = {                    if (!r.isSupervisor) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf(r.sessions.toString() to "جلسات الشهر", "${r.sessionDays}/$monthDays" to "أيام النشاط", r.closed.toString() to "مُنهاة").forEach { (v, l) ->
                             Surface(Modifier.weight(1f), shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
                                 Column(Modifier.padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -234,7 +234,7 @@ fun StaffMonitorScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, na
                             if (isAdmin) OutlinedButton(onClick = { navigate("users") }, modifier = Modifier.weight(1f).heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 8.dp)) { Text("الحساب", maxLines = 1) }
                         }
                     }
-                }
+                })
             }
         }
     }

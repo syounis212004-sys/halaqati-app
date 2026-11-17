@@ -3,6 +3,9 @@ package com.mohammedsamir.halaqati.ui.screens
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import com.mohammedsamir.halaqati.ui.components.PatternLevel
+import com.mohammedsamir.halaqati.ui.components.gradient
+import com.mohammedsamir.halaqati.ui.components.nourPattern
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -144,7 +147,6 @@ private fun StaffCard(m: StaffMember, canAssign: Boolean, navigate: (String) -> 
         supervisor -> HalaqatiGradients.Gold
         else -> HalaqatiGradients.Emerald
     }
-    val edge = if (!m.active) cs.outline else if (supervisor) cs.tertiary else cs.primary
     var open by rememberSaveable(m.id) { mutableStateOf(false) }
     val reduced = com.mohammedsamir.halaqati.ui.theme.LocalReducedMotion.current
     val turn by androidx.compose.animation.core.animateFloatAsState(
@@ -159,29 +161,24 @@ private fun StaffCard(m: StaffMember, canAssign: Boolean, navigate: (String) -> 
         shape = RoundedCornerShape(18.dp), color = cs.surface, border = BorderStroke(1.dp, cs.outlineVariant),
     ) {
         Column {
-            com.mohammedsamir.halaqati.ui.components.EntityBand(if (supervisor) com.mohammedsamir.halaqati.ui.theme.Entity.SUPERVISOR else com.mohammedsamir.halaqati.ui.theme.Entity.TEACHER)
             Row(
-                Modifier.fillMaxWidth().clickable { open = !open }.drawBehind {
-                    // RC96: a 5dp colour edge on the reading-start side says the role at a glance (gold supervisor, emerald teacher).
-                    val w = 5.dp.toPx()
-                    drawRect(edge, androidx.compose.ui.geometry.Offset(if (layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl) size.width - w else 0f, 0f), androidx.compose.ui.geometry.Size(w, size.height))
-                }.background(if (!m.active) cs.surfaceVariant else if (supervisor) cs.tertiaryContainer.copy(alpha = .45f) else cs.primaryContainer.copy(alpha = .45f)).padding(horizontal = 12.dp, vertical = 10.dp),
+                Modifier.fillMaxWidth().clickable { open = !open }.background((if (!m.active) HalaqatiGradients.Slate else if (supervisor) com.mohammedsamir.halaqati.ui.theme.Entity.SUPERVISOR.gradient() else com.mohammedsamir.halaqati.ui.theme.Entity.TEACHER.gradient()).brush()).nourPattern(PatternLevel.Card).padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 StudentAvatar(m.photo, m.name, size = com.mohammedsamir.halaqati.ui.components.NourAvatarSize.Medium)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(m.name, style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp), fontWeight = FontWeight.ExtraBold, color = cs.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("$roleLabel · $summary", style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(m.name, style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp), fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("$roleLabel · $summary", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = .88f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (count == 0 && m.active) Surface(shape = RoundedCornerShape(50), color = cs.tertiaryContainer) {
                     Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         Icon(androidx.compose.material.icons.Icons.Default.Info, null, Modifier.size(16.dp), tint = cs.onTertiaryContainer)
                         Text("بلا حلقة", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.ExtraBold, color = cs.onTertiaryContainer)
                     }
-                } else Surface(shape = RoundedCornerShape(50), color = if (!m.active) cs.surface else if (supervisor) cs.tertiaryContainer else cs.primaryContainer) {
-                    Text(roleLabel, Modifier.padding(horizontal = 10.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.ExtraBold, color = if (supervisor && m.active) cs.onTertiaryContainer else cs.onPrimaryContainer)
+                } else Surface(shape = RoundedCornerShape(50), color = Color.Black.copy(alpha = .22f)) {
+                    Text(roleLabel, Modifier.padding(horizontal = 10.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.ExtraBold, color = Color.White)
                 }
-                Icon(Icons.Default.ExpandMore, contentDescription = if (open) "طي" else "تفاصيل", tint = cs.onSurfaceVariant, modifier = Modifier.graphicsLayer { rotationZ = turn })
+                Icon(Icons.Default.ExpandMore, contentDescription = if (open) "طي" else "تفاصيل", tint = Color.White, modifier = Modifier.graphicsLayer { rotationZ = turn })
             }
             androidx.compose.animation.AnimatedVisibility(
                 visible = open,
