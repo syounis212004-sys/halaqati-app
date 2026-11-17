@@ -12,6 +12,7 @@ import com.mohammedsamir.halaqati.ui.components.items
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -75,6 +76,7 @@ fun StaffMonitorScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, na
     var alertFor by remember { mutableStateOf<StaffRow?>(null) }
     var toast by remember { mutableStateOf<String?>(null) }
     var query by remember { mutableStateOf("") }
+    var showInfo by remember { mutableStateOf(false) }
 
     suspend fun reload() {
         try {
@@ -145,10 +147,13 @@ fun StaffMonitorScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, na
         message?.let { StateNotice(it, kind = "error", modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) }
         toast?.let { StateNotice(it, kind = "success", modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) }
         if (isAdmin) SegmentedTabs(listOf("المحفظون", "المشرفون"), tab, { tab = it; expanded = null }, Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
-        OutlinedTextField(
-            value = query, onValueChange = { query = it }, singleLine = true, label = { Text("بحث بالاسم") },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
-        )
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            OutlinedTextField(
+                value = query, onValueChange = { query = it }, singleLine = true, label = { Text("بحث بالاسم") },
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(onClick = { showInfo = true }, modifier = Modifier.size(48.dp)) { Icon(Icons.Default.Info, contentDescription = "كيف يُحسب التقييم") }
+        }
         if (b == null) { LoadingSkeleton(rows = 4, modifier = Modifier.padding(12.dp)); return@Column }
         LazyColumn(
             state = androidx.compose.foundation.lazy.rememberLazyListState(),
@@ -160,12 +165,6 @@ fun StaffMonitorScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, na
                 val low = shownRows.count { it.commitment(monthDays)?.let { v -> v < 50 } == true }
                 com.mohammedsamir.halaqati.ui.components.NourStatStrip(listOf(Triple(shownRows.size.toString(), "العدد", false), Triple(good.toString(), "أداء جيد فأعلى", false), Triple(low.toString(), "يحتاجون متابعة", low > 0)))
             }
-            item {
-                Text(
-                    "تقييم المحفّظ يجمع خمسة مؤشرات: الالتزام بالحضور 30٪، حضور الطلاب 20٪، تغطية التسميع 25٪، إنهاء الجلسات 10٪، تقييم زيارات المشرف 15٪. المؤشر غير المتوفر يُستبعد وتُعاد الأوزان. المشرف: الحلقات التي زارها ÷ حلقاته.",
-                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
             if (shownRows.isEmpty()) item { EmptyState(if (tab == 1) "لا يوجد مشرفون" else "لا يوجد محفظون") }
             items(shownRows, key = { it.id }) { r ->
                 val c = r.commitment(monthDays)
@@ -174,13 +173,13 @@ fun StaffMonitorScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, na
                 val open = expanded == r.id
                 val tone = nourTone(if (noHalaqa) "neutral" else kind).first
                 NourCard(onClick = { expanded = if (open) null else r.id }, marker = if (noHalaqa) null else tone) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        NourAvatar(r.photo, r.name, NourAvatarSize.Large)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        NourAvatar(r.photo, r.name, NourAvatarSize.Small)
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(r.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text(r.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = com.mohammedsamir.halaqati.ui.theme.EntityColors.of(if (r.isSupervisor) com.mohammedsamir.halaqati.ui.theme.Entity.SUPERVISOR else com.mohammedsamir.halaqati.ui.theme.Entity.TEACHER).accent, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(
                                 if (r.halaqas.isEmpty()) (if (r.isSupervisor) "بلا حلقات" else "بلا حلقة") else r.halaqas.joinToString("، ") { it.second },
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             )
                             if (!noHalaqa) StatusPill(if (c != null) "$label · $c٪" else label, kind = kind)
                             else StatusPill("بلا حلقة", kind = "info")
@@ -188,9 +187,14 @@ fun StaffMonitorScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, na
                         Icon(if (open) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = if (open) "طيّ" else "توسيع", modifier = Modifier.size(NourIcon.Action))
                     }
                     if (!r.isSupervisor) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        NourStatTile(r.sessions.toString(), "جلسات الشهر", Modifier.weight(1f))
-                        NourStatTile("${r.sessionDays}/$monthDays", "أيام النشاط", Modifier.weight(1f))
-                        NourStatTile(r.closed.toString(), "جلسات مُنهاة", Modifier.weight(1f))
+                        listOf(r.sessions.toString() to "جلسات الشهر", "${r.sessionDays}/$monthDays" to "أيام النشاط", r.closed.toString() to "مُنهاة").forEach { (v, l) ->
+                            Surface(Modifier.weight(1f), shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                                Column(Modifier.padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(v, style = MaterialTheme.typography.titleSmall.copy(fontFamily = com.mohammedsamir.halaqati.ui.theme.CairoFamily), fontWeight = FontWeight.ExtraBold)
+                                    Text(l, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                                }
+                            }
+                        }
                     }
                     if (open) {
                         HorizontalDivider()
@@ -234,6 +238,12 @@ fun StaffMonitorScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, na
             }
         }
     }
+    if (showInfo) AlertDialog(
+        onDismissRequest = { showInfo = false },
+        title = { Text("كيف يُحسب التقييم؟") },
+        text = { Text("تقييم المحفّظ يجمع خمسة مؤشرات: الالتزام بالحضور 30٪، حضور الطلاب 20٪، تغطية التسميع 25٪، إنهاء الجلسات 10٪، تقييم زيارات المشرف 15٪. المؤشر غير المتوفر يُستبعد وتُعاد الأوزان. المشرف: الحلقات التي زارها ÷ حلقاته.") },
+        confirmButton = { TextButton(onClick = { showInfo = false }) { Text("حسنًا") } },
+    )
     alertFor?.let { r ->
         SupAlertDialog(
             recipients = listOf(r.id to r.name), halaqaId = r.halaqas.firstOrNull()?.first,

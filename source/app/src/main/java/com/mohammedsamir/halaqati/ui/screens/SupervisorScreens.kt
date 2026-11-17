@@ -159,35 +159,42 @@ internal fun SupHalaqaCard(
     offDay: Boolean = false,
 ) {
     val cs = MaterialTheme.colorScheme
+    val halaqaTone = com.mohammedsamir.halaqati.ui.theme.EntityColors.of(com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA)
+    val teacherTone = com.mohammedsamir.halaqati.ui.theme.EntityColors.of(com.mohammedsamir.halaqati.ui.theme.Entity.TEACHER)
     val kind = when {
         h.state == TeacherDayState.NOT_STARTED && offDay -> "info"
-        h.state == TeacherDayState.NOT_STARTED -> "danger"
-        h.state == TeacherDayState.IN_PROGRESS -> "warning"
+        h.state == TeacherDayState.NOT_STARTED -> "warning"
+        h.state == TeacherDayState.IN_PROGRESS -> "info"
         else -> "success"
     }
     val label = if (h.state == TeacherDayState.NOT_STARTED && offDay) "اليوم إجازة" else h.stateLabel
     val hasTeacher = h.teacherNames.isNotEmpty()
-    NourCard(onClick = onOpen, marker = if (kind == "info") null else nourTone(kind).first) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            NourAvatar(if (hasTeacher) h.teacherPhotos.firstOrNull() else h.logo, if (hasTeacher) h.teacherNames.first() else h.name, NourAvatarSize.Large)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(if (hasTeacher) h.teacherLine else "بلا محفّظ", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text((if (h.isProgram) "برنامج · " else "") + h.name, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                StatusPill(label, kind = kind)
+    NourCard(onClick = onOpen, marker = if (kind == "warning") nourTone("warning").first else null) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.clip(CircleShape).background(teacherTone.container).padding(2.dp)) {
+                NourAvatar(if (hasTeacher) h.teacherPhotos.firstOrNull() else h.logo, if (hasTeacher) h.teacherNames.first() else h.name, NourAvatarSize.Small)
             }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Icon(Icons.Default.Groups, null, tint = halaqaTone.accent, modifier = Modifier.size(16.dp))
+                    Text((if (h.isProgram) "برنامج · " else "") + h.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = halaqaTone.accent, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Text(if (hasTeacher) h.teacherLine else "بلا محفّظ", style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            StatusPill(label, kind = kind)
         }
         if (h.students > 0) {
-            Row(Modifier.fillMaxWidth()) {
-                Text("سُمّع ${h.recited} من ${h.students}", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Text("${h.recitedPercent}٪", style = MaterialTheme.typography.labelLarge.copy(fontFamily = com.mohammedsamir.halaqati.ui.theme.CairoFamily), fontWeight = FontWeight.Bold, color = cs.primary)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("سُمّع ${h.recited} من ${h.students}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text("${h.recitedPercent}٪", style = MaterialTheme.typography.labelMedium.copy(fontFamily = com.mohammedsamir.halaqati.ui.theme.CairoFamily), fontWeight = FontWeight.Bold, color = halaqaTone.accent)
             }
-            NourProgress(h.recitedPercent / 100f)
+            NourProgress(h.recitedPercent / 100f, color = halaqaTone.accent)
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SupMini(Icons.Default.HowToReg, "حضور", h.present.toString(), cs.primary, Modifier.weight(1f))
-            SupMini(Icons.Default.PersonOff, "غياب", h.absent.toString(), cs.error, Modifier.weight(1f))
-            SupMini(Icons.Default.Groups, "الطلاب", h.students.toString(), cs.onSurfaceVariant, Modifier.weight(1f))
-            if (h.excused > 0) SupMini(Icons.Default.EventBusy, "بعذر", h.excused.toString(), cs.tertiary, Modifier.weight(1f))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            SupMini(Icons.Default.HowToReg, "حضور", h.present.toString(), cs.primary)
+            SupMini(Icons.Default.PersonOff, "غياب", h.absent.toString(), cs.error)
+            SupMini(Icons.Default.Groups, "الطلاب", h.students.toString(), cs.onSurfaceVariant)
+            if (h.excused > 0) SupMini(Icons.Default.EventBusy, "بعذر", h.excused.toString(), cs.tertiary)
         }
         if (detailed) {
             val last = h.lastVisitDate
@@ -198,21 +205,22 @@ internal fun SupHalaqaCard(
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = onAlert, enabled = h.teacherIds.isNotEmpty(), modifier = Modifier.weight(1f).heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 8.dp)) {
-                Icon(Icons.Default.NotificationsActive, null, Modifier.size(NourIcon.Inline)); Spacer(Modifier.width(6.dp)); Text("تنبيه المحفّظ", maxLines = 1, fontWeight = FontWeight.Bold)
+            FilledTonalButton(onClick = onAlert, enabled = h.teacherIds.isNotEmpty(), modifier = Modifier.weight(1f).heightIn(min = 44.dp), contentPadding = PaddingValues(horizontal = 8.dp)) {
+                Icon(Icons.Default.NotificationsActive, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("تنبيه المحفّظ", maxLines = 1, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             }
-            OutlinedButton(onClick = onVisit, modifier = Modifier.weight(1f).heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 8.dp)) {
-                Icon(Icons.Default.Visibility, null, Modifier.size(NourIcon.Inline)); Spacer(Modifier.width(6.dp)); Text("زيارة", maxLines = 1, fontWeight = FontWeight.Bold)
+            OutlinedButton(onClick = onVisit, modifier = Modifier.weight(1f).heightIn(min = 44.dp), contentPadding = PaddingValues(horizontal = 8.dp)) {
+                Icon(Icons.Default.Visibility, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("زيارة", maxLines = 1, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             }
         }
     }
 }
 
+/** Compact stat: icon + number + label on one line. */
 @Composable
 private fun SupMini(icon: ImageVector, label: String, value: String, tint: Color, modifier: Modifier = Modifier) {
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(NourIcon.Inline))
-        Text(value, style = MaterialTheme.typography.titleMedium.copy(fontFamily = com.mohammedsamir.halaqati.ui.theme.CairoFamily), fontWeight = FontWeight.ExtraBold)
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
+        Text(value, style = MaterialTheme.typography.labelLarge.copy(fontFamily = com.mohammedsamir.halaqati.ui.theme.CairoFamily), fontWeight = FontWeight.ExtraBold)
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
     }
 }
@@ -264,17 +272,24 @@ fun SupervisorHomeScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, 
                 com.mohammedsamir.halaqati.ui.components.NourStatStrip(listOf(Triple("$started/$total", "حلقات بدأت", false), Triple(weekVisits.toString(), "زياراتي هذا الأسبوع", false), Triple(openActions.toString(), "إجراءات مفتوحة", openActions > 0)))
             }
             if (notStarted.isNotEmpty() || staleVisits.isNotEmpty()) item {
-                BorderedCard(accent = MaterialTheme.colorScheme.error) {
+                BorderedCard(accent = MaterialTheme.colorScheme.tertiary) {
                     Text("يحتاج تدخلك", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(6.dp))
-                    notStarted.take(5).forEach { h ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("• ${h.teacherLine} لم يبدأ جلسة ${h.name}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                            TextButton(onClick = { alertFor = h }, enabled = h.teacherIds.isNotEmpty(), modifier = Modifier.heightIn(min = 40.dp)) { Text("تنبيه") }
+                    Spacer(Modifier.height(4.dp))
+                    val needing = (notStarted + staleVisits).distinctBy { it.id }.take(6)
+                    needing.forEach { h ->
+                        val waiting = h in notStarted
+                        val staleDays = supDaysSince(h.lastVisitDate)
+                        val stale = h in staleVisits
+                        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text(h.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    if (waiting) StatusPill("جلسة: بانتظار البدء", kind = "warning")
+                                    if (stale) StatusPill("زيارة: " + (staleDays?.let { "منذ $it يومًا" } ?: "لم تُزر بعد"), kind = "info")
+                                }
+                            }
+                            TextButton(onClick = { alertFor = h }, enabled = h.teacherIds.isNotEmpty(), modifier = Modifier.heightIn(min = 44.dp)) { Text("تنبيه") }
                         }
-                    }
-                    staleVisits.take(3).forEach { h ->
-                        Text("• ${h.name}: " + (supDaysSince(h.lastVisitDate)?.let { "لم تُزر منذ $it يومًا" } ?: "لم تُزر بعد"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 2.dp))
                     }
                 }
             }
@@ -410,6 +425,7 @@ fun SupervisorVisitsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit
     val halaqaNames = b?.halaqas?.associate { it.id to it.name }.orEmpty()
     val shown = b?.visits?.filter { filter == "all" || it.optString("halaqa_id") == filter }.orEmpty()
 
+    Box(Modifier.fillMaxSize()) {
     Column {
         AppTopBar("زيارات المشرف", onRefresh = { scope.launch { reload() }; onRefresh() }, pending = pending)
         message?.let { StateNotice(it, kind = "error", modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) }
@@ -419,9 +435,6 @@ fun SupervisorVisitsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item {
-                Button(onClick = { presetHalaqa = if (filter == "all") "" else filter; creating = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("تسجيل زيارة جديدة") }
-            }
             if ((b.halaqas + b.programs).size > 1) item {
                 HalaqatiLazySelectField(
                     label = "الحلقة", selectedKey = filter,
@@ -441,37 +454,54 @@ fun SupervisorVisitsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit
                 val pend = v.optBoolean("_pending", false)
                 val hasActions = v.supStr("action_items").isNotBlank()
                 val done = v.optBoolean("action_done", false)
-                BorderedCard(accent = if (pend) MaterialTheme.colorScheme.tertiary else null) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(halaqaNames[v.optString("halaqa_id")] ?: "حلقة", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                var menuOpen by remember { mutableStateOf(false) }
+                val halaqaTone = com.mohammedsamir.halaqati.ui.theme.EntityColors.of(com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA)
+                BorderedCard(accent = if (pend) MaterialTheme.colorScheme.tertiary else null, padding = 10.dp) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(Icons.Default.Visibility, null, tint = halaqaTone.accent, modifier = Modifier.size(18.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(halaqaNames[v.optString("halaqa_id")] ?: "حلقة", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(v.optString("visit_date"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                         if (pend) StatusPill("بانتظار الرفع", kind = "warning")
-                        Spacer(Modifier.width(6.dp))
-                        Text(v.optString("visit_date"), style = MaterialTheme.typography.labelMedium)
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "التنظيم ${supScore(v, "organization_score")} · التدريس ${supScore(v, "teaching_score")} · المتابعة ${supScore(v, "followup_score")}" +
-                            (if (!v.isNull("teacher_attendance") && v.has("teacher_attendance")) (if (v.optBoolean("teacher_attendance")) " · المحفّظ حاضر" else " · المحفّظ غائب") else ""),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    if (v.supStr("notes").isNotBlank()) Text(v.supStr("notes"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp))
-                    if (hasActions) Text("المطلوب: ${v.supStr("action_items")}" + if (done) " ✓ نُفّذ" else "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
-                    Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { editing = v }, modifier = Modifier.weight(1f).heightIn(min = 44.dp)) { Text("تعديل") }
-                        if (hasActions && !done) OutlinedButton(onClick = {
-                            scope.launch {
-                                withContext(Dispatchers.IO) { AppGraph.repo.patch("supervisor_visits", "id=eq.${v.optString("id")}", JSONObject().put("action_done", true), dedupe = "visit:${v.optString("id")}:done") }
-                                reload()
+                        Box {
+                            IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(48.dp)) { Icon(Icons.Default.MoreVert, contentDescription = "خيارات الزيارة") }
+                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                DropdownMenuItem(text = { Text("تعديل") }, onClick = { menuOpen = false; editing = v })
+                                if (hasActions && !done) DropdownMenuItem(text = { Text("تم التنفيذ") }, onClick = {
+                                    menuOpen = false
+                                    scope.launch {
+                                        withContext(Dispatchers.IO) { AppGraph.repo.patch("supervisor_visits", "id=eq.${v.optString("id")}", JSONObject().put("action_done", true), dedupe = "visit:${v.optString("id")}:done") }
+                                        reload()
+                                    }
+                                })
+                                DropdownMenuItem(text = { Text("حذف", color = MaterialTheme.colorScheme.error) }, onClick = { menuOpen = false; deleting = v })
                             }
-                        }, modifier = Modifier.weight(1f).heightIn(min = 44.dp)) { Text("تم التنفيذ") }
-                        OutlinedButton(
-                            onClick = { deleting = v }, modifier = Modifier.weight(1f).heightIn(min = 44.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                        ) { Text("حذف") }
+                        }
                     }
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf("تنظيم" to "organization_score", "تدريس" to "teaching_score", "متابعة" to "followup_score").forEach { (l, k) ->
+                            Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                                Text("$l ${supScore(v, k)}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
+                            }
+                        }
+                        if (!v.isNull("teacher_attendance") && v.has("teacher_attendance")) {
+                            val here = v.optBoolean("teacher_attendance")
+                            StatusPill(if (here) "المحفّظ حاضر" else "المحفّظ غائب", kind = if (here) "success" else "danger")
+                        }
+                    }
+                    if (v.supStr("notes").isNotBlank()) Text(v.supStr("notes"), style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    if (hasActions) Text("المطلوب: ${v.supStr("action_items")}" + if (done) " ✓ نُفّذ" else "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
+    }
+    ExtendedFloatingActionButton(
+        onClick = { presetHalaqa = if (filter == "all") "" else filter; creating = true },
+        icon = { Icon(Icons.Default.Add, null) },
+        text = { Text("تسجيل زيارة جديدة", fontWeight = FontWeight.Bold) },
+        modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+    )
     }
 
     if (creating || editing != null) {

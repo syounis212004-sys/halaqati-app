@@ -28,6 +28,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
@@ -4719,6 +4720,50 @@ object Backup {
 }
 
 @Composable
+private fun SettingsGroupTitle(text: String) {
+    Text(text, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 6.dp, start = 4.dp))
+}
+
+@Composable
+private fun SettingsGroup(content: @Composable ColumnScope.() -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) { Column(Modifier.padding(vertical = 4.dp), content = content) }
+}
+
+/** Compact settings row: icon · title (+ value) · optional trailing control, chevron when it opens something. */
+@Composable
+private fun SettingsRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    value: String?,
+    onClick: (() -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    Row(
+        Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).heightIn(min = 52.dp).padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+            if (value != null) Text(value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        trailing?.invoke()
+        if (onClick != null && trailing == null) Icon(Icons.Default.ChevronLeft, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun SettingsChipsRow(label: String, chips: @Composable RowScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), content = chips)
+    }
+}
+
+@Composable
 fun SettingsScreen(profile: Profile, onLogout: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -4845,286 +4890,183 @@ fun SettingsScreen(profile: Profile, onLogout: () -> Unit) {
                 }
             }
 
+            val isAdminRole = profile.role == com.mohammedsamir.halaqati.model.UserRole.ADMIN
+
+            item { SettingsGroupTitle("الحساب") }
             item { MyPhotoSettingsCard(profile) }
             item { AccountNameSettingsCard(profile) }
-            item { AppUpdateSettingsCard() }
-            item { SupportSettingsCard() }
-            item { AppSupportInfoCard(profile) }
-            if (profile.role == com.mohammedsamir.halaqati.model.UserRole.ADMIN) item { BackupSettingsCard() }
-            item { V6ScoringSettingsCard() }
-
             item {
-                com.mohammedsamir.halaqati.ui.components.NourSectionTitle("المظهر")
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text("الوضع الداكن", fontWeight = FontWeight.Bold)
-                                Text("اتبع النظام أو اختر الوضع المناسب", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Switch(
-                                checked = uiPreferences.themeMode == ThemeMode.DARK,
-                                onCheckedChange = { enabled -> AppGraph.uiPreferences.update { it.copy(themeMode = if (enabled) ThemeMode.DARK else ThemeMode.LIGHT) } },
+                SettingsGroup {
+                    SettingsRow(Icons.Default.LockReset, "كلمة المرور", "تحديث كلمة مرور الحساب", onClick = { showPasswordDialog = true })
+                    passwordMessage?.let { StateNotice(it, if (it.startsWith("تم")) "success" else "warning", Modifier.padding(12.dp)) }
+                }
+            }
+
+            item { SettingsGroupTitle("المظهر") }
+            item {
+                SettingsGroup {
+                    SettingsRow(Icons.Default.DarkMode, "الوضع الداكن", "اتبع النظام أو اختر الوضع", trailing = {
+                        Switch(
+                            checked = uiPreferences.themeMode == ThemeMode.DARK,
+                            onCheckedChange = { enabled -> AppGraph.uiPreferences.update { it.copy(themeMode = if (enabled) ThemeMode.DARK else ThemeMode.LIGHT) } },
+                        )
+                    })
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(ThemeMode.SYSTEM to "النظام", ThemeMode.LIGHT to "فاتح", ThemeMode.DARK to "داكن").forEach { (mode, label) ->
+                            ProFilterChip(
+                                selected = uiPreferences.themeMode == mode,
+                                onClick = { AppGraph.uiPreferences.update { it.copy(themeMode = mode) } },
+                                label = label, modifier = Modifier.weight(1f), showCheckIcon = false,
                             )
                         }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf(ThemeMode.SYSTEM to "النظام", ThemeMode.LIGHT to "فاتح", ThemeMode.DARK to "داكن").forEach { (mode, label) ->
-                                ProFilterChip(
-                                    selected = uiPreferences.themeMode == mode,
-                                    onClick = { AppGraph.uiPreferences.update { it.copy(themeMode = mode) } },
-                                    label = label,
-                                    modifier = Modifier.weight(1f),
-                                    showCheckIcon = false,
-                                )
-                            }
-                        }
-                        Text("ألوان حلقتي", style = MaterialTheme.typography.labelLarge)
-                        val presets = listOf(
-                            Triple(com.mohammedsamir.halaqati.ui.theme.HalaqatiPalette.DEFAULT_PRIMARY, com.mohammedsamir.halaqati.ui.theme.HalaqatiPalette.DEFAULT_ACCENT, "أخضر حلقاتي"),
-                            Triple(0xFF3B4929.toInt(), 0xFF5B7A3A.toInt(), "زيتوني الشعار"),
-                            Triple(0xFF12345B.toInt(), 0xFF2D6CDF.toInt(), "الأزرق"),
-                            Triple(0xFF5A3825.toInt(), 0xFFAD744F.toInt(), "البني"),
-                            Triple(0xFF342B5F.toInt(), 0xFF765BC4.toInt(), "البنفسجي"),
-                        )
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    }
+                    val presets = listOf(
+                        Triple(com.mohammedsamir.halaqati.ui.theme.HalaqatiPalette.DEFAULT_PRIMARY, com.mohammedsamir.halaqati.ui.theme.HalaqatiPalette.DEFAULT_ACCENT, "أخضر حلقاتي"),
+                        Triple(0xFF3B4929.toInt(), 0xFF5B7A3A.toInt(), "زيتوني الشعار"),
+                        Triple(0xFF12345B.toInt(), 0xFF2D6CDF.toInt(), "الأزرق"),
+                        Triple(0xFF5A3825.toInt(), 0xFFAD744F.toInt(), "البني"),
+                        Triple(0xFF342B5F.toInt(), 0xFF765BC4.toInt(), "البنفسجي"),
+                    )
+                    SettingsRow(Icons.Default.Palette, "لون التطبيق", null, trailing = {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             presets.forEach { (primary, accent, label) ->
                                 val selected = uiPreferences.primaryArgb == primary && uiPreferences.accentArgb == accent
-                                Surface(
-                                    onClick = { AppGraph.uiPreferences.update { it.copy(primaryArgb = primary, accentArgb = accent) } },
-                                    modifier = Modifier.weight(1f).heightIn(min = 66.dp),
-                                    shape = MaterialTheme.shapes.medium,
-                                    border = if (selected) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                                    color = MaterialTheme.colorScheme.surface,
-                                ) {
-                                    Column(Modifier.fillMaxSize().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                            Surface(modifier = Modifier.size(18.dp), shape = MaterialTheme.shapes.extraLarge, color = androidx.compose.ui.graphics.Color(primary)) {}
-                                            Surface(modifier = Modifier.size(18.dp), shape = MaterialTheme.shapes.extraLarge, color = androidx.compose.ui.graphics.Color(accent)) {}
-                                        }
-                                        Spacer(Modifier.height(5.dp))
-                                        Text(label, style = MaterialTheme.typography.labelSmall)
-                                    }
-                                }
-                            }
-                        }
-                        Text("كثافة الواجهة", style = MaterialTheme.typography.labelLarge)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf(UiDensity.COMFORTABLE to "مريح", UiDensity.BALANCED to "متوازن", UiDensity.COMPACT to "مضغوط").forEach { (density, label) ->
-                                ProFilterChip(
-                                    selected = uiPreferences.density == density,
-                                    onClick = { AppGraph.uiPreferences.update { it.copy(density = density) } },
-                                    label = label,
-                                    modifier = Modifier.weight(1f),
-                                    showCheckIcon = false,
+                                Box(
+                                    Modifier.size(28.dp)
+                                        .clip(androidx.compose.foundation.shape.CircleShape)
+                                        .background(androidx.compose.ui.graphics.Color(primary))
+                                        .border(if (selected) 3.dp else 1.dp, if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outlineVariant, androidx.compose.foundation.shape.CircleShape)
+                                        .clickable(onClickLabel = label) { AppGraph.uiPreferences.update { it.copy(primaryArgb = primary, accentArgb = accent) } },
                                 )
                             }
                         }
-                        Text("مظهر الرئيسية", style = MaterialTheme.typography.labelLarge)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf(com.mohammedsamir.halaqati.data.HomeStyle.MODERN to "بطاقات حديثة", com.mohammedsamir.halaqati.data.HomeStyle.COMPACT to "لوحة مختصرة").forEach { (style, label) ->
-                                ProFilterChip(
-                                    selected = uiPreferences.homeStyle == style,
-                                    onClick = { AppGraph.uiPreferences.update { it.copy(homeStyle = style) } },
-                                    label = label,
-                                    modifier = Modifier.weight(1f),
-                                    showCheckIcon = false,
-                                )
-                            }
+                    })
+                    SettingsChipsRow("كثافة الواجهة") {
+                        listOf(UiDensity.COMFORTABLE to "مريح", UiDensity.BALANCED to "متوازن", UiDensity.COMPACT to "مضغوط").forEach { (density, label) ->
+                            ProFilterChip(selected = uiPreferences.density == density, onClick = { AppGraph.uiPreferences.update { it.copy(density = density) } }, label = label, modifier = Modifier.weight(1f), showCheckIcon = false)
                         }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text("إظهار صور الطلاب", fontWeight = FontWeight.Bold)
-                                Text("صورة مصغّرة أمام الاسم وفي الملف الشخصي", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Switch(checked = uiPreferences.showStudentPhotos, onCheckedChange = { on -> AppGraph.uiPreferences.update { it.copy(showStudentPhotos = on) } })
-                        }
-                        if (profile.role == com.mohammedsamir.halaqati.model.UserRole.ADMIN) {
-                            var donorPhotos by remember { mutableStateOf(true) }
-                            var donorPhotosBusy by remember { mutableStateOf(false) }
-                            LaunchedEffect(Unit) { donorPhotos = withContext(Dispatchers.IO) { runCatching { AppGraph.repo.donorPhotosSetting() }.getOrDefault(true) } }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.weight(1f)) {
-                                    Text("إظهار صور المكرَّمين للمانحين", fontWeight = FontWeight.Bold)
-                                    Text("يرى المانحون صور الطلاب المكرَّمين فقط؛ أطفئه لإخفائها", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                Switch(
-                                    checked = donorPhotos, enabled = !donorPhotosBusy,
-                                    onCheckedChange = { on ->
-                                        donorPhotosBusy = true
-                                        scope.launch {
-                                            com.mohammedsamir.halaqati.ui.runCatchingCancellable { withContext(Dispatchers.IO) { AppGraph.repo.setDonorPhotosSetting(on) } }
-                                                .onSuccess { donorPhotos = on }
-                                            donorPhotosBusy = false
-                                        }
-                                    },
-                                )
-                            }
-                        }
-                        Text("شكل الصور", style = MaterialTheme.typography.labelLarge)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf(
-                                com.mohammedsamir.halaqati.data.AvatarShape.RING to "حلقة",
-                                com.mohammedsamir.halaqati.data.AvatarShape.CIRCLE to "دائرة",
-                                com.mohammedsamir.halaqati.data.AvatarShape.ROUNDED to "مربع مدوّر",
-                            ).forEach { (shape, label) ->
-                                ProFilterChip(
-                                    selected = uiPreferences.avatarShape == shape,
-                                    onClick = { AppGraph.uiPreferences.update { it.copy(avatarShape = shape) } },
-                                    label = label,
-                                    modifier = Modifier.weight(1f),
-                                    showCheckIcon = false,
-                                )
-                            }
-                        }
-                        Text("الحركة", style = MaterialTheme.typography.labelLarge)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf(com.mohammedsamir.halaqati.data.MotionLevel.NORMAL to "عادية", com.mohammedsamir.halaqati.data.MotionLevel.REDUCED to "مخففة").forEach { (motion, label) ->
-                                ProFilterChip(
-                                    selected = uiPreferences.motion == motion,
-                                    onClick = { AppGraph.uiPreferences.update { it.copy(motion = motion) } },
-                                    label = label,
-                                    modifier = Modifier.weight(1f),
-                                    showCheckIcon = false,
-                                )
-                            }
-                        }
-                        OutlinedButton(
-                            onClick = { AppGraph.uiPreferences.reset() },
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                        ) { Text("إعادة ضبط المظهر") }
                     }
-                }
-            }
-
-            item {
-                // RC27.10: timings of the heavy reads, so a slow screen can be pinned down by number instead of guessed.
-                var timings by remember { mutableStateOf(com.mohammedsamir.halaqati.data.PerfLog.snapshot()) }
-                Text("التشخيص", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = com.mohammedsamir.halaqati.ui.theme.textAccent("primary"))
-                Card(modifier = Modifier.fillMaxWidth(), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("أزمنة التحميل الأخيرة (بالملّي ثانية). أي رقم فوق 1500 يعني أن هذه العملية بطيئة.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (timings.isEmpty()) {
-                            Text("لا توجد قياسات بعد. افتح الخطط أو الجلسات ثم عد إلى هنا.", style = MaterialTheme.typography.bodyMedium)
-                        } else {
-                            timings.take(12).forEach { e ->
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text(e.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
-                                    Text(
-                                        "${e.millis} م.ث",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (e.millis > 1500) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                                    )
-                                }
-                            }
+                    SettingsChipsRow("مظهر الرئيسية") {
+                        listOf(com.mohammedsamir.halaqati.data.HomeStyle.MODERN to "بطاقات حديثة", com.mohammedsamir.halaqati.data.HomeStyle.COMPACT to "لوحة مختصرة").forEach { (style, label) ->
+                            ProFilterChip(selected = uiPreferences.homeStyle == style, onClick = { AppGraph.uiPreferences.update { it.copy(homeStyle = style) } }, label = label, modifier = Modifier.weight(1f), showCheckIcon = false)
                         }
-                        OutlinedButton(
-                            onClick = { timings = com.mohammedsamir.halaqati.data.PerfLog.snapshot() },
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                        ) { Text("تحديث القياسات") }
                     }
-                }
-            }
-
-            item {
-                Text("الحساب والأمان", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = com.mohammedsamir.halaqati.ui.theme.textAccent("primary"))
-                Card(modifier = Modifier.fillMaxWidth(), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) {
-                    Column {
-                        ListItem(
-                            headlineContent = { Text("تغيير كلمة المرور") },
-                            supportingContent = { Text("تحديث كلمة مرور الحساب مباشرة") },
-                            leadingContent = { Icon(Icons.Default.LockReset, contentDescription = null) },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        OutlinedButton(
-                            onClick = { showPasswordDialog = true },
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp).fillMaxWidth().heightIn(min = 48.dp),
-                        ) { Text("تغيير كلمة المرور") }
-                        passwordMessage?.let { StateNotice(it, if (it.startsWith("تم")) "success" else "warning", Modifier.padding(12.dp)) }
-                    }
-                }
-            }
-
-            item {
-                Text("المزامنة والإشعارات", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = com.mohammedsamir.halaqati.ui.theme.textAccent("primary"))
-                Card(modifier = Modifier.fillMaxWidth(), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Sync, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text("المزامنة", fontWeight = FontWeight.Bold)
-                                Text(
-                                    if (pendingWrites + blockedWrites == 0) "البيانات المحلية متزامنة لهذا الحساب"
-                                    else "معلّق: $pendingWrites · يحتاج مراجعة: $blockedWrites · معزول حسب الحساب",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                        HorizontalDivider()
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                if (notificationsEnabled) Icons.Default.NotificationsActive else Icons.Default.NotificationsOff,
-                                contentDescription = null,
-                                tint = if (notificationsEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                            )
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text("إشعارات Android", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text(if (notificationsEnabled) "مسموح بها على هذا الجهاز" else "موقوفة من إعدادات Android", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            StatusPill(if (notificationsEnabled) "مفعلة" else "موقوفة", if (notificationsEnabled) "success" else "warning")
-                        }
-                        OutlinedButton(
-                            onClick = { showNotificationPreferences = true },
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                        ) { Text("تفضيلات إشعارات الحساب") }
-                        preferencesMessage?.let { StateNotice(it, kind = if (it.startsWith("تم")) "success" else "warning") }
-                        pushMessage?.let { StateNotice(it, kind = if (it.startsWith("تم")) "success" else "warning") }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(
-                                onClick = {
-                                    context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
-                                },
-                                modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                            ) { Text("إعدادات الإشعارات") }
-                            Button(
-                                onClick = {
-                                    testingPush = true; pushMessage = null
+                    SettingsRow(Icons.Default.Face, "إظهار صور الطلاب", "صورة مصغّرة أمام الاسم وفي الملف الشخصي", trailing = {
+                        Switch(checked = uiPreferences.showStudentPhotos, onCheckedChange = { on -> AppGraph.uiPreferences.update { it.copy(showStudentPhotos = on) } })
+                    })
+                    if (isAdminRole) {
+                        var donorPhotos by remember { mutableStateOf(true) }
+                        var donorPhotosBusy by remember { mutableStateOf(false) }
+                        LaunchedEffect(Unit) { donorPhotos = withContext(Dispatchers.IO) { runCatching { AppGraph.repo.donorPhotosSetting() }.getOrDefault(true) } }
+                        SettingsRow(Icons.Default.Favorite, "صور المكرَّمين للمانحين", "يرى المانحون صور الطلاب المكرَّمين فقط", trailing = {
+                            Switch(
+                                checked = donorPhotos, enabled = !donorPhotosBusy,
+                                onCheckedChange = { on ->
+                                    donorPhotosBusy = true
                                     scope.launch {
-                                        val message = withContext(Dispatchers.IO) {
-                                            runCatching {
-                                                val result = AppGraph.repo.testPush()
-                                                when {
-                                                    result.optInt("push_sent", 0) > 0 -> "تم إرسال إشعار اختباري إلى هذا الحساب."
-                                                    result.optBoolean("push_configured", false) -> "تم إنشاء الاختبار لكن لا يوجد جهاز Push نشط لهذا الحساب."
-                                                    else -> "مركز الإشعارات يعمل، لكن Firebase Push غير مهيأ على الخادم."
-                                                }
-                                            }.getOrElse { "تعذر إرسال الاختبار: ${it.message ?: "خطأ"}" }
-                                        }
-                                        pushMessage = message; testingPush = false
-                                        notificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
+                                        com.mohammedsamir.halaqati.ui.runCatchingCancellable { withContext(Dispatchers.IO) { AppGraph.repo.setDonorPhotosSetting(on) } }
+                                            .onSuccess { donorPhotos = on }
+                                        donorPhotosBusy = false
                                     }
                                 },
-                                enabled = !testingPush && AppGraph.repo.online(),
-                                modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                            ) { Text(if (testingPush) "جارٍ الاختبار…" else "اختبار Push") }
+                            )
+                        })
+                    }
+                    SettingsChipsRow("شكل الصور") {
+                        listOf(
+                            com.mohammedsamir.halaqati.data.AvatarShape.RING to "حلقة",
+                            com.mohammedsamir.halaqati.data.AvatarShape.CIRCLE to "دائرة",
+                            com.mohammedsamir.halaqati.data.AvatarShape.ROUNDED to "مربع مدوّر",
+                        ).forEach { (shape, label) ->
+                            ProFilterChip(selected = uiPreferences.avatarShape == shape, onClick = { AppGraph.uiPreferences.update { it.copy(avatarShape = shape) } }, label = label, modifier = Modifier.weight(1f), showCheckIcon = false)
                         }
+                    }
+                    SettingsChipsRow("الحركة") {
+                        listOf(com.mohammedsamir.halaqati.data.MotionLevel.NORMAL to "عادية", com.mohammedsamir.halaqati.data.MotionLevel.REDUCED to "مخففة").forEach { (motion, label) ->
+                            ProFilterChip(selected = uiPreferences.motion == motion, onClick = { AppGraph.uiPreferences.update { it.copy(motion = motion) } }, label = label, modifier = Modifier.weight(1f), showCheckIcon = false)
+                        }
+                    }
+                    SettingsRow(Icons.Default.RestartAlt, "إعادة ضبط المظهر", null, onClick = { AppGraph.uiPreferences.reset() })
+                }
+            }
+
+            item { SettingsGroupTitle("الإشعارات والمزامنة") }
+            item {
+                SettingsGroup {
+                    SettingsRow(
+                        Icons.Default.Sync, "المزامنة",
+                        if (pendingWrites + blockedWrites == 0) "البيانات المحلية متزامنة لهذا الحساب" else "معلّق: $pendingWrites · يحتاج مراجعة: $blockedWrites · معزول حسب الحساب",
+                    )
+                    SettingsRow(
+                        if (notificationsEnabled) Icons.Default.NotificationsActive else Icons.Default.NotificationsOff,
+                        "إشعارات Android",
+                        if (notificationsEnabled) "مسموح بها على هذا الجهاز" else "موقوفة من إعدادات Android",
+                        onClick = { context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) },
+                        trailing = { StatusPill(if (notificationsEnabled) "مفعلة" else "موقوفة", if (notificationsEnabled) "success" else "warning") },
+                    )
+                    SettingsRow(Icons.Default.Tune, "تفضيلات إشعارات الحساب", null, onClick = { showNotificationPreferences = true })
+                    preferencesMessage?.let { StateNotice(it, kind = if (it.startsWith("تم")) "success" else "warning", modifier = Modifier.padding(12.dp)) }
+                    pushMessage?.let { StateNotice(it, kind = if (it.startsWith("تم")) "success" else "warning", modifier = Modifier.padding(12.dp)) }
+                    if (isAdminRole) SettingsRow(
+                        Icons.Default.NotificationsActive, if (testingPush) "جارٍ الاختبار…" else "اختبار Push", null,
+                        onClick = if (!testingPush && AppGraph.repo.online()) ({
+                            testingPush = true; pushMessage = null
+                            scope.launch {
+                                val message = withContext(Dispatchers.IO) {
+                                    runCatching {
+                                        val result = AppGraph.repo.testPush()
+                                        when {
+                                            result.optInt("push_sent", 0) > 0 -> "تم إرسال إشعار اختباري إلى هذا الحساب."
+                                            result.optBoolean("push_configured", false) -> "تم إنشاء الاختبار لكن لا يوجد جهاز Push نشط لهذا الحساب."
+                                            else -> "مركز الإشعارات يعمل، لكن Firebase Push غير مهيأ على الخادم."
+                                        }
+                                    }.getOrElse { "تعذر إرسال الاختبار: ${it.message ?: "خطأ"}" }
+                                }
+                                pushMessage = message; testingPush = false
+                                notificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
+                            }
+                        }) else null,
+                    )
+                }
+            }
+
+            if (isAdminRole) {
+                item { SettingsGroupTitle("الإدارة والتشخيص") }
+                item { AppSupportInfoCard(profile) }
+                item { SupportSettingsCard() }
+                item { BackupSettingsCard() }
+                item { V6ScoringSettingsCard() }
+                item {
+                    // RC27.10: timings of the heavy reads, so a slow screen can be pinned down by number instead of guessed.
+                    var timings by remember { mutableStateOf(com.mohammedsamir.halaqati.data.PerfLog.snapshot()) }
+                    SettingsGroup {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("أزمنة التحميل الأخيرة (م.ث). أي رقم فوق 1500 يعني أن العملية بطيئة.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (timings.isEmpty()) {
+                                Text("لا توجد قياسات بعد. افتح الخطط أو الجلسات ثم عد إلى هنا.", style = MaterialTheme.typography.bodyMedium)
+                            } else {
+                                timings.take(12).forEach { e ->
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text(e.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                                        Text(
+                                            "${e.millis} م.ث", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold,
+                                            color = if (e.millis > 1500) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        SettingsRow(Icons.Default.Refresh, "تحديث القياسات", null, onClick = { timings = com.mohammedsamir.halaqati.data.PerfLog.snapshot() })
                     }
                 }
             }
 
+            item { SettingsGroupTitle("عن التطبيق") }
+            item { AppUpdateSettingsCard() }
             item {
-                ListItem(
-                    headlineContent = { Text("الإصدار") },
-                    supportingContent = { Text("Native Kotlin / Jetpack Compose ${BuildConfig.VERSION_NAME}") },
-                    leadingContent = { Icon(Icons.Default.Android, contentDescription = null) },
-                )
+                SettingsGroup {
+                    SettingsRow(Icons.Default.Android, "الإصدار", "Native Kotlin / Jetpack Compose ${BuildConfig.VERSION_NAME}")
+                }
             }
             item {
                 Button(

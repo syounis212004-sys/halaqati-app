@@ -2499,10 +2499,10 @@ private fun SessionRosterScreen(
                 ) {
                     // RC90: four colour tiles on one row instead of a single wrapped line of text.
                     Row(Modifier.weight(1f).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        SessionMiniTile(recited, "سُمّع", MaterialTheme.colorScheme.primary, Modifier.weight(1f))
-                        SessionMiniTile(notRecited, "لم يُسمّع", MaterialTheme.colorScheme.tertiary, Modifier.weight(1f))
-                        SessionMiniTile(absent, "غائب", MaterialTheme.colorScheme.error, Modifier.weight(1f))
-                        SessionMiniTile(unmarked, "غير مرصود", MaterialTheme.colorScheme.outline, Modifier.weight(1f))
+                        SessionMiniTile(recited, "سُمّع", "success", Modifier.weight(1f))
+                        SessionMiniTile(notRecited, "لم يُسمّع", "warning", Modifier.weight(1f))
+                        SessionMiniTile(absent, "غائب", "danger", Modifier.weight(1f))
+                        SessionMiniTile(unmarked, "غير مرصود", "neutral", Modifier.weight(1f))
                     }
                     IconButton(onClick = { sessionFiltersOpen = true }, modifier = Modifier.size(HalaqatiUiTokens.TouchTarget)) {
                         Icon(Icons.Default.Tune, contentDescription = "تصفية وترتيب")
@@ -2642,13 +2642,18 @@ private fun SessionRosterScreen(
                                     ?.let { latest ->
                                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                         Icon(Icons.Default.AutoStories, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                        Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+                                            Text(recitationActivityAr(latest.activityType), Modifier.padding(horizontal = 6.dp, vertical = 1.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer, maxLines = 1)
+                                        }
                                         Text(
-                                            "آخر تسميع: ${recitationActivityAr(latest.activityType)} · ${recitationRangeText(latest)} · ${plainNumber(latest.pages)} ص",
+                                            recitationRangeText(latest),
+                                            Modifier.weight(1f),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 2,
+                                            maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
                                         )
+                                        Text("${plainNumber(latest.pages)} ص", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                                     }
                                 }
 
@@ -6793,12 +6798,14 @@ private fun editorPlanSettings(current: PlanRow?): PlanSettingsRow =
 
 /** RC90: one small coloured number tile of the session summary row. */
 @Composable
-private fun SessionMiniTile(value: Int, label: String, color: androidx.compose.ui.graphics.Color, modifier: Modifier = Modifier) {
+private fun SessionMiniTile(value: Int, label: String, kind: String, modifier: Modifier = Modifier) {
+    // High-contrast pair from the app status palette (text on its own container), instead of a faint tint.
+    val (bg, fg) = com.mohammedsamir.halaqati.ui.theme.statusColors(kind)
     Column(
-        modifier.clip(RoundedCornerShape(12.dp)).background(color.copy(alpha = .14f)).padding(vertical = 5.dp),
+        modifier.clip(RoundedCornerShape(12.dp)).background(bg).padding(vertical = 5.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(value.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = color)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+        Text(value.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = fg)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = fg, maxLines = 1)
     }
 }

@@ -12,6 +12,11 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Forum
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -79,46 +84,71 @@ fun DonorChatsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
     // refresh the list after a chat sheet closes (unread counters change)
     LaunchedEffect(open) { if (open == null) load() }
 
+    val cs = MaterialTheme.colorScheme
+    val donorTone = com.mohammedsamir.halaqati.ui.theme.EntityColors.of(com.mohammedsamir.halaqati.ui.theme.Entity.DONOR)
+    var onlyUnread by remember { mutableStateOf(false) }
+    val totalUnread = threads.sumOf { it.optInt("unread") }
+    val shown = if (onlyUnread) threads.filter { it.optInt("unread") > 0 } else threads
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.size(44.dp).clip(CircleShape).background(donorTone.container), contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.Forum, null, tint = donorTone.onContainer)
+            }
             Column(Modifier.weight(1f)) {
                 Text("المحادثات", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                val unread = threads.sumOf { it.optInt("unread") }
-                Text(if (unread > 0) "$unread رسالة غير مقروءة" else "لا رسائل جديدة", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(if (totalUnread > 0) "$totalUnread رسالة غير مقروءة" else "لا رسائل جديدة", style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
             }
-            FilledTonalButton(onClick = { picking = true }, modifier = Modifier.heightIn(min = 48.dp)) {
+            FilledTonalButton(onClick = { picking = true }, modifier = Modifier.heightIn(min = 44.dp)) {
                 Icon(Icons.Default.Add, null); Spacer(Modifier.width(6.dp)); Text("محادثة جديدة")
             }
         }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            com.mohammedsamir.halaqati.ui.components.ProFilterChip(!onlyUnread, { onlyUnread = false }, "الكل (${threads.size})")
+            com.mohammedsamir.halaqati.ui.components.ProFilterChip(onlyUnread, { onlyUnread = true }, "غير مقروءة ($totalUnread)")
+        }
         error?.let { StateNotice(it, kind = "error", modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) }
         if (loading) LoadingSkeleton(rows = 4, modifier = Modifier.padding(16.dp))
-        if (!loading && error == null && threads.isEmpty()) EmptyState("لا توجد محادثات بعد. اضغط «محادثة جديدة» لمراسلة أحد المانحين.")
+        if (!loading && error == null && shown.isEmpty()) {
+            Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(Modifier.size(72.dp).clip(CircleShape).background(donorTone.container), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Forum, null, tint = donorTone.onContainer, modifier = Modifier.size(36.dp))
+                }
+                Text(if (onlyUnread) "لا توجد رسائل غير مقروءة" else "لا توجد محادثات بعد", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Text(if (onlyUnread) "كل المحادثات مقروءة." else "اضغط «محادثة جديدة» لمراسلة أحد المانحين.", style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
+            }
+        }
         LazyColumn(
             state = rememberLazyListState(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(top = 6.dp, bottom = 96.dp),
         ) {
-            items(threads, key = { it.chatStr("id") }) { t ->
+            items(shown, key = { it.chatStr("id") }) { t ->
                 val unread = t.optInt("unread")
                 val name = t.chatStr("donor_name").ifBlank { "مانح" }
-                ElevatedCard(
-                    Modifier.fillMaxWidth().clickable { open = t.chatStr("id") to "$name · ${chatKindLabel(t.chatStr("kind"))}" },
-                    colors = if (unread > 0) CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .45f)) else CardDefaults.elevatedCardColors(),
-                ) {
-                    Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        com.mohammedsamir.halaqati.ui.components.StudentAvatar(avatars[t.chatStr("donor_id")], name, 48.dp)
-                        Column(Modifier.weight(1f)) {
-                            Text(name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(chatKindLabel(t.chatStr("kind")), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(
-                                (if (t.chatStr("last_role") == "admin") "أنت: " else "") + t.chatStr("last_body"),
-                                style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            )
+                val kind = t.chatStr("kind")
+                val kindIcon = when (kind) { "reward" -> Icons.Default.EmojiEvents; "pledge" -> Icons.Default.Favorite; else -> Icons.Default.Forum }
+                val preview = (if (t.chatStr("last_role") == "admin") "أنت: " else "") + t.chatStr("last_body")
+                val time = listOf("last_at", "last_message_at", "updated_at").map { t.chatStr(it) }.firstOrNull { it.isNotBlank() }?.take(10).orEmpty()
+                Column(Modifier.fillMaxWidth().background(if (unread > 0) cs.primaryContainer.copy(alpha = .35f) else Color.Transparent)) {
+                    Row(
+                        Modifier.fillMaxWidth().clickable { open = t.chatStr("id") to "$name · ${chatKindLabel(kind)}" }.heightIn(min = 64.dp).padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Box(Modifier.size(44.dp).clip(CircleShape).background(donorTone.container), contentAlignment = Alignment.Center) {
+                            Icon(kindIcon, contentDescription = chatKindLabel(kind), tint = donorTone.accent, modifier = Modifier.size(22.dp))
                         }
-                        if (unread > 0) Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary) {
-                            Text("$unread", Modifier.padding(horizontal = 8.dp, vertical = 2.dp), color = MaterialTheme.colorScheme.onPrimary, fontFamily = com.mohammedsamir.halaqati.ui.theme.CairoFamily, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Column(Modifier.weight(1f)) {
+                            Text(name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            if (t.chatStr("last_body").isNotBlank()) Text(preview, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            else Text(chatKindLabel(kind), style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant, maxLines = 1)
+                        }
+                        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            if (time.isNotBlank()) Text(time, style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant)
+                            if (unread > 0) Surface(shape = CircleShape, color = cs.primary) {
+                                Text("$unread", Modifier.padding(horizontal = 8.dp, vertical = 2.dp), color = cs.onPrimary, fontFamily = com.mohammedsamir.halaqati.ui.theme.CairoFamily, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
+                    HorizontalDivider(Modifier.padding(start = 72.dp), thickness = 0.5.dp, color = cs.outlineVariant)
                 }
             }
         }

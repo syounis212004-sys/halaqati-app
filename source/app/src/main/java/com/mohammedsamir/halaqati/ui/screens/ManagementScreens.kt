@@ -1015,11 +1015,11 @@ private fun CategoriesDialog(
                                         maxAge = c.optString("max_age").takeUnless { it == "null" } ?: ""
                                         error = null
                                     },
-                                    modifier = Modifier.size(40.dp),
+                                    modifier = Modifier.size(48.dp),
                                 ) { Icon(Icons.Default.Edit, contentDescription = "تعديل الفئة", Modifier.size(20.dp)) }
                                 IconButton(
                                     onClick = { pendingDeleteCategory = c },
-                                    modifier = Modifier.size(40.dp),
+                                    modifier = Modifier.size(48.dp),
                                 ) { Icon(Icons.Default.DeleteOutline, contentDescription = "حذف الفئة", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error) }
                             }
                         }
@@ -1290,7 +1290,7 @@ fun CommunityNativeScreen(profile: Profile, pending: Int, onRefresh: () -> Unit)
                                 }
                                 if (roleCanManage(profile.role)) {
                                     Box {
-                                        IconButton(onClick = { itemMenuId = aid }, modifier = Modifier.size(40.dp)) {
+                                        IconButton(onClick = { itemMenuId = aid }, modifier = Modifier.size(48.dp)) {
                                             Icon(Icons.Default.MoreVert, contentDescription = "خيارات الإعلان")
                                         }
                                         DropdownMenu(expanded = itemMenuId == aid, onDismissRequest = { itemMenuId = null }) {
@@ -1349,7 +1349,7 @@ fun CommunityNativeScreen(profile: Profile, pending: Int, onRefresh: () -> Unit)
                                 }
                                 if (p.optString("author_id") == profile.id || roleCanAdmin(profile.role)) {
                                     Box {
-                                        IconButton(onClick = { itemMenuId = pid }, modifier = Modifier.size(40.dp)) {
+                                        IconButton(onClick = { itemMenuId = pid }, modifier = Modifier.size(48.dp)) {
                                             Icon(Icons.Default.MoreVert, contentDescription = "خيارات المنشور")
                                         }
                                         DropdownMenu(expanded = itemMenuId == pid, onDismissRequest = { itemMenuId = null }) {
@@ -1387,7 +1387,7 @@ fun CommunityNativeScreen(profile: Profile, pending: Int, onRefresh: () -> Unit)
                                                     Text(c.optString("body"), style = MaterialTheme.typography.bodyMedium)
                                                 }
                                                 if (c.optString("author_id") == profile.id || roleCanAdmin(profile.role)) {
-                                                    IconButton(onClick = { deleteComment = c }, modifier = Modifier.size(40.dp)) {
+                                                    IconButton(onClick = { deleteComment = c }, modifier = Modifier.size(48.dp)) {
                                                         Icon(Icons.Default.DeleteOutline, contentDescription = "حذف التعليق")
                                                     }
                                                 }

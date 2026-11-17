@@ -83,7 +83,7 @@ data class SupHalaqa(
     val logo: String? = null,
 ) {
     val stateLabel: String get() = when (state) {
-        TeacherDayState.NOT_STARTED -> "لم يبدأ الجلسة"
+        TeacherDayState.NOT_STARTED -> "بانتظار الجلسة"
         TeacherDayState.IN_PROGRESS -> "الجلسة جارية"
         TeacherDayState.CLOSED -> "أنهى الجلسة"
     }

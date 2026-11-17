@@ -64,6 +64,8 @@ fun StudentProfileScreen(
     var monthlyComment by remember(studentId) { mutableStateOf<JSONObject?>(null) }
     var editFollowUpNote by remember(studentId) { mutableStateOf(false) }
     var loading by remember(studentId) { mutableStateOf(true) }
+    // Header shown at once from the copy already on the device, while the full profile loads.
+    var earlyStudent by remember(studentId) { mutableStateOf<Student?>(null) }
     var refreshing by remember(studentId) { mutableStateOf(false) }
     var error by remember(studentId) { mutableStateOf<String?>(null) }
 
@@ -176,6 +178,11 @@ fun StudentProfileScreen(
         }
     }
 
+    LaunchedEffect(studentId) {
+        earlyStudent = withContext(Dispatchers.IO) {
+            runCatching { AppGraph.repo.store.load()?.userId?.let { AppGraph.repo.cachedStudents(it) }?.firstOrNull { it.id == studentId } }.getOrNull()
+        }
+    }
     LaunchedEffect(studentId) { reload(false) }
     val syncEpoch by AppGraph.connectivity.syncEpoch.collectAsState()
     LaunchedEffect(syncEpoch) { if (syncEpoch > 0L) reload(false) }
@@ -222,7 +229,7 @@ fun StudentProfileScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text(student?.fullName ?: "ملف الطالب", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(student?.fullName ?: earlyStudent?.fullName ?: "ملف الطالب", maxLines = 1, overflow = TextOverflow.Ellipsis)
                         if (pending > 0) Text("$pending عملية بانتظار المزامنة", style = MaterialTheme.typography.labelSmall, color = com.mohammedsamir.halaqati.ui.theme.textAccent("primary"))
                     }
                 },
@@ -241,7 +248,15 @@ fun StudentProfileScreen(
             modifier = Modifier.padding(padding).fillMaxSize(),
         ) {
             if (loading && student == null) {
-                LoadingSkeleton(rows = 6, modifier = Modifier.padding(16.dp))
+                Column(Modifier.fillMaxSize().padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    earlyStudent?.let { es ->
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            com.mohammedsamir.halaqati.ui.components.StudentAvatar(es.photoPath, es.fullName, 72.dp)
+                            Text(es.fullName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        }
+                    }
+                    LoadingSkeleton(rows = if (earlyStudent != null) 3 else 6)
+                }
             } else {
                 LazyColumn(
         state = androidx.compose.foundation.lazy.rememberLazyListState(),
