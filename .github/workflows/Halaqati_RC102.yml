@@ -671,6 +671,11 @@ jobs:
           (cd update-publish && zip -q -X ../verified/Halaqati-v2.91.2-publish-update.zip Halaqati-latest.apk version.json)
           sha256sum verified/Halaqati-v2.91.2-publish-update.zip >> verified/SHA256SUMS.txt
 
+      - name: Release gate (verified APK, version.json, SHA-256, update zip)
+        if: ${{ inputs.variant == 'release' }}
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: python3 "${{ github.workspace }}/source-repo/.github/scripts/release_gate.py" app verified update-publish 2.91.2 29102
+
       - name: Create or refresh GitHub Release v2.91.2 RC102
         if: ${{ inputs.variant == 'release' }}
         working-directory: ${{ env.PROJECT_DIR }}

@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "comment": "Maps paths and task types to the skills that must have been INVOKED (recorded by a PostToolUse hook) by the editing agent. Invocation is verified; quality of application is not.",
+  "protected": [".claude/enforce/*", ".claude/settings.json", ".claude/settings.local.json"],
+  "exempt": ["*__pycache__*", "*/src/test/*", "*/src/androidTest/*", "*.md", "docs/*", "*/build/*", ".ua/*", ".claude/enforce/state/*", ".claude/enforce/log/*", "Halaqati_RC*.zip", "*.zip", "source/migration/*", "source/scripts/*", ".github/*"],
+  "path_rules": [
+    {"id": "android-ui", "globs": ["source/app/src/main/java/*/ui/*"], "require": ["ui-ux-pro-max", "android-design"], "why": "Android screens/components/theme must follow UI/UX Pro Max + android-design"},
+    {"id": "android-logic", "globs": ["source/app/src/main/java/*/data/*", "source/app/src/main/java/*Rules.kt", "source/app/src/main/java/*/model/*", "source/app/src/main/java/*/sync/*"], "require": ["test-driven-development"], "why": "behaviour change in testable logic needs superpowers:test-driven-development"}
+  ],
+  "content_rules": [
+    {"id": "motion", "scope_globs": ["source/app/src/main/java/*.kt"], "pattern": "animate[A-Z]\\w*AsState|AnimatedVisibility|AnimatedContent|Crossfade|animateContentSize|rememberInfiniteTransition|updateTransition|Animatable|spring\\(|tween\\(|MotionScheme", "require": ["halaqati-motion-guidance"], "why": "motion changes must follow the Halaqati motion rules"}
+  ],
+  "task_rules": {
+    "debug": {"prompt_regex": "إصلاح|اصلح|أصلح|خطأ|عطل|مشكلة|\\bbug\\b|\\bfix\\b|crash|regression", "require": ["systematic-debugging"], "applies_to_globs": ["source/app/src/main/*"], "why": "bug fix: superpowers:systematic-debugging first"},
+    "audit": {"prompt_regex": "تدقيق|audit|security review|مراجعة أمنية", "require": ["ponytail-audit"], "applies_to_globs": ["docs/audits/*"], "why": "audit reports need ponytail-audit"}
+  },
+  "large_edit": {"globs": ["source/app/src/main/*"], "lines": 60, "total_lines": 150},
+  "commit_gate": {"large_total_lines": 150, "playwright_paths": []},
+  "publish": {"workflow_regex": "Halaqati_RC\\d+\\.yml"}
+}
