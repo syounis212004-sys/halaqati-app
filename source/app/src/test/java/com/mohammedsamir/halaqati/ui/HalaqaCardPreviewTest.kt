@@ -192,8 +192,8 @@ class HalaqaCardPreviewTest {
         rule.onNodeWithTag("list").performScrollToIndex(3)
         rule.waitForIdle()
         save("page_scrolled_to_end_${if (dark) "dark" else "light"}")
-        val fab = rule.onNodeWithContentDescription("إضافة حلقة").getBoundsInRoot()
-        val last = rule.onNodeWithTag("actions-3").getBoundsInRoot()
+        val fab = rule.onNodeWithContentDescription("إضافة حلقة", useUnmergedTree = true).getBoundsInRoot()
+        val last = rule.onNodeWithTag("actions-3", useUnmergedTree = true).getBoundsInRoot()
         val overlap = fab.left < last.right && fab.right > last.left && fab.top < last.bottom && fab.bottom > last.top
         assertTrue("the add button overlaps the last card's buttons ($fab vs $last)", !overlap)
     }
