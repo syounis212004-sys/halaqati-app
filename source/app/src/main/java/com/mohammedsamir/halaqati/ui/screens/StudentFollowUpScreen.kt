@@ -59,6 +59,7 @@ fun StudentFollowUpScreen(
 
     Scaffold(
         topBar = {
+            Column {
             TopAppBar(
                 title = {
                     Column {
@@ -81,6 +82,8 @@ fun StudentFollowUpScreen(
                     }
                 },
             )
+            com.mohammedsamir.halaqati.ui.components.LatticeStrip()
+            }
         },
     ) { padding ->
         LazyColumn(

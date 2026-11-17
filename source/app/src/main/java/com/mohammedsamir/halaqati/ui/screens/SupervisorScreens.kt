@@ -425,14 +425,15 @@ fun SupervisorVisitsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit
     val halaqaNames = b?.halaqas?.associate { it.id to it.name }.orEmpty()
     val shown = b?.visits?.filter { filter == "all" || it.optString("halaqa_id") == filter }.orEmpty()
 
+    val visitsListState = androidx.compose.foundation.lazy.rememberLazyListState()
     Box(Modifier.fillMaxSize()) {
     Column {
         AppTopBar("زيارات المشرف", onRefresh = { scope.launch { reload() }; onRefresh() }, pending = pending)
         message?.let { StateNotice(it, kind = "error", modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) }
         if (b == null) { LoadingSkeleton(rows = 3, modifier = Modifier.padding(12.dp)); return@Column }
         LazyColumn(
-            state = androidx.compose.foundation.lazy.rememberLazyListState(),
-            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 96.dp),
+            state = visitsListState,
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = FabClearance),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if ((b.halaqas + b.programs).size > 1) item {
@@ -496,12 +497,7 @@ fun SupervisorVisitsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit
             }
         }
     }
-    ExtendedFloatingActionButton(
-        onClick = { presetHalaqa = if (filter == "all") "" else filter; creating = true },
-        icon = { Icon(Icons.Default.Add, null) },
-        text = { Text("تسجيل زيارة جديدة", fontWeight = FontWeight.Bold) },
-        modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-    )
+    CollapsingFab(visitsListState, "تسجيل زيارة جديدة", Icons.Default.Add) { presetHalaqa = if (filter == "all") "" else filter; creating = true }
     }
 
     if (creating || editing != null) {

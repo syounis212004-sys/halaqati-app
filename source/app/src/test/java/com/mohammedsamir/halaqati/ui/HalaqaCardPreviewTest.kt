@@ -43,7 +43,10 @@ import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.mohammedsamir.halaqati.data.UiPreferences
+import com.mohammedsamir.halaqati.ui.components.AppTopBar
 import com.mohammedsamir.halaqati.ui.components.CollapsingFab
+import com.mohammedsamir.halaqati.ui.components.EmptyState
+import com.mohammedsamir.halaqati.ui.components.StateNotice
 import com.mohammedsamir.halaqati.ui.components.FabClearance
 import com.mohammedsamir.halaqati.ui.components.GradientPair
 import com.mohammedsamir.halaqati.ui.components.HalaqaCardData
@@ -70,7 +73,8 @@ import org.robolectric.annotation.GraphicsMode
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [35], qualifiers = "w411dp-h900dp-xxhdpi")
+// RC104: never boot the real HalaqatiApplication (AppGraph -> AndroidKeyStore is missing on the JVM); the preview needs no app graph.
+@Config(sdk = [35], application = android.app.Application::class, qualifiers = "w411dp-h900dp-xxhdpi")
 class HalaqaCardPreviewTest {
     @get:Rule val rule = createComposeRule()
 
@@ -169,4 +173,26 @@ class HalaqaCardPreviewTest {
 
     @Test fun add_button_never_covers_the_last_card_light() = scrolledPage(dark = false)
     @Test fun add_button_never_covers_the_last_card_dark() = scrolledPage(dark = true)
+
+    // RC104: the shared identity pieces (top-bar band, empty state, notices) in light and dark.
+    private fun identityPieces(dark: Boolean) {
+        rule.setContent {
+            Themed(dark) {
+                Column(Modifier.width(411.dp)) {
+                    AppTopBar("المحفّظون", onBack = {}, onRefresh = {})
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        StateNotice("تمت المزامنة بنجاح", kind = "success")
+                        StateNotice("تنبيه: يوجد تغييرات غير مزامنة", kind = "warning")
+                        StateNotice("تعذّر الحفظ، حاول مجددًا", kind = "error")
+                        StateNotice("معلومة عامة للمستخدم", kind = "info")
+                        EmptyState("لا توجد حلقات بعد", actionLabel = "إضافة حلقة", onAction = {}, animated = false)
+                    }
+                }
+            }
+        }
+        save("identity_pieces_${if (dark) "dark" else "light"}")
+    }
+
+    @Test fun identity_pieces_light() = identityPieces(dark = false)
+    @Test fun identity_pieces_dark() = identityPieces(dark = true)
 }

@@ -28,7 +28,7 @@ fun Modifier.latticeOverlay(color: Color = Color.White, alpha: Float = .09f, cel
 @Composable
 fun LatticeStrip(modifier: Modifier = Modifier) {
     Box(modifier.fillMaxWidth()) {
-        Box(Modifier.fillMaxWidth().height(9.dp).latticeOverlay(MaterialTheme.colorScheme.primary, alpha = .5f, cell = 12.dp))
+        Box(Modifier.fillMaxWidth().height(9.dp).nourPattern(PatternLevel.Strip, MaterialTheme.colorScheme.primary))
         HorizontalDivider(Modifier.align(androidx.compose.ui.Alignment.BottomStart), thickness = 1.dp, color = MaterialTheme.colorScheme.primary.copy(alpha = .25f))
     }
 }

@@ -343,7 +343,8 @@ fun EmptyState(
         border = com.mohammedsamir.halaqati.ui.theme.cardHairline(),
     ) {
         Column(
-            Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = if (animated) 14.dp else 26.dp),
+            Modifier.fillMaxWidth().nourPattern(PatternLevel.Subtle, MaterialTheme.colorScheme.primary)
+                .padding(horizontal = 20.dp, vertical = if (animated) 14.dp else 26.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -465,7 +466,7 @@ fun StateNotice(text: String, kind: String = "info", modifier: Modifier = Modifi
         else -> androidx.compose.material.icons.Icons.Default.Info
     }
     Surface(modifier = modifier.fillMaxWidth().halaqatiEnter(), color = if (tone == "neutral") MaterialTheme.colorScheme.surfaceVariant else container, shape = RoundedCornerShape(14.dp)) {
-        Row(Modifier.padding(horizontal = 14.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.nourPattern(PatternLevel.Subtle, accent).padding(horizontal = 14.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Icon(icon, contentDescription = null, tint = if (tone == "danger") onContainer else accent, modifier = Modifier.size(NourIcon.Inline))
             Text(text, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = if (tone == "neutral") MaterialTheme.colorScheme.onSurface else onContainer)
         }

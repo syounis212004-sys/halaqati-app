@@ -226,6 +226,7 @@ fun StudentProfileScreen(
 
     Scaffold(
         topBar = {
+            Column {
             TopAppBar(
                 title = {
                     Column {
@@ -240,6 +241,8 @@ fun StudentProfileScreen(
                     IconButton(onClick = { scope.launch { reload(true) } }, modifier = Modifier.size(48.dp)) { Icon(Icons.Default.Refresh, contentDescription = "تحديث") }
                 },
             )
+            com.mohammedsamir.halaqati.ui.components.LatticeStrip()
+            }
         },
     ) { padding ->
         PullToRefreshBox(

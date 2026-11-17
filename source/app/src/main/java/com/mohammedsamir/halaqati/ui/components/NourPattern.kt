@@ -8,7 +8,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * The app's one geometric pattern (the girih lattice in Girih.kt) at four fixed strengths, so every surface that carries it
+ * The app's one geometric pattern (the girih lattice in Girih.kt) at five fixed strengths, so every surface that carries it
  * uses the same tile size, line alpha and "quiet centre" instead of hand-picked numbers per screen.
  *
  * [quiet] is the alpha of a soft scrim over the middle band of the surface (edges stay untouched): the lattice stays visible
@@ -23,6 +23,8 @@ enum class PatternLevel(val alpha: Float, val cell: Dp, val quiet: Float) {
     Tile(alpha = .10f, cell = 26.dp, quiet = 0f),
     /** Large quiet backgrounds (empty states, dialogs). */
     Subtle(alpha = .05f, cell = 56.dp, quiet = 0f),
+    /** RC104: the thin ornamental band under every top bar (same girih motif as the heroes, small cell, no quiet centre). */
+    Strip(alpha = .40f, cell = 12.dp, quiet = 0f),
 }
 
 /** The pattern at a [PatternLevel]. Draw it on top of a gradient/colour background, behind the content. */
