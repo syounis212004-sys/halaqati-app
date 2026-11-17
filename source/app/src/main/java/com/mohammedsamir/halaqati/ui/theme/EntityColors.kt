@@ -18,11 +18,11 @@ object EntityColors {
     private val light = mapOf(
         Entity.HALAQA to EntityTone(Color(0xFF0B6E4F), Color(0xFFD3EFE3), Color(0xFF053B2A)),
         Entity.STUDENT to EntityTone(Color(0xFF0B6F96), Color(0xFFD2ECF8), Color(0xFF053A50)),
-        Entity.CATEGORY to EntityTone(Color(0xFF9A6A00), Color(0xFFF8E6B8), Color(0xFF4A3200)),
+        Entity.CATEGORY to EntityTone(Color(0xFF7F5800), Color(0xFFF8E6B8), Color(0xFF4A3200)),
         Entity.SUPERVISOR to EntityTone(Color(0xFF6B4FA3), Color(0xFFE6DDF6), Color(0xFF2E1D54)),
-        Entity.TEACHER to EntityTone(Color(0xFF0E7C7B), Color(0xFFCDEDEC), Color(0xFF053F3E)),
-        Entity.ASSOCIATION to EntityTone(Color(0xFFB45A12), Color(0xFFFADDC4), Color(0xFF5A2A04)),
-        Entity.DONOR to EntityTone(Color(0xFFB0415A), Color(0xFFF8D9E0), Color(0xFF5A1426)),
+        Entity.TEACHER to EntityTone(Color(0xFF0B6B6A), Color(0xFFCDEDEC), Color(0xFF053F3E)),
+        Entity.ASSOCIATION to EntityTone(Color(0xFF944A0C), Color(0xFFFADDC4), Color(0xFF5A2A04)),
+        Entity.DONOR to EntityTone(Color(0xFF9E3550), Color(0xFFF8D9E0), Color(0xFF5A1426)),
         Entity.ANNOUNCEMENT to EntityTone(Color(0xFF3F51B5), Color(0xFFDCE0F7), Color(0xFF1A2260)),
     )
     private val dark = mapOf(

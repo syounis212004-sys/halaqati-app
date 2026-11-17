@@ -5030,10 +5030,11 @@ fun SettingsScreen(profile: Profile, onLogout: () -> Unit) {
                 }
             }
 
+            // Every role can send a problem report to the system admin; only the admin sees the admin tools below.
+            item { SupportSettingsCard() }
             if (isAdminRole) {
                 item { SettingsGroupTitle("الإدارة والتشخيص") }
                 item { AppSupportInfoCard(profile) }
-                item { SupportSettingsCard() }
                 item { BackupSettingsCard() }
                 item { V6ScoringSettingsCard() }
                 item {

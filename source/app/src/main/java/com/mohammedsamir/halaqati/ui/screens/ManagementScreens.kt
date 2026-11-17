@@ -1094,8 +1094,9 @@ private fun CategoriesDialog(
             val assign = mutableListOf<Pair<Student, String>>()
             students.filter { it.halaqaId == hid && it.status == "active" }.forEach { st ->
                 val dob = st.dateOfBirth?.takeIf { it.isNotBlank() }?.let { runCatching { LocalDate.parse(it.take(10)) }.getOrNull() }
-                if (dob == null) { noDob++; return@forEach }
-                val age = java.time.temporal.ChronoUnit.YEARS.between(dob, today).toInt()
+                val age = dob?.let { java.time.temporal.ChronoUnit.YEARS.between(it, today).toInt() }
+                // A missing or future date of birth (typo) must not be guessed into the youngest category.
+                if (age == null || age < 0) { noDob++; return@forEach }
                 val matches = activeCats.filter { c -> (bound(c, "min_age")?.let { age >= it } ?: true) && (bound(c, "max_age")?.let { age <= it } ?: true) }
                 when {
                     matches.isEmpty() -> outside++
