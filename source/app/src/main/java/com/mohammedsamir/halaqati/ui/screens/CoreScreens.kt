@@ -385,7 +385,7 @@ fun StudentsScreen(
                   com.mohammedsamir.halaqati.ui.components.NourStatStrip(listOf(
                 Triple(rows.count { it.status == "active" }.toString(), "طالب نشط", false),
                 Triple(rows.count { it.status == "active" && it.track == "tathbit" }.toString(), "في التثبيت", false),
-                Triple(rows.count { it.status == "active" && (it.nationalId.isNullOrBlank() || it.dateOfBirth.isNullOrBlank()) }.toString(), "بيانات ولي الأمر ناقصة", rows.any { it.status == "active" && (it.nationalId.isNullOrBlank() || it.dateOfBirth.isNullOrBlank()) }),
+                Triple(rows.count { it.status == "active" && (it.nationalId.isNullOrBlank() || it.dateOfBirth.isNullOrBlank()) }.toString(), "ناقص بيانات الولي", rows.any { it.status == "active" && (it.nationalId.isNullOrBlank() || it.dateOfBirth.isNullOrBlank()) }),
             ))
               }
               groupedStudents.forEach { (groupTitle, groupRows) ->

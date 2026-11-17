@@ -242,21 +242,21 @@ fun NourStatStrip(items: List<Triple<String, String, Boolean>>, modifier: Modifi
     val primary = MaterialTheme.colorScheme.primary
     Box(modifier.fillMaxWidth().nourRaised(shape, depth = NourDepth.Hero, fill = false).clip(shape).nourHeroFill(primary)) {
         if (!stacked) {
-            androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
+            androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
                 items.forEachIndexed { i, (value, label, warn) ->
-                    if (i > 0) Box(Modifier.width(1.dp).height(44.dp).align(Alignment.CenterVertically).background(Color.White.copy(alpha = .3f)))
+                    if (i > 0) Box(Modifier.width(1.dp).height(32.dp).align(Alignment.CenterVertically).background(Color.White.copy(alpha = .3f)))
                     Column(Modifier.weight(1f).padding(horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(value, style = MaterialTheme.typography.headlineMedium.copy(fontFamily = CairoFamily, fontWeight = FontWeight.ExtraBold), color = if (warn) NourHeroColors.Attention else Color.White)
-                        Text(label, style = MaterialTheme.typography.labelLarge, color = Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                        Text(value, style = MaterialTheme.typography.titleLarge.copy(fontFamily = CairoFamily, fontWeight = FontWeight.ExtraBold), color = if (warn) NourHeroColors.Attention else Color.White, maxLines = 1)
+                        Text(label, style = MaterialTheme.typography.labelMedium, color = Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                     }
                 }
             }
         } else {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 items.forEach { (value, label, warn) ->
                     androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         Text(value, style = MaterialTheme.typography.headlineMedium.copy(fontFamily = CairoFamily, fontWeight = FontWeight.ExtraBold), color = if (warn) NourHeroColors.Attention else Color.White, modifier = Modifier.width(72.dp))
-                        Text(label, style = MaterialTheme.typography.titleMedium, color = Color.White, modifier = Modifier.weight(1f))
+                        Text(label, style = MaterialTheme.typography.titleSmall, color = Color.White, modifier = Modifier.weight(1f))
                     }
                 }
             }

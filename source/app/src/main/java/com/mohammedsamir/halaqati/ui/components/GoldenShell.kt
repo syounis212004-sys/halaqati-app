@@ -8,6 +8,9 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import com.mohammedsamir.halaqati.ui.theme.Entity
+import com.mohammedsamir.halaqati.ui.theme.EntityColors
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.animation.animateContentSize
@@ -332,8 +335,10 @@ fun GoldenDrawerContent(
                 if (hits.isEmpty()) item(key = "drawer-none") {
                     Text("لا توجد صفحة بهذا الاسم", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
                 }
-                items(hits, key = { "hit-" + it.destination.route }) { entry ->
-                    DrawerRow(entry.destination, entry.label, currentRoute, chrome?.pending ?: 0, online, favorites, ::toggleFavorite, onNavigate)
+                if (hits.isNotEmpty()) item(key = "drawer-hits") {
+                    DrawerGroupBox(hits.map { it.destination to it.label }) { d, l ->
+                        DrawerRow(d, l, currentRoute, chrome?.pending ?: 0, online, favorites, ::toggleFavorite, onNavigate)
+                    }
                 }
             } else {
                 val favEntries = drawerEntries.filter { it.destination.route in favorites }
@@ -342,8 +347,10 @@ fun GoldenDrawerContent(
                         Text("مفضلتي", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.ExtraBold,
                             modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 12.dp, bottom = 4.dp))
                     }
-                    items(favEntries, key = { "fav-" + it.destination.route }) { entry ->
-                        DrawerRow(entry.destination, entry.label, currentRoute, chrome?.pending ?: 0, online, favorites, ::toggleFavorite, onNavigate)
+                    item(key = "drawer-favs") {
+                        DrawerGroupBox(favEntries.map { it.destination to it.label }) { d, l ->
+                            DrawerRow(d, l, currentRoute, chrome?.pending ?: 0, online, favorites, ::toggleFavorite, onNavigate)
+                        }
                     }
                 }
                 grouped.forEach { (group, entries) ->
@@ -356,7 +363,7 @@ fun GoldenDrawerContent(
                         ) {
                             Text(
                                 DRAWER_GROUP_TITLES[group] + " (${entries.size})",
-                                style = MaterialTheme.typography.labelLarge,
+                                style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.5.sp),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.weight(1f),
@@ -364,8 +371,10 @@ fun GoldenDrawerContent(
                             Icon(if (isCollapsed) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp, contentDescription = if (isCollapsed) "توسيع" else "طي", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    if (!isCollapsed) items(entries, key = { it.destination.route }) { entry ->
-                        DrawerRow(entry.destination, entry.label, currentRoute, chrome?.pending ?: 0, online, favorites, ::toggleFavorite, onNavigate)
+                    if (!isCollapsed) item(key = "group-$group") {
+                        DrawerGroupBox(entries.map { it.destination to it.label }) { d, l ->
+                            DrawerRow(d, l, currentRoute, chrome?.pending ?: 0, online, favorites, ::toggleFavorite, onNavigate)
+                        }
                     }
                 }
             }
@@ -397,6 +406,18 @@ fun GoldenDrawerContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelSmall,
             )
+        }
+    }
+}
+
+/** One drawer group: a 16dp rounded container with an outlineVariant border and thin dividers (inset past the icon) between rows. */
+@Composable
+private fun DrawerGroupBox(rows: List<Pair<AppDestination, String>>, row: @Composable (AppDestination, String) -> Unit) {
+    val shape = RoundedCornerShape(16.dp)
+    Column(Modifier.fillMaxWidth().clip(shape).border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)) {
+        rows.forEachIndexed { i, (d, l) ->
+            if (i > 0) HorizontalDivider(Modifier.padding(start = 62.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+            row(d, l)
         }
     }
 }
@@ -449,26 +470,36 @@ private fun DrawerTile(
 ) {
     Surface(
         modifier = modifier.halaqatiPressable { onClick() },
-        shape = RoundedCornerShape(16.dp),
+        shape = androidx.compose.ui.graphics.RectangleShape,
         color = if (active) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
     ) {
+      Box(Modifier.fillMaxWidth()) {
+        if (active) Box(Modifier.align(Alignment.CenterStart).width(3.dp).height(28.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)))
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 10.dp, vertical = 8.dp),
+            Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            val entityTone = when (iconKey) {
+                "group" -> EntityColors.of(Entity.HALAQA)
+                "students" -> EntityColors.of(Entity.STUDENT)
+                "forum" -> EntityColors.of(Entity.ANNOUNCEMENT)
+                "supervisor" -> EntityColors.of(Entity.SUPERVISOR)
+                "support" -> EntityColors.of(Entity.DONOR)
+                else -> null
+            }
             Box(
                 Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(13.dp))
-                    .background(if (active) MaterialTheme.colorScheme.primary else Color.Transparent),
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(11.dp))
+                    .background(entityTone?.container ?: if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center,
             ) {
-                val tint = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+                val tint = entityTone?.accent ?: if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer
                 when {
-                    offline -> Icon(Icons.Default.CloudOff, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))
-                    iconKey == "sync" -> Icon(Icons.Default.Sync, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp).halaqatiSpin(spinning))
-                    else -> GoldenNavIcon(iconKey, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))
+                    offline -> Icon(Icons.Default.CloudOff, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
+                    iconKey == "sync" -> Icon(Icons.Default.Sync, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp).halaqatiSpin(spinning))
+                    else -> GoldenNavIcon(iconKey, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
                 }
             }
             Text(
@@ -494,6 +525,7 @@ private fun DrawerTile(
                 }
             }
         }
+      }
     }
 }
 

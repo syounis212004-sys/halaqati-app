@@ -2,6 +2,7 @@
 
 package com.mohammedsamir.halaqati.ui.screens
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
@@ -33,6 +34,8 @@ import com.mohammedsamir.halaqati.quran.RecitationParityRules
 import com.mohammedsamir.halaqati.ui.components.*
 import com.mohammedsamir.halaqati.ui.sessions.SessionWorkflowRules
 import com.mohammedsamir.halaqati.ui.theme.HalaqatiUiTokens
+import com.mohammedsamir.halaqati.ui.theme.Entity
+import com.mohammedsamir.halaqati.ui.theme.EntityColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -46,6 +49,28 @@ import java.time.format.DateTimeFormatter
 private fun JSONArray.rows(): List<JSONObject> = (0 until length()).mapNotNull { optJSONObject(it) }
 private fun roleCanManage(role: UserRole) = role in setOf(UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.TEACHER)
 private fun roleCanAdmin(role: UserRole) = role in setOf(UserRole.ADMIN, UserRole.SUPERVISOR)
+
+/** Extended FAB that collapses to an icon when the list below it has been scrolled. Place inside a Box over the list. */
+@Composable
+private fun BoxScope.CollapsingFab(listState: androidx.compose.foundation.lazy.LazyListState, label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+    val expanded by remember(listState) { derivedStateOf { !listState.canScrollBackward } }
+    ExtendedFloatingActionButton(
+        onClick = onClick,
+        expanded = expanded,
+        icon = { Icon(icon, contentDescription = label) },
+        text = { Text(label) },
+        modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 88.dp),
+    )
+}
+
+@Composable
+private fun CountItem(icon: androidx.compose.ui.graphics.vector.ImageVector, entity: Entity, text: String) {
+    val tone = EntityColors.of(entity)
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Icon(icon, null, Modifier.size(18.dp), tint = tone.accent)
+        Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+    }
+}
 
 @Composable
 fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
@@ -108,8 +133,11 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
     }
 
     LaunchedEffect(Unit) { reload() }
+    val halaqaListState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val expandedHalaqas = remember { mutableStateListOf<String>() }
 
-    Column {
+    Box(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize()) {
         AppTopBar(
             title = if (profile.role == UserRole.ADMIN) "إدارة الحلقات والفئات" else "الحلقات والفئات",
             onRefresh = { scope.launch { reload() }; onRefresh() },
@@ -117,19 +145,6 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
         )
         message?.let { StateNotice(it, kind = if (it.startsWith("حُفظ") || it.startsWith("أُزيل") || it.startsWith("تمت") || it.startsWith("نُقل")) "success" else "error", modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) }
         if (loading && halaqas.isEmpty()) LoadingSkeleton(rows = 3, modifier = Modifier.padding(12.dp))
-
-        if (profile.role == UserRole.ADMIN) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.Start) {
-                Button(
-                    onClick = { halaqaDialogError = null; addHalaqa = true },
-                    modifier = Modifier.heightIn(min = HalaqatiUiTokens.TouchTarget),
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(Modifier.width(6.dp))
-                    Text("إضافة حلقة")
-                }
-            }
-        }
 
         if (profile.role == UserRole.ADMIN && halaqas.any { it.has("archived_at") && !it.isNull("archived_at") }) {
             ResponsiveChipGrid(
@@ -147,9 +162,9 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
         }
         if (!loading && visibleHalaqas.isEmpty()) EmptyState(if (showArchivedHalaqas) "لا توجد حلقات مؤرشفة" else "لا توجد حلقات بعد")
         LazyColumn(
-        state = androidx.compose.foundation.lazy.rememberLazyListState(),
+        state = halaqaListState,
             modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = PaddingValues(12.dp),
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             // RC98: the numbers scroll with the list (they were fixed above it).
@@ -180,27 +195,28 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
                     "other" -> HalaqatiGradients.Violet
                     else -> HalaqatiGradients.Deep
                 }
-                ElevatedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
-                  Column {
-                    Box(Modifier.fillMaxWidth().background(headerPair.brush()).girih(Color.White, .12f, 38.dp).waves(Color.White, .13f).padding(start = 14.dp, end = 6.dp, top = 14.dp, bottom = 18.dp)) {
+                val expanded = hid in expandedHalaqas
+                ElevatedCard(Modifier.fillMaxWidth().animateContentSize(), shape = RoundedCornerShape(24.dp)) {
+                  Column(Modifier.clickable { if (expanded) expandedHalaqas.remove(hid) else expandedHalaqas.add(hid) }) {
+                    Box(Modifier.fillMaxWidth().background(headerPair.brush()).girih(Color.White, .12f, 38.dp).waves(Color.White, .13f).padding(start = 14.dp, end = 6.dp, top = 10.dp, bottom = 10.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             // RC86: the halaqa logo, with a visible "add / change logo" badge for the administrator.
-                            Box(Modifier.size(70.dp)) {
-                                Box(Modifier.align(Alignment.TopStart).background(Color.White, RoundedCornerShape(22.dp)).padding(3.dp)) {
-                                    OrgLogo(h.mgmtStr("logo_path").ifBlank { null }, Icons.Default.Groups, headerPair, tile = 62.dp, glyph = 32.dp)
+                            Box(Modifier.size(52.dp)) {
+                                Box(Modifier.align(Alignment.TopStart).background(Color.White, RoundedCornerShape(16.dp)).padding(2.dp)) {
+                                    OrgLogo(h.mgmtStr("logo_path").ifBlank { null }, Icons.Default.Groups, headerPair, tile = 44.dp, glyph = 24.dp)
                                 }
                                 if (profile.role == UserRole.ADMIN) {
                                     Surface(
                                         onClick = { logoHalaqa = h },
-                                        modifier = Modifier.align(Alignment.BottomEnd).size(28.dp),
+                                        modifier = Modifier.align(Alignment.BottomEnd).size(22.dp),
                                         shape = androidx.compose.foundation.shape.CircleShape,
                                         color = MaterialTheme.colorScheme.tertiary, contentColor = Color.White, shadowElevation = 3.dp,
-                                    ) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.AddPhotoAlternate, contentDescription = "إضافة أو تغيير شعار الحلقة", modifier = Modifier.size(17.dp)) } }
+                                    ) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.AddPhotoAlternate, contentDescription = "إضافة أو تغيير شعار الحلقة", modifier = Modifier.size(14.dp)) } }
                                 }
                             }
-                            Spacer(Modifier.width(12.dp))
+                            Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                Text(h.optString("name", "حلقة"), fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium, color = Color.White, maxLines = 2)
+                                Text(h.optString("name", "حلقة"), fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium, color = Color.White, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                                 val typeLabel = when (hType) {
                                     "tajweed", "tilawah" -> com.mohammedsamir.halaqati.plans.ProgramKindRules.TILAWAH_TAJWEED_LABEL
                                     "training" -> "دورة تأهيلية"
@@ -219,6 +235,7 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
                                     listOf(h.mgmtStr("location"), h.mgmtStr("schedule_text")).filter { it.isNotBlank() }.joinToString(" · ").ifBlank { "المكان والبرنامج غير محددين" },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = Color.White.copy(alpha = .92f),
+                                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                 )
                             }
                             Surface(
@@ -314,14 +331,23 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
                             }
                         }
                     }
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            CountItem(Icons.Default.Groups, Entity.STUDENT, "${hStudents.size} طالب")
+                            CountItem(Icons.Default.Category, Entity.CATEGORY, "${hCats.size} فئات")
+                            CountItem(Icons.Default.SupervisorAccount, Entity.SUPERVISOR, "${sIds.size} مشرف")
+                            Spacer(Modifier.weight(1f))
+                            Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = if (expanded) "طيّ التفاصيل" else "عرض التفاصيل", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (expanded) {
                         Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(Icons.Default.SupervisorAccount, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.Default.SupervisorAccount, null, Modifier.size(20.dp), tint = EntityColors.of(Entity.SUPERVISOR).accent)
                             Text("المشرفون: ${sNames.ifBlank { "غير معيّنين" }}", style = MaterialTheme.typography.bodyMedium)
                         }
                         Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(Icons.Default.Person, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.Default.Person, null, Modifier.size(20.dp), tint = EntityColors.of(Entity.TEACHER).accent)
                             Text("المحفّظون: ${tNames.ifBlank { if (profile.role == UserRole.TEACHER) "حسب الربط" else "غير معيّنين" }}", style = MaterialTheme.typography.bodyMedium)
+                        }
                         }
                         // RC86: a program is never closed automatically; the administrator is reminded a week before and after its end date.
                         val programEnds = if (hType != "regular") h.mgmtStr("ends_on").takeIf { it.isNotBlank() }?.let { runCatching { LocalDate.parse(it.take(10)) }.getOrNull() } else null
@@ -336,11 +362,7 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
                                 kind = if (daysLeft < 0) "warning" else "info",
                             )
                         }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            HalaqaStatTile("الطلاب", hStudents.size.toString(), HalaqatiGradients.Emerald, Modifier.weight(1f))
-                            HalaqaStatTile("الفئات", hCats.size.toString(), HalaqatiGradients.Gold, Modifier.weight(1f))
-                            HalaqaStatTile("المشرفون", sIds.size.toString(), HalaqatiGradients.Blue, Modifier.weight(1f))
-                        }
+                        if (expanded) {
                         if (additionalIds.isNotEmpty()) {
                             Text("الانتساب: أساسي ${primaryStudents.size} · إضافي ${additionalIds.size}", style = MaterialTheme.typography.labelMedium, color = com.mohammedsamir.halaqati.ui.theme.textAccent("primary"))
                         }
@@ -375,11 +397,16 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
                                 }
                             }
                         }
+                        }
                     }
                   }
                 }
             }
         }
+    }
+    if (profile.role == UserRole.ADMIN) {
+        CollapsingFab(halaqaListState, "إضافة حلقة", Icons.Default.Add) { halaqaDialogError = null; addHalaqa = true }
+    }
     }
 
     if (addHalaqa || editHalaqa != null) {
@@ -944,6 +971,9 @@ private fun CategoriesDialog(
     var editingCategoryId by remember { mutableStateOf<String?>(null) }
     var pendingDeleteCategory by remember { mutableStateOf<JSONObject?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    var showAutoClassify by remember { mutableStateOf(false) }
+    var replaceExisting by remember { mutableStateOf(false) }
+    var autoMessage by remember { mutableStateOf<String?>(null) }
 
     fun resetEditor() {
         editingCategoryId = null
@@ -963,33 +993,48 @@ private fun CategoriesDialog(
             ) {
                 categories.filter { it.optBoolean("active", true) }.forEach { c ->
                     val count = students.count { it.categoryId == c.optString("id") && it.status == "active" }
-                    ElevatedCard(Modifier.fillMaxWidth()) {
-                        ListItem(
-                            headlineContent = { Text(c.optString("name", "فئة"), fontWeight = FontWeight.Bold) },
-                            supportingContent = {
-                                val ages = listOf(c.optString("min_age"), c.optString("max_age")).filter { it.isNotBlank() && it != "null" }.joinToString("–")
-                                Text(listOf(if (ages.isBlank()) "" else "العمر $ages سنة", "$count طالب").filter { it.isNotBlank() }.joinToString(" · "))
-                            },
-                            trailingContent = {
-                                if (canEdit) Row(verticalAlignment = Alignment.CenterVertically) {
-                                    IconButton(
-                                        onClick = {
-                                            editingCategoryId = c.optString("id")
-                                            name = c.optString("name")
-                                            minAge = c.optString("min_age").takeUnless { it == "null" } ?: ""
-                                            maxAge = c.optString("max_age").takeUnless { it == "null" } ?: ""
-                                            error = null
-                                        },
-                                        modifier = Modifier.size(HalaqatiUiTokens.TouchTarget),
-                                    ) { Icon(Icons.Default.Edit, contentDescription = "تعديل الفئة") }
-                                    IconButton(
-                                        onClick = { pendingDeleteCategory = c },
-                                        modifier = Modifier.size(HalaqatiUiTokens.TouchTarget),
-                                    ) { Icon(Icons.Default.DeleteOutline, contentDescription = "حذف الفئة", tint = MaterialTheme.colorScheme.error) }
-                                }
-                            },
-                        )
+                    val ages = listOf(c.optString("min_age"), c.optString("max_age")).filter { it.isNotBlank() && it != "null" }.joinToString("–")
+                    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                        Row(Modifier.padding(start = 12.dp, end = 4.dp, top = 2.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Category, null, Modifier.size(18.dp), tint = EntityColors.of(Entity.CATEGORY).accent)
+                            Spacer(Modifier.width(8.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(c.optString("name", "فئة"), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                Text(
+                                    listOf(if (ages.isBlank()) "" else "العمر $ages", "$count طالب").filter { it.isNotBlank() }.joinToString(" · "),
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                )
+                            }
+                            if (canEdit) {
+                                IconButton(
+                                    onClick = {
+                                        editingCategoryId = c.optString("id")
+                                        name = c.optString("name")
+                                        minAge = c.optString("min_age").takeUnless { it == "null" } ?: ""
+                                        maxAge = c.optString("max_age").takeUnless { it == "null" } ?: ""
+                                        error = null
+                                    },
+                                    modifier = Modifier.size(40.dp),
+                                ) { Icon(Icons.Default.Edit, contentDescription = "تعديل الفئة", Modifier.size(20.dp)) }
+                                IconButton(
+                                    onClick = { pendingDeleteCategory = c },
+                                    modifier = Modifier.size(40.dp),
+                                ) { Icon(Icons.Default.DeleteOutline, contentDescription = "حذف الفئة", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error) }
+                            }
+                        }
                     }
+                }
+                if (canEdit && categories.any { it.optBoolean("active", true) }) {
+                    OutlinedButton(
+                        onClick = { replaceExisting = false; autoMessage = null; showAutoClassify = true },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    ) {
+                        Icon(Icons.Default.AutoFixHigh, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text("تصنيف الطلاب تلقائياً حسب العمر")
+                    }
+                    autoMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
                 }
                 if (canEdit) {
                     HorizontalDivider()
@@ -1038,6 +1083,77 @@ private fun CategoriesDialog(
         },
         dismissButton = { TextButton(onClick = close) { Text("إغلاق") } },
     )
+
+    if (showAutoClassify) {
+        val hid = halaqa.optString("id")
+        val activeCats = categories.filter { it.optBoolean("active", true) }
+        fun bound(c: JSONObject, key: String): Int? = if (!c.has(key) || c.isNull(key)) null else c.optInt(key)
+        val today = LocalDate.now()
+        val plan = remember(students, categories, replaceExisting) {
+            var noDob = 0; var outside = 0; var ambiguous = 0; var keptExisting = 0; var already = 0
+            val assign = mutableListOf<Pair<Student, String>>()
+            students.filter { it.halaqaId == hid && it.status == "active" }.forEach { st ->
+                val dob = st.dateOfBirth?.takeIf { it.isNotBlank() }?.let { runCatching { LocalDate.parse(it.take(10)) }.getOrNull() }
+                if (dob == null) { noDob++; return@forEach }
+                val age = java.time.temporal.ChronoUnit.YEARS.between(dob, today).toInt()
+                val matches = activeCats.filter { c -> (bound(c, "min_age")?.let { age >= it } ?: true) && (bound(c, "max_age")?.let { age <= it } ?: true) }
+                when {
+                    matches.isEmpty() -> outside++
+                    matches.size > 1 -> ambiguous++
+                    else -> {
+                        val target = matches.first().optString("id")
+                        when {
+                            st.categoryId == target -> already++
+                            !st.categoryId.isNullOrBlank() && !replaceExisting -> keptExisting++
+                            else -> assign.add(st to target)
+                        }
+                    }
+                }
+            }
+            Triple(assign.toList(), listOf(noDob, outside, ambiguous), listOf(keptExisting, already))
+        }
+        AlertDialog(
+            onDismissRequest = { showAutoClassify = false },
+            title = { Text("تصنيف الطلاب حسب العمر") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("سيُصنَّف: ${plan.first.size} طالب", fontWeight = FontWeight.Bold)
+                    Text("بلا تاريخ ميلاد: ${plan.second[0]} (يُتخطّى)")
+                    Text("خارج أي فئة: ${plan.second[1]} (يُتخطّى)")
+                    Text("تطابق أكثر من فئة: ${plan.second[2]} (يُتخطّى)")
+                    if (plan.third[0] > 0) Text("لديهم تصنيف حالي: ${plan.third[0]} (يُترك كما هو)")
+                    if (plan.third[1] > 0) Text("مصنَّفون صحيحاً: ${plan.third[1]}")
+                    Row(Modifier.fillMaxWidth().clickable { replaceExisting = !replaceExisting }, verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = replaceExisting, onCheckedChange = { replaceExisting = it })
+                        Text("استبدال التصنيف الحالي")
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = plan.first.isNotEmpty(),
+                    onClick = {
+                        val work = plan.first
+                        showAutoClassify = false
+                        scope.launch {
+                            try {
+                                withContext(Dispatchers.IO) {
+                                    work.forEach { (st, cid) ->
+                                        AppGraph.repo.patch("students", "id=eq.${st.id}", JSONObject().put("category_id", cid), dedupe = "student-category:${st.id}")
+                                    }
+                                }
+                                autoMessage = "تم تصنيف ${work.size} طالب"
+                                changed()
+                            } catch (e: kotlinx.coroutines.CancellationException) {
+                                throw e
+                            } catch (e: Exception) { error = e.message ?: "تعذر تصنيف الطلاب" }
+                        }
+                    },
+                ) { Text("تطبيق") }
+            },
+            dismissButton = { TextButton(onClick = { showAutoClassify = false }) { Text("إلغاء") } },
+        )
+    }
 
     pendingDeleteCategory?.let { category ->
         AlertDialog(
@@ -1126,8 +1242,13 @@ fun CommunityNativeScreen(profile: Profile, pending: Int, onRefresh: () -> Unit)
         finally { loading = false }
     }
     LaunchedEffect(Unit) { reload() }
+    val annListState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val forumListState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val expandedItems = remember { mutableStateListOf<String>() }
+    var itemMenuId by remember { mutableStateOf<String?>(null) }
 
-    Column {
+    Box(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize()) {
         AppTopBar("الإعلانات ومنتدى الحلقة", onRefresh = { scope.launch { reload() }; onRefresh() }, pending = pending)
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
             // RC39: same clarity as the filter chips: the active segment has a strong fill and a brand border.
@@ -1144,47 +1265,59 @@ fun CommunityNativeScreen(profile: Profile, pending: Int, onRefresh: () -> Unit)
         message?.let { StateNotice(it, kind = "error", modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) }
         if (loading && announcements.isEmpty() && posts.isEmpty()) LoadingSkeleton(rows = 3, modifier = Modifier.padding(12.dp))
 
-        Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.Start) {
-            if (tab == "announcements" && roleCanManage(profile.role)) {
-                Button(onClick = { announcementDialogError = null; addAnnouncement = true }, modifier = Modifier.heightIn(min = HalaqatiUiTokens.TouchTarget)) { Icon(Icons.Default.Campaign, null); Spacer(Modifier.width(6.dp)); Text("إعلان") }
-            }
-            if (tab == "forum") {
-                Button(onClick = { addPost = true }, modifier = Modifier.heightIn(min = HalaqatiUiTokens.TouchTarget)) { Icon(Icons.Default.AddComment, null); Spacer(Modifier.width(6.dp)); Text(if (roleCanManage(profile.role)) "منشور" else "استفسار") }
-            }
-        }
-
         if (tab == "announcements") {
             if (!loading && announcements.isEmpty()) EmptyState("لا توجد إعلانات")
             LazyColumn(
-        state = androidx.compose.foundation.lazy.rememberLazyListState(),
+                state = annListState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 96.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(announcements, key = { it.optString("id") }) { a ->
-                    ElevatedCard(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    val aid = a.optString("id")
+                    val open = aid in expandedItems
+                    ElevatedCard(Modifier.fillMaxWidth().animateContentSize()) {
+                        Column(
+                            Modifier.clickable { if (open) expandedItems.remove(aid) else expandedItems.add(aid) }.padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 10.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(if (a.optBoolean("pinned", false)) Icons.Default.PushPin else Icons.Default.Campaign, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(if (a.optBoolean("pinned", false)) Icons.Default.PushPin else Icons.Default.Campaign, contentDescription = null, Modifier.size(20.dp), tint = EntityColors.of(Entity.ANNOUNCEMENT).accent)
                                 Spacer(Modifier.width(8.dp))
-                                Text(a.optString("title", "إعلان"), fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                Text(a.optString("title", "إعلان"), fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                                 Surface(color = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer, shape = MaterialTheme.shapes.extraLarge) {
-                                    Text(announcementCategoryAr(a.optString("category")), Modifier.padding(horizontal = 10.dp, vertical = 7.dp), style = MaterialTheme.typography.labelLarge)
+                                    Text(announcementCategoryAr(a.optString("category")), Modifier.padding(horizontal = 8.dp, vertical = 3.dp), style = MaterialTheme.typography.labelSmall, maxLines = 1)
                                 }
                                 if (roleCanManage(profile.role)) {
-                                    IconButton(onClick = { announcementDialogError = null; editAnnouncement = a }, modifier = Modifier.size(48.dp)) {
-                                        Icon(Icons.Default.Edit, contentDescription = "تعديل الإعلان")
+                                    Box {
+                                        IconButton(onClick = { itemMenuId = aid }, modifier = Modifier.size(40.dp)) {
+                                            Icon(Icons.Default.MoreVert, contentDescription = "خيارات الإعلان")
+                                        }
+                                        DropdownMenu(expanded = itemMenuId == aid, onDismissRequest = { itemMenuId = null }) {
+                                            DropdownMenuItem(
+                                                text = { Text("تعديل الإعلان") },
+                                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                                onClick = { itemMenuId = null; announcementDialogError = null; editAnnouncement = a },
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("حذف الإعلان", color = MaterialTheme.colorScheme.error) },
+                                                leadingIcon = { Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                                onClick = { itemMenuId = null; deleteAnnouncement = a },
+                                            )
+                                        }
                                     }
-                                    IconButton(onClick = { deleteAnnouncement = a }, modifier = Modifier.size(48.dp)) {
-                                        Icon(Icons.Default.DeleteOutline, contentDescription = "حذف الإعلان", tint = MaterialTheme.colorScheme.error)
-                                    }
-                                }
+                                } else Spacer(Modifier.width(8.dp))
                             }
-                            Text(a.optString("body"), style = MaterialTheme.typography.bodyMedium)
                             Text(
-                                "الجمهور: ${audienceAr(a.optString("audience"))} · الأولوية: ${priorityAr(a.optString("priority"))}",
-                                style = MaterialTheme.typography.bodySmall,
+                                a.optString("body"), style = MaterialTheme.typography.bodyMedium,
+                                maxLines = if (open) Int.MAX_VALUE else 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(end = 8.dp),
+                            )
+                            Text(
+                                "${audienceAr(a.optString("audience"))} · ${priorityAr(a.optString("priority"))}",
+                                style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                             )
                         }
                     }
@@ -1193,60 +1326,91 @@ fun CommunityNativeScreen(profile: Profile, pending: Int, onRefresh: () -> Unit)
         } else {
             if (!loading && posts.isEmpty()) EmptyState("لا توجد منشورات")
             LazyColumn(
-        state = androidx.compose.foundation.lazy.rememberLazyListState(),
+                state = forumListState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 96.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(posts, key = { it.optString("id") }) { p ->
-                    val postComments = comments.filter { it.optString("post_id") == p.optString("id") }
-                    ElevatedCard(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val pid = p.optString("id")
+                    val open = pid in expandedItems
+                    val postComments = comments.filter { it.optString("post_id") == pid }
+                    ElevatedCard(Modifier.fillMaxWidth().animateContentSize()) {
+                        Column(
+                            Modifier.clickable { if (open) expandedItems.remove(pid) else expandedItems.add(pid) }.padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 10.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(if (p.optBoolean("pinned", false)) Icons.Default.PushPin else Icons.Default.Forum, null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(if (p.optBoolean("pinned", false)) Icons.Default.PushPin else Icons.Default.Forum, null, Modifier.size(20.dp), tint = EntityColors.of(Entity.ANNOUNCEMENT).accent)
                                 Spacer(Modifier.width(8.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(p.optString("title", "منشور"), fontWeight = FontWeight.Bold)
-                                    Text(p.optString("author_name", "عضو الحلقة"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
+                                Text(p.optString("title", "منشور"), fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                                 Surface(color = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer, shape = MaterialTheme.shapes.extraLarge) {
-                                    Text(postTypeAr(p.optString("post_type")), Modifier.padding(horizontal = 10.dp, vertical = 7.dp), style = MaterialTheme.typography.labelLarge)
+                                    Text(postTypeAr(p.optString("post_type")), Modifier.padding(horizontal = 8.dp, vertical = 3.dp), style = MaterialTheme.typography.labelSmall, maxLines = 1)
                                 }
                                 if (p.optString("author_id") == profile.id || roleCanAdmin(profile.role)) {
-                                    IconButton(onClick = { editPost = p }, modifier = Modifier.size(48.dp)) {
-                                        Icon(Icons.Default.Edit, contentDescription = "تعديل المنشور")
-                                    }
-                                    IconButton(onClick = { deletePost = p }, modifier = Modifier.size(48.dp)) {
-                                        Icon(Icons.Default.DeleteOutline, contentDescription = "حذف المنشور", tint = MaterialTheme.colorScheme.error)
-                                    }
-                                }
-                            }
-                            Text(p.optString("body"))
-                            HorizontalDivider()
-                            Text("${postComments.size} تعليق", style = MaterialTheme.typography.labelMedium)
-                            postComments.take(3).forEach { c ->
-                                Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.medium) {
-                                    Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Column(Modifier.weight(1f)) {
-                                            Text(c.optString("author_name", "عضو"), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
-                                            Text(c.optString("body"), style = MaterialTheme.typography.bodyMedium)
+                                    Box {
+                                        IconButton(onClick = { itemMenuId = pid }, modifier = Modifier.size(40.dp)) {
+                                            Icon(Icons.Default.MoreVert, contentDescription = "خيارات المنشور")
                                         }
-                                        if (c.optString("author_id") == profile.id || roleCanAdmin(profile.role)) {
-                                            IconButton(onClick = { deleteComment = c }, modifier = Modifier.size(48.dp)) {
-                                                Icon(Icons.Default.DeleteOutline, contentDescription = "حذف التعليق")
+                                        DropdownMenu(expanded = itemMenuId == pid, onDismissRequest = { itemMenuId = null }) {
+                                            DropdownMenuItem(
+                                                text = { Text("تعديل المنشور") },
+                                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                                onClick = { itemMenuId = null; editPost = p },
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("حذف المنشور", color = MaterialTheme.colorScheme.error) },
+                                                leadingIcon = { Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                                onClick = { itemMenuId = null; deletePost = p },
+                                            )
+                                        }
+                                    }
+                                } else Spacer(Modifier.width(8.dp))
+                            }
+                            Text(
+                                p.optString("body"), style = MaterialTheme.typography.bodyMedium,
+                                maxLines = if (open) Int.MAX_VALUE else 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(end = 8.dp),
+                            )
+                            Text(
+                                "${p.optString("author_name", "عضو الحلقة")} · ${postComments.size} تعليق",
+                                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            )
+                            if (open) {
+                                Column(Modifier.padding(end = 8.dp, top = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    postComments.take(3).forEach { c ->
+                                        Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.medium) {
+                                            Row(Modifier.padding(start = 10.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                Column(Modifier.weight(1f)) {
+                                                    Text(c.optString("author_name", "عضو"), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                                                    Text(c.optString("body"), style = MaterialTheme.typography.bodyMedium)
+                                                }
+                                                if (c.optString("author_id") == profile.id || roleCanAdmin(profile.role)) {
+                                                    IconButton(onClick = { deleteComment = c }, modifier = Modifier.size(40.dp)) {
+                                                        Icon(Icons.Default.DeleteOutline, contentDescription = "حذف التعليق")
+                                                    }
+                                                }
                                             }
                                         }
                                     }
+                                    if (p.optBoolean("comments_enabled", true)) {
+                                        TextButton(onClick = { commentPost = p }, modifier = Modifier.align(Alignment.End)) { Text("إضافة تعليق") }
+                                    }
                                 }
-                            }
-                            if (p.optBoolean("comments_enabled", true)) {
-                                TextButton(onClick = { commentPost = p }, modifier = Modifier.align(Alignment.End)) { Text("إضافة تعليق") }
                             }
                         }
                     }
                 }
             }
         }
+    }
+    if (tab == "announcements" && roleCanManage(profile.role)) {
+        CollapsingFab(annListState, "إعلان جديد", Icons.Default.Campaign) { announcementDialogError = null; addAnnouncement = true }
+    }
+    if (tab == "forum") {
+        CollapsingFab(forumListState, if (roleCanManage(profile.role)) "منشور جديد" else "استفسار جديد", Icons.Default.AddComment) { addPost = true }
+    }
     }
 
     if (addAnnouncement) {
