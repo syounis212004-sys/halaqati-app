@@ -63,8 +63,10 @@ import com.mohammedsamir.halaqati.data.ThemeMode
 import java.io.File
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
-import org.junit.Before
 import org.junit.Rule
+import org.junit.rules.RuleChain
+import org.junit.rules.TestRule
+import org.junit.runners.model.Statement
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -81,13 +83,34 @@ import org.robolectric.annotation.GraphicsMode
 // RC104: never boot the real HalaqatiApplication (AppGraph -> AndroidKeyStore is missing on the JVM); the preview needs no app graph.
 @Config(sdk = [35], application = android.app.Application::class, qualifiers = "w411dp-h900dp-xxhdpi")
 class HalaqaCardPreviewTest {
-    @get:Rule val rule = createComposeRule()
+    private val composeRule = createComposeRule()
 
-    @Before fun only_when_requested() = assumeTrue(System.getenv("HALAQATI_PREVIEW") == "1")
+    // The assumption must run BEFORE the compose rule starts its activity: ComponentActivity is only registered for the debug
+    // variant (ui-test-manifest is debugImplementation), so in a release unit-test run the rule itself would fail the test.
+    @get:Rule val chain: RuleChain = RuleChain.outerRule(TestRule { base, _ ->
+        object : Statement() {
+            override fun evaluate() {
+                assumeTrue(System.getenv("HALAQATI_PREVIEW") == "1")
+                base.evaluate()
+            }
+        }
+    }).around(composeRule)
+    private val rule get() = composeRule
 
+    /**
+     * Draws the compose root view into a bitmap. captureToImage() waits for a window redraw that never arrives while the
+     * Robolectric main looper is paused (ComposeTimeoutException in forceRedraw), so the view is drawn directly instead.
+     * A single-colour result means nothing was painted: fail loudly instead of saving an empty PNG.
+     */
     private fun save(name: String) {
+        rule.waitForIdle()
+        val view = rule.onRoot().fetchSemanticsNode().root as android.view.View
+        val bmp = Bitmap.createBitmap(view.width.coerceAtLeast(1), view.height.coerceAtLeast(1), Bitmap.Config.ARGB_8888)
+        view.draw(android.graphics.Canvas(bmp))
+        val sample = IntArray(64) { i -> bmp.getPixel((i * 37) % bmp.width, (i * 53) % bmp.height) }
+        assertTrue("$name: nothing was painted (single colour)", sample.toSet().size > 1)
         val dir = File("build/preview").also { it.mkdirs() }
-        File(dir, "$name.png").outputStream().use { rule.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it) }
+        File(dir, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
     @Composable

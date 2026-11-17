@@ -30,7 +30,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  ARCHIVE_SHA256: 02f663c89f888b79c46cde7482bda8a0f84c779b281e7ac4e29e9e967cdb99dc
+  ARCHIVE_SHA256: daad4e59861b044836f76c4db1bcb9a78b1dd722ee8f924251e3a9b6fa068b1c
   PROJECT_DIR: ${{ github.workspace }}/extracted/Halaqati_Native_Kotlin_v2.50.0_RC15
   GRADLE_VERSION: '8.13'
 
@@ -545,9 +545,18 @@ jobs:
           rm -rf app/build/preview
           python3 scripts/ci-build.py testDebugUnitTest 660 --tests com.mohammedsamir.halaqati.ui.HalaqaCardPreviewTest
           ls -la app/build/preview
-          count=$(ls app/build/preview/*.png 2>/dev/null | wc -l)
-          echo "preview PNG count: $count"
-          test "$count" -ge 10
+          count=$(find app/build/preview -name '*.png' -size +2k | wc -l)
+          echo "non-empty preview PNG count: $count"
+          test "$count" -ge 12
+          python3 - <<'PY3'
+          import glob, xml.etree.ElementTree as ET
+          bad = 0
+          for f in glob.glob('app/build/test-results/testDebugUnitTest/*HalaqaCardPreviewTest*.xml'):
+              r = ET.parse(f).getroot()
+              bad += int(r.get('failures', 0)) + int(r.get('errors', 0))
+              print(f, 'tests', r.get('tests'), 'failures', r.get('failures'), 'errors', r.get('errors'), 'skipped', r.get('skipped'))
+          assert bad == 0, f'{bad} preview tests failed'
+          PY3
 
       - name: Upload visual previews
         if: always()
@@ -560,17 +569,18 @@ jobs:
 
       - name: Publish preview PNGs as assets of the visual-preview prerelease (not a product release)
         if: always()
+        continue-on-error: true
         working-directory: ${{ env.PROJECT_DIR }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -uo pipefail
-          if ! ls app/build/preview/*.png >/dev/null 2>&1; then echo 'no preview PNGs to publish'; exit 0; fi
+          if ! find app/build/preview -name '*.png' -size +2k 2>/dev/null | grep -q .; then echo 'no preview PNGs to publish'; exit 0; fi
           if ! gh release view visual-preview --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release create visual-preview --prerelease --title 'visual-preview (CI screenshots, not a release)' \
               --notes 'Screenshots of shared components produced by CI. Replaced on every run. Not a product release.' --repo "$GITHUB_REPOSITORY"
           fi
-          gh release upload visual-preview app/build/preview/*.png --clobber --repo "$GITHUB_REPOSITORY"
+          find app/build/preview -name '*.png' -size +2k -print0 | xargs -0 gh release upload visual-preview --clobber --repo "$GITHUB_REPOSITORY"
 
       - name: Lint chosen variant
         id: lint
