@@ -503,7 +503,7 @@ internal fun DonorSupportTab(refreshTick: Int) {
 
     LazyColumn(
         state = rememberLazyListState(), modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 28.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = com.mohammedsamir.halaqati.ui.components.FabClearance),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         message?.let { item { StateNotice(it, if (isError) "danger" else "success") } }
@@ -561,6 +561,7 @@ internal fun DonorSupportTab(refreshTick: Int) {
             val anyFree = periods.any { it.optInt("taken") < c.optInt("slots", 1) && it.str("mine").isBlank() }
             Surface(Modifier.fillMaxWidth().halaqatiEnter(), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.5.dp, border = cardHairline()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    com.mohammedsamir.halaqati.ui.components.EntityRule(com.mohammedsamir.halaqati.ui.theme.Entity.DONOR)
                     Text(kindLabel(c.optString("kind")) + " · " + recurrenceLabel(c.optString("recurrence")), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.tertiary)
                     Text(c.optString("title"), style = MaterialTheme.typography.titleLarge)
                     c.str("description").takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }

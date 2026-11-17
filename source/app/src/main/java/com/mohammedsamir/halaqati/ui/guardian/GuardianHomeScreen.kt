@@ -181,30 +181,32 @@ private fun TodayCard(o: GuardianOverview) {
                 // RC83: greeting + verse (one card with the child, not two)
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(greeting, style = MaterialTheme.typography.labelLarge, color = onP.copy(alpha = .92f))
-                    Text(phrase.text, style = MaterialTheme.typography.titleMedium, fontFamily = androidx.compose.ui.text.font.FontFamily.Serif, lineHeight = 30.sp, fontWeight = FontWeight.Bold, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                    Text(phrase.text, style = MaterialTheme.typography.titleMedium, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold, maxLines = 4, overflow = TextOverflow.Ellipsis)
                     Text(phrase.source, style = MaterialTheme.typography.labelMedium, color = onP.copy(alpha = .92f))
                 }
                 Spacer(Modifier.fillMaxWidth().height(1.dp).background(onP.copy(alpha = .25f)))
                 // The child: big photo, name, track and halaqa, today's state as two chips
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    com.mohammedsamir.halaqati.ui.components.StudentAvatar(o.childPhoto, o.childName, 88.dp)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    com.mohammedsamir.halaqati.ui.components.StudentAvatar(o.childPhoto, o.childName, 72.dp)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(o.childName, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         Text(
                             listOf(o.trackLabel, o.subtitle).filter { it.isNotBlank() }.joinToString(" · "),
                             style = MaterialTheme.typography.labelLarge, color = onP.copy(alpha = .92f), maxLines = 2, overflow = TextOverflow.Ellipsis,
                         )
-                        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Surface(shape = RoundedCornerShape(50), color = onP.copy(alpha = .2f)) {
-                                Text(attendance, Modifier.padding(horizontal = 10.dp, vertical = 4.dp), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                            }
-                            Surface(shape = RoundedCornerShape(50), color = onP.copy(alpha = if (o.todayRecited) .32f else .14f)) {
-                                Text(
-                                    if (o.todayRecited) "أتمّ ${if (o.tathbit) "التثبيت" else "التسميع"}" else "لم يُسجَّل ${if (o.tathbit) "التثبيت" else "التسميع"}",
-                                    Modifier.padding(horizontal = 10.dp, vertical = 4.dp), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold,
-                                )
-                            }
                         }
+                }
+                // RC104: today's two states sit side by side under the child (they used to wrap into two tall rows beside the photo).
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Surface(Modifier.weight(1f), shape = RoundedCornerShape(50), color = onP.copy(alpha = .2f)) {
+                        Text(attendance, Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Surface(Modifier.weight(1f), shape = RoundedCornerShape(50), color = onP.copy(alpha = if (o.todayRecited) .32f else .14f)) {
+                        Text(
+                            if (o.todayRecited) "أتمّ ${if (o.tathbit) "التثبيت" else "التسميع"}" else "لم يُسجَّل ${if (o.tathbit) "التثبيت" else "التسميع"}",
+                            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
                 // Today's ward in a clear inset panel

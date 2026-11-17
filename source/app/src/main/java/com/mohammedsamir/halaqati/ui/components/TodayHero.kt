@@ -67,10 +67,10 @@ fun TodayHeroCard(
             Modifier.nourHeroFill(androidx.compose.material3.MaterialTheme.colorScheme.primary).padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (verse.isNotBlank() || photoName.isNotBlank()) {
+            if (verse.isNotBlank() || greeting.isNotBlank()) {
                 // RC90: the photo sits at the start (right in Arabic), bigger, vertically centred with the verse; the verse uses the app font (Cairo).
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    if (photoName.isNotBlank()) Box(Modifier.background(Color.White, androidx.compose.foundation.shape.CircleShape).padding(3.dp)) { StudentAvatar(photo, photoName, 72.dp) }
+                    if (photoName.isNotBlank() && verse.isNotBlank()) Box(Modifier.background(Color.White, androidx.compose.foundation.shape.CircleShape).padding(3.dp)) { StudentAvatar(photo, photoName, 72.dp) }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         if (greeting.isNotBlank()) Text(greeting, style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = .85f))
                         if (verse.isNotBlank()) Text(verse, style = MaterialTheme.typography.titleMedium, lineHeight = 30.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 5, overflow = TextOverflow.Ellipsis)
@@ -80,7 +80,10 @@ fun TodayHeroCard(
                 Spacer(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = .25f)))
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                GradientIcon(icon, HalaqatiGradients.Gold, tile = 56.dp, glyph = 28.dp)
+                // RC104: with no verse the photo used to sit alone on a full row; it now leads the title row instead.
+                val photoBesideTitle = verse.isBlank() && photoName.isNotBlank()
+                if (photoBesideTitle) Box(Modifier.background(Color.White, androidx.compose.foundation.shape.CircleShape).padding(3.dp)) { StudentAvatar(photo, photoName, 64.dp) }
+                GradientIcon(icon, HalaqatiGradients.Gold, tile = if (photoBesideTitle) 44.dp else 56.dp, glyph = if (photoBesideTitle) 24.dp else 28.dp)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = .95f), maxLines = 3, overflow = TextOverflow.Ellipsis)

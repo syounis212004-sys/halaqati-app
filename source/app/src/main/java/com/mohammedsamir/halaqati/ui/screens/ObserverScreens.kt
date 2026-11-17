@@ -163,6 +163,7 @@ fun ObserverScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, embedd
                         border = cardHairline(),
                     ) {
                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            com.mohammedsamir.halaqati.ui.components.EntityRule(com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA)
                             Text(h.optString("name", "حلقة"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                             val safety = if (h.isNull("safety")) "—" else num(h.optDouble("safety")) + "٪"
                             Text(

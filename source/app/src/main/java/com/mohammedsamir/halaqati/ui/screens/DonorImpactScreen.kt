@@ -88,7 +88,7 @@ internal fun DonorImpactTab(refreshTick: Int) {
         item {
             Surface(Modifier.fillMaxWidth().halaqatiEnter(), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.5.dp, border = cardHairline()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("أثر دعمك", style = MaterialTheme.typography.titleLarge)
+                    com.mohammedsamir.halaqati.ui.components.NourSectionTitle("أثر دعمك", entity = com.mohammedsamir.halaqati.ui.theme.Entity.DONOR)
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         ImpactTile("كفالة", total.toString(), Modifier.weight(1f))
                         ImpactTile("وصلت", delivered.toString(), Modifier.weight(1f))
@@ -113,7 +113,7 @@ internal fun DonorImpactTab(refreshTick: Int) {
                     (if (!r.isNull("attendance_pct")) "، حضور ${r.optInt("attendance_pct")}٪" else "") + (if (r.optInt("winners") > 0) "، و${r.optInt("winners")} مكرَّمين" else "") + ". تطبيق حلقتي."
                 Surface(Modifier.fillMaxWidth().halaqatiEnter(), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.5.dp, border = cardHairline()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("تقرير $title", style = MaterialTheme.typography.titleLarge)
+                        com.mohammedsamir.halaqati.ui.components.NourSectionTitle("تقرير $title", entity = com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA)
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             ImpactTile("طالبًا", r.optInt("students").toString(), Modifier.weight(1f))
                             ImpactTile("جلسة", r.optInt("sessions").toString(), Modifier.weight(1f))
@@ -132,7 +132,7 @@ internal fun DonorImpactTab(refreshTick: Int) {
                 }
             }
         }
-        item { Text("سجل عطائي", style = MaterialTheme.typography.titleLarge) }
+        item { com.mohammedsamir.halaqati.ui.components.NourSectionTitle("سجل عطائي", entity = com.mohammedsamir.halaqati.ui.theme.Entity.DONOR) }
         if (!loading && pledges.isEmpty()) item { EmptyState("لا توجد كفالات بعد. افتح تبويب «الدعم» لتبدأ.") }
         items(pledges.size) { i ->
             val p = pledges[i]
@@ -146,7 +146,7 @@ internal fun DonorImpactTab(refreshTick: Int) {
                 }
             }
         }
-        if (news.isNotEmpty()) item { Text("أخبار الحلقة", style = MaterialTheme.typography.titleLarge) }
+        if (news.isNotEmpty()) item { com.mohammedsamir.halaqati.ui.components.NourSectionTitle("أخبار الحلقة", entity = com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA) }
         items(news.size) { i ->
             val n = news[i]
             Surface(Modifier.fillMaxWidth().halaqatiEnter(), shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp, border = cardHairline()) {
@@ -160,7 +160,7 @@ internal fun DonorImpactTab(refreshTick: Int) {
         item {
             Surface(Modifier.fillMaxWidth().halaqatiEnter(), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.5.dp, border = cardHairline()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("صندوق الاقتراحات", style = MaterialTheme.typography.titleMedium)
+                    com.mohammedsamir.halaqati.ui.components.NourSectionTitle("صندوق الاقتراحات", entity = com.mohammedsamir.halaqati.ui.theme.Entity.DONOR)
                     Text("فكرة أو حاجة تراها في الحلقة؟ تصل مباشرة إلى المدير.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     OutlinedTextField(suggestion, { suggestion = it }, modifier = Modifier.fillMaxWidth(), minLines = 2, label = { Text("اقتراحك") })
                     Button(enabled = suggestion.trim().length >= 3, onClick = {
@@ -179,10 +179,6 @@ internal fun DonorImpactTab(refreshTick: Int) {
 
 @Composable
 private fun ImpactTile(label: String, value: String, modifier: Modifier) {
-    Surface(modifier, shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .55f)) {
-        Column(Modifier.padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(animatedCountText(value), style = MaterialTheme.typography.headlineSmall.copy(fontFamily = com.mohammedsamir.halaqati.ui.theme.CairoFamily), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
+    // RC104: the shared stat tile (tonal gradient, same as the hero strips) instead of a flat grey tile.
+    com.mohammedsamir.halaqati.ui.components.NourStatTile(animatedCountText(value), label, modifier)
 }

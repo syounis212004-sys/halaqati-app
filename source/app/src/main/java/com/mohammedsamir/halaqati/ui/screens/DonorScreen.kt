@@ -133,7 +133,7 @@ fun DonorHomeScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, navig
                             Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(
                                     donorPhrase.text,
-                                    style = MaterialTheme.typography.titleLarge, fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
+                                    style = MaterialTheme.typography.titleLarge, fontFamily = com.mohammedsamir.halaqati.ui.theme.AmiriFamily,
                                     fontWeight = FontWeight.ExtraBold, lineHeight = 34.sp, color = Color.White,
                                 )
                                 Text("— " + donorPhrase.source, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = HalaqatiGradients.Gold.b)
@@ -236,7 +236,7 @@ private fun SummaryCard(title: String, action: String, onAction: () -> Unit, con
     Surface(Modifier.fillMaxWidth().halaqatiEnter(), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.5.dp, border = cardHairline()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                com.mohammedsamir.halaqati.ui.components.NourSectionTitle(title, Modifier.weight(1f), entity = com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA)
                 TextButton(onClick = onAction) { Text(action + " ‹") }
             }
             content()
@@ -246,12 +246,8 @@ private fun SummaryCard(title: String, action: String, onAction: () -> Unit, con
 
 @Composable
 private fun SummaryTile(label: String, value: String, modifier: Modifier) {
-    Surface(modifier, shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .55f)) {
-        Column(Modifier.padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(animatedCountText(value), style = MaterialTheme.typography.headlineSmall.copy(fontFamily = com.mohammedsamir.halaqati.ui.theme.CairoFamily), color = MaterialTheme.colorScheme.primary)
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
+    // RC104: the shared stat tile (tonal gradient, same as the hero strips) instead of a flat grey tile.
+    com.mohammedsamir.halaqati.ui.components.NourStatTile(animatedCountText(value), label, modifier)
 }
 
 private fun trendText(now: Double, base: Double, prorata: Double): Pair<String, Boolean>? {
@@ -341,25 +337,27 @@ fun DonorSupportPage(profile: Profile, pending: Int, onRefresh: () -> Unit) = Do
     val chatScope = rememberCoroutineScope()
     var chatId by remember { mutableStateOf<String?>(null) }
     var chatError by remember { mutableStateOf<String?>(null) }
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
-        // RC60: private chat with the administrator (general, not tied to a request)
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.End) {
-            androidx.compose.material3.FilledTonalButton(
-                onClick = {
+        chatError?.let { com.mohammedsamir.halaqati.ui.components.StateNotice(it, kind = "error", modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) }
+        SegmentedTabs(listOf("الكفالات والدعم", "طلبات المكافآت"), section, { section = it }, Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+        com.mohammedsamir.halaqati.ui.components.TabContentTransition(section, { it }, Modifier.weight(1f)) { s ->
+            if (s == 0) DonorSupportTab(tick) else DonorRewardsTab(tick)
+        }
+    }
+    // RC104: the chat with the administrator is a side button (like announcements and visits) instead of a bar above the tabs.
+    androidx.compose.material3.ExtendedFloatingActionButton(
+        onClick = {
                     chatScope.launch {
                         runCatching { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.mohammedsamir.halaqati.data.AppGraph.repo.chatOpenDirect(profile.id) } }
                             .onSuccess { chatId = it; chatError = null }
                             .onFailure { chatError = it.message ?: "تعذر فتح المحادثة" }
                     }
                 },
-                modifier = Modifier.heightIn(min = 48.dp),
-            ) { Text("محادثة مع المدير") }
-        }
-        chatError?.let { com.mohammedsamir.halaqati.ui.components.StateNotice(it, kind = "error", modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) }
-        SegmentedTabs(listOf("الكفالات والدعم", "طلبات المكافآت"), section, { section = it }, Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
-        com.mohammedsamir.halaqati.ui.components.TabContentTransition(section, { it }, Modifier.weight(1f)) { s ->
-            if (s == 0) DonorSupportTab(tick) else DonorRewardsTab(tick)
-        }
+        icon = { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Default.Forum, contentDescription = null) },
+        text = { Text("محادثة المدير") },
+        modifier = Modifier.align(Alignment.BottomEnd).padding(end = com.mohammedsamir.halaqati.ui.components.FabMargin, bottom = com.mohammedsamir.halaqati.ui.components.FabMargin),
+    )
     }
     chatId?.let { id -> ChatSheet(id, "محادثة مع المدير") { chatId = null } }
 }

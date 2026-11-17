@@ -50,7 +50,9 @@ import com.mohammedsamir.halaqati.ui.components.CollapsingFab
 import com.mohammedsamir.halaqati.ui.components.DialogOrnament
 import com.mohammedsamir.halaqati.ui.components.EntityBand
 import com.mohammedsamir.halaqati.ui.components.EntityRule
+import com.mohammedsamir.halaqati.ui.components.MetricCard
 import com.mohammedsamir.halaqati.ui.components.NourCard
+import com.mohammedsamir.halaqati.ui.components.NourStatTile
 import com.mohammedsamir.halaqati.ui.components.NourSectionTitle
 import com.mohammedsamir.halaqati.ui.theme.Entity
 import com.mohammedsamir.halaqati.ui.components.EmptyState
@@ -305,4 +307,36 @@ class HalaqaCardPreviewTest {
 
     @Test fun entity_units_light() = entityUnits(dark = false)
     @Test fun entity_units_dark() = entityUnits(dark = true)
+
+    // RC104 phase 4: donor pieces (section titles with the donor tone, shared stat tiles, metric cards with the quiet pattern).
+    private fun donorPieces(dark: Boolean) {
+        rule.setContent {
+            Themed(dark) {
+                Column(Modifier.width(411.dp).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    NourSectionTitle("أثر دعمك", entity = Entity.DONOR)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        NourStatTile("0", "كفالة", Modifier.weight(1f))
+                        NourStatTile("0", "وصلت", Modifier.weight(1f))
+                        NourStatTile("0", "طالب استفاد", Modifier.weight(1f))
+                    }
+                    NourSectionTitle("تقرير أكتوبر 2026", entity = Entity.HALAQA)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(Modifier.weight(1f)) { MetricCard("الطلاب", "51") }
+                        Box(Modifier.weight(1f)) { MetricCard("التسميعات", "522") }
+                    }
+                    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            EntityRule(Entity.DONOR)
+                            Text("ضيافة أسبوعية", style = MaterialTheme.typography.titleLarge)
+                            Text("30 شيكل · حلقة معاوية بن أبي سفيان", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            }
+        }
+        save("donor_pieces_${if (dark) "dark" else "light"}")
+    }
+
+    @Test fun donor_pieces_light() = donorPieces(dark = false)
+    @Test fun donor_pieces_dark() = donorPieces(dark = true)
 }

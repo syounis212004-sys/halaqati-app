@@ -208,7 +208,8 @@ fun MetricCard(
         border = com.mohammedsamir.halaqati.ui.theme.cardHairline(),
     ) {
         Column(
-            Modifier.padding(horizontal = 12.dp, vertical = 16.dp),
+            // RC104: the same quiet Subtle pattern as the empty states, so every metric card carries the identity.
+            Modifier.nourPattern(PatternLevel.Subtle, MaterialTheme.colorScheme.primary).padding(horizontal = 12.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {

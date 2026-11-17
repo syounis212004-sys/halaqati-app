@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mohammedsamir.halaqati.data.AppGraph
@@ -2023,8 +2024,14 @@ private fun notificationIsArchived(n: JSONObject, cutoff: Instant): Boolean =
 @Composable
 private fun NotificationCompactRow(n: JSONObject, showSubject: Boolean, onOpen: (() -> Unit)? = null, onRead: () -> Unit) {
     val isUnread = notificationUnread(n)
+    val unreadTone = MaterialTheme.colorScheme.primary
     Row(
         Modifier.fillMaxWidth().heightIn(min = 56.dp)
+            // RC104: an unread row is tinted and carries a 4dp edge on the reading-start side; a read row stays plain and quieter.
+            .then(if (isUnread) Modifier.background(unreadTone.copy(alpha = .07f)).drawBehind {
+                val w = 4.dp.toPx()
+                drawRect(unreadTone, androidx.compose.ui.geometry.Offset(if (layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl) size.width - w else 0f, 0f), androidx.compose.ui.geometry.Size(w, size.height))
+            } else Modifier)
             .then(if (onOpen != null) Modifier.clickable { onOpen() } else Modifier)
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,

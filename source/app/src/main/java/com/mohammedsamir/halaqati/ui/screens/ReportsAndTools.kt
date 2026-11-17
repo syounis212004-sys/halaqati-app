@@ -3616,6 +3616,9 @@ fun RankingsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
             } else if (programRanking) {
                 itemsIndexed(rows) { index, item ->
                     ElevatedCard(Modifier.fillMaxWidth()) {
+                      Column {
+                        // RC104: the first three carry the gold ornament band (the medal tone of the entity colours).
+                        if (index < 3) com.mohammedsamir.halaqati.ui.components.EntityBand(com.mohammedsamir.halaqati.ui.theme.Entity.CATEGORY)
                         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(14.dp)) {
                                 Text("${index + 1}", modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp), fontWeight = FontWeight.Bold)
@@ -3627,6 +3630,7 @@ fun RankingsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
                                     "حضور ${item.optInt("present", 0)} · تسميعات ${item.optInt("recitations", 0)} · نقاط ${item.optInt("points", 0)}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                 )
                             }
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -3634,12 +3638,16 @@ fun RankingsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
                                 Text("درجة التلاوة", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
+                      }
                     }
                 }
             } else {
                 itemsIndexed(rows) { index, item ->
                     val student = item.optJSONObject("students")
                     ElevatedCard(Modifier.fillMaxWidth()) {
+                      Column {
+                        // RC104: the first three carry the gold ornament band (the medal tone of the entity colours).
+                        if (index < 3) com.mohammedsamir.halaqati.ui.components.EntityBand(com.mohammedsamir.halaqati.ui.theme.Entity.CATEGORY)
                         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Surface(color = if (index < 3) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant, shape = androidx.compose.foundation.shape.CircleShape, modifier = Modifier.size(36.dp)) {
                                 Box(contentAlignment = Alignment.Center) {
@@ -3654,10 +3662,12 @@ fun RankingsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
                                     "${formatNumber(item.optDouble("pages", 0.0))} ص · ${item.optInt("mistakes", 0)} أخطاء · ${item.optInt("prompts", 0)} نقرات",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                 )
                             }
                             Text(formatNumber(item.optDouble("points", 0.0)), style = MaterialTheme.typography.titleLarge.copy(fontFamily = com.mohammedsamir.halaqati.ui.theme.CairoFamily), fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
                         }
+                      }
                     }
                 }
             }

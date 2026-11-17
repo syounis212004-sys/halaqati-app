@@ -40,7 +40,7 @@ fun RoleWelcomeCard(role: UserRole, modifier: Modifier = Modifier, detail: Strin
         androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(greeting, style = MaterialTheme.typography.labelLarge, color = androidx.compose.ui.graphics.Color.White.copy(alpha = .92f))
-                Text(phrase.text, style = MaterialTheme.typography.titleMedium, fontFamily = androidx.compose.ui.text.font.FontFamily.Serif, lineHeight = 30.sp, fontWeight = FontWeight.Bold, maxLines = 5, overflow = TextOverflow.Ellipsis)
+                Text(phrase.text, style = MaterialTheme.typography.titleMedium, lineHeight = 30.sp, fontWeight = FontWeight.Bold, maxLines = 5, overflow = TextOverflow.Ellipsis)
                 Text(phrase.source, style = MaterialTheme.typography.labelMedium, color = androidx.compose.ui.graphics.Color.White.copy(alpha = .9f))
                 if (!detail.isNullOrBlank()) {
                     Text(detail, style = MaterialTheme.typography.bodyMedium, color = androidx.compose.ui.graphics.Color.White, maxLines = 3, overflow = TextOverflow.Ellipsis)
