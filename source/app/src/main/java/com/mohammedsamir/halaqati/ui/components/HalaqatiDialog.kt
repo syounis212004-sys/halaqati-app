@@ -45,16 +45,21 @@ fun HalaqatiAlertDialog(
     tonalElevation: Dp = AlertDialogDefaults.TonalElevation,
     properties: DialogProperties = DialogProperties(),
 ) {
-    fun withOrnament(slot: @Composable () -> Unit): @Composable () -> Unit = { Column { DialogOrnament(); Spacer(Modifier.height(10.dp)); slot() } }
+    // The icon slot is centred by AlertDialog, so its wrapper keeps the glyph centred under the rule; title/text stay start-aligned.
+    fun withOrnament(centered: Boolean, slot: @Composable () -> Unit): @Composable () -> Unit = {
+        Column(horizontalAlignment = if (centered) androidx.compose.ui.Alignment.CenterHorizontally else androidx.compose.ui.Alignment.Start) {
+            DialogOrnament(); Spacer(Modifier.height(10.dp)); slot()
+        }
+    }
     val first = when { icon != null -> 0; title != null -> 1; text != null -> 2; else -> -1 }
     AlertDialog(
         onDismissRequest = onDismissRequest,
         confirmButton = confirmButton,
         modifier = modifier,
         dismissButton = dismissButton,
-        icon = icon?.let { if (first == 0) withOrnament(it) else it },
-        title = title?.let { if (first == 1) withOrnament(it) else it },
-        text = text?.let { if (first == 2) withOrnament(it) else it },
+        icon = icon?.let { if (first == 0) withOrnament(true, it) else it },
+        title = title?.let { if (first == 1) withOrnament(false, it) else it },
+        text = text?.let { if (first == 2) withOrnament(false, it) else it },
         shape = shape,
         containerColor = containerColor,
         iconContentColor = iconContentColor,

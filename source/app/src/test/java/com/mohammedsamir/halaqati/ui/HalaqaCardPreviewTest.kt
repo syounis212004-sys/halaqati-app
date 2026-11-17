@@ -205,15 +205,19 @@ class HalaqaCardPreviewTest {
     private fun dialogLook(dark: Boolean) {
         rule.setContent {
             Themed(dark) {
-                Box(Modifier.width(411.dp).padding(24.dp)) {
-                    Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh, tonalElevation = 6.dp) {
-                        Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            DialogOrnament()
-                            Text("حذف الحلقة؟", style = MaterialTheme.typography.headlineSmall)
-                            Text("سيتم نقل الحلقة إلى المحذوفات ويمكن استعادتها لاحقًا.", style = MaterialTheme.typography.bodyMedium)
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(onClick = {}) { Text("إلغاء") }
-                                FilledTonalButton(onClick = {}) { Text("حذف") }
+                Column(Modifier.width(411.dp).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    // Variant 1: title + text (start aligned, rule above the title). Variant 2: delete dialog with an icon (icon stays centred under the rule).
+                    for (withIcon in listOf(false, true)) {
+                        Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh, tonalElevation = 6.dp) {
+                            Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp), horizontalAlignment = if (withIcon) androidx.compose.ui.Alignment.CenterHorizontally else androidx.compose.ui.Alignment.Start) {
+                                DialogOrnament()
+                                if (withIcon) Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.error)
+                                Text("حذف الحلقة؟", style = MaterialTheme.typography.headlineSmall)
+                                Text("سيتم نقل الحلقة إلى المحذوفات ويمكن استعادتها لاحقًا.", style = MaterialTheme.typography.bodyMedium)
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedButton(onClick = {}) { Text("إلغاء") }
+                                    FilledTonalButton(onClick = {}) { Text("حذف") }
+                                }
                             }
                         }
                     }
