@@ -88,7 +88,7 @@ management = read('app/src/main/java/com/mohammedsamir/halaqati/ui/screens/Manag
 app_shell = read('app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt')
 golden_shell = read('app/src/main/java/com/mohammedsamir/halaqati/ui/components/GoldenShell.kt')
 core = read('app/src/main/java/com/mohammedsamir/halaqati/ui/screens/CoreScreens.kt')
-for token in ('fun GuardianTodayAlert(', 'حالة اليوم', 'وضع عدم الاتصال', 'bottom = 96.dp', 'StatusPill(reason, kind = "warning")', 'var selectedHalaqa by remember', 'كل الحلقات', 'scopedVisits'):
+for token in ('fun GuardianTodayAlert(', 'حالة اليوم', 'وضع عدم الاتصال', 'bottom = FabClearance', 'StatusPill(reason, kind = "warning")', 'var selectedHalaqa by remember', 'كل الحلقات', 'scopedVisits'):
     if token not in management: errors.append(f'Guardian/Supervision UX regression: missing {token}')
 for token in ('CapsuleTab(', 'role = Role.Tab', 'selectableGroup()', 'MaterialTheme.typography.labelMedium', 'heightIn(min = 48.dp)'):
     if token not in golden_shell: errors.append(f'Bottom navigation UX regression: missing {token}')

@@ -228,7 +228,7 @@ object NourHeroColors {
 @Composable
 fun Modifier.nourHeroFill(primary: Color): Modifier {
     val brush = remember(primary) { androidx.compose.ui.graphics.Brush.linearGradient(NourHeroColors.stops(primary)) }
-    return this.background(brush).girih(Color.White, NourHeroColors.LatticeAlpha, 44.dp)
+    return this.background(brush).nourPattern(PatternLevel.Hero)
 }
 
 /**

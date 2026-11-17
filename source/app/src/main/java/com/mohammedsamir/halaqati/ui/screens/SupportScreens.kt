@@ -15,7 +15,8 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import com.mohammedsamir.halaqati.ui.components.HalaqatiGradients
-import com.mohammedsamir.halaqati.ui.components.girih
+import com.mohammedsamir.halaqati.ui.components.PatternLevel
+import com.mohammedsamir.halaqati.ui.components.nourPattern
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -643,7 +644,7 @@ private fun DonorRow(d: JSONObject, sees: String, index: Int, onAssign: () -> Un
     ) {
         Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
             Box(
-                Modifier.width(62.dp).fillMaxHeight().background(pair.brush()).girih(Color.White, .22f, 26.dp),
+                Modifier.width(62.dp).fillMaxHeight().background(pair.brush()).nourPattern(PatternLevel.Tile),
                 contentAlignment = Alignment.Center,
             ) { Text(name.trim().take(1).uppercase(), color = Color.White, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold) }
             Column(Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 9.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {

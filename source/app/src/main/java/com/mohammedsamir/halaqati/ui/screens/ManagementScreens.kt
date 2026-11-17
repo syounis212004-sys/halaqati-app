@@ -50,27 +50,6 @@ private fun JSONArray.rows(): List<JSONObject> = (0 until length()).mapNotNull {
 private fun roleCanManage(role: UserRole) = role in setOf(UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.TEACHER)
 private fun roleCanAdmin(role: UserRole) = role in setOf(UserRole.ADMIN, UserRole.SUPERVISOR)
 
-/** Extended FAB that collapses to an icon when the list below it has been scrolled. Place inside a Box over the list. */
-@Composable
-private fun BoxScope.CollapsingFab(listState: androidx.compose.foundation.lazy.LazyListState, label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-    val expanded by remember(listState) { derivedStateOf { !listState.canScrollBackward } }
-    ExtendedFloatingActionButton(
-        onClick = onClick,
-        expanded = expanded,
-        icon = { Icon(icon, contentDescription = label) },
-        text = { Text(label) },
-        modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 88.dp),
-    )
-}
-
-@Composable
-private fun CountItem(icon: androidx.compose.ui.graphics.vector.ImageVector, entity: Entity, text: String) {
-    val tone = EntityColors.of(entity)
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Icon(icon, null, Modifier.size(18.dp), tint = tone.accent)
-        Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
-    }
-}
 
 @Composable
 fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
@@ -164,7 +143,7 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
         LazyColumn(
         state = halaqaListState,
             modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 96.dp),
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = FabClearance),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             // RC98: the numbers scroll with the list (they were fixed above it).
@@ -196,159 +175,132 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
                     else -> HalaqatiGradients.Deep
                 }
                 val expanded = hid in expandedHalaqas
-                ElevatedCard(Modifier.fillMaxWidth().animateContentSize(), shape = RoundedCornerShape(24.dp)) {
-                  Column(Modifier.clickable { if (expanded) expandedHalaqas.remove(hid) else expandedHalaqas.add(hid) }) {
-                    Box(Modifier.fillMaxWidth().background(headerPair.brush()).girih(Color.White, .12f, 38.dp).waves(Color.White, .13f).padding(start = 14.dp, end = 6.dp, top = 10.dp, bottom = 10.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            // RC86: the halaqa logo, with a visible "add / change logo" badge for the administrator.
-                            Box(Modifier.size(52.dp)) {
-                                Box(Modifier.align(Alignment.TopStart).background(Color.White, RoundedCornerShape(16.dp)).padding(2.dp)) {
-                                    OrgLogo(h.mgmtStr("logo_path").ifBlank { null }, Icons.Default.Groups, headerPair, tile = 44.dp, glyph = 24.dp)
-                                }
-                                if (profile.role == UserRole.ADMIN) {
-                                    Surface(
-                                        onClick = { logoHalaqa = h },
-                                        modifier = Modifier.align(Alignment.BottomEnd).size(22.dp),
-                                        shape = androidx.compose.foundation.shape.CircleShape,
-                                        color = MaterialTheme.colorScheme.tertiary, contentColor = Color.White, shadowElevation = 3.dp,
-                                    ) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.AddPhotoAlternate, contentDescription = "إضافة أو تغيير شعار الحلقة", modifier = Modifier.size(14.dp)) } }
-                                }
-                            }
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                Text(h.optString("name", "حلقة"), fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium, color = Color.White, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                                val typeLabel = when (hType) {
-                                    "tajweed", "tilawah" -> com.mohammedsamir.halaqati.plans.ProgramKindRules.TILAWAH_TAJWEED_LABEL
-                                    "training" -> "دورة تأهيلية"
-                                    "course" -> "دورة"
-                                    "other" -> "برنامج"
-                                    else -> "حلقة أساسية"
-                                }
-                                Surface(shape = RoundedCornerShape(50), color = Color.White.copy(alpha = .22f), contentColor = Color.White) {
-                                    Text(typeLabel, modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                                }
-                                if (hType != "regular") {
-                                    val meta = listOf(programSpecAr(h.mgmtStr("program_specialization")), programLevelAr(h.mgmtStr("program_level")), programAssessAr(h.mgmtStr("assessment_type"))).filter { it.isNotBlank() }.joinToString(" · ")
-                                    if (meta.isNotBlank()) Text(meta, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = .85f))
-                                }
-                                Text(
-                                    listOf(h.mgmtStr("location"), h.mgmtStr("schedule_text")).filter { it.isNotBlank() }.joinToString(" · ").ifBlank { "المكان والبرنامج غير محددين" },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.White.copy(alpha = .92f),
-                                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                )
-                            }
-                            Surface(
-                                color = if (h.optBoolean("active", true)) Color.White.copy(alpha = .24f) else Color.Black.copy(alpha = .28f),
-                                contentColor = Color.White,
-                                shape = MaterialTheme.shapes.extraLarge,
-                            ) {
-                                Text(
-                                    if (h.has("archived_at") && !h.isNull("archived_at") && h.optString("archived_at").isNotBlank()) "مؤرشفة" else if (h.optBoolean("active", true)) "نشطة" else "موقوفة",
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                                    style = MaterialTheme.typography.labelLarge,
-                                )
+                val isArchived = h.has("archived_at") && !h.isNull("archived_at") && h.optString("archived_at").isNotBlank()
+                val typeLabel = when (hType) {
+                    "tajweed", "tilawah" -> com.mohammedsamir.halaqati.plans.ProgramKindRules.TILAWAH_TAJWEED_LABEL
+                    "training" -> "دورة تأهيلية"
+                    "course" -> "دورة"
+                    "other" -> "برنامج"
+                    else -> "حلقة أساسية"
+                }
+                val programMeta = if (hType != "regular") listOf(programSpecAr(h.mgmtStr("program_specialization")), programLevelAr(h.mgmtStr("program_level")), programAssessAr(h.mgmtStr("assessment_type"))).filter { it.isNotBlank() }.joinToString(" · ") else ""
+                HalaqaManagementCard(
+                    data = HalaqaCardData(
+                        name = h.optString("name", "حلقة"),
+                        typeLabel = typeLabel,
+                        statusLabel = if (isArchived) "مؤرشفة" else if (h.optBoolean("active", true)) "نشطة" else "موقوفة",
+                        statusActive = h.optBoolean("active", true) && !isArchived,
+                        place = h.mgmtStr("location"),
+                        schedule = h.mgmtStr("schedule_text"),
+                        programMeta = programMeta,
+                        studentCount = hStudents.size,
+                        categoryCount = hCats.size,
+                        supervisorCount = sIds.size,
+                        supervisors = sNames,
+                        teachers = tNames.ifBlank { if (profile.role == UserRole.TEACHER) "حسب الربط" else "" },
+                        gradient = headerPair,
+                    ),
+                    expanded = expanded,
+                    onToggle = { if (expanded) expandedHalaqas.remove(hid) else expandedHalaqas.add(hid) },
+                    logo = {
+                        // RC86: the halaqa logo, with a visible "add / change logo" badge for the administrator.
+                        Box(Modifier.size(52.dp)) {
+                            Box(Modifier.align(Alignment.TopStart).background(Color.White, RoundedCornerShape(16.dp)).padding(2.dp)) {
+                                OrgLogo(h.mgmtStr("logo_path").ifBlank { null }, Icons.Default.Groups, headerPair, tile = 44.dp, glyph = 24.dp)
                             }
                             if (profile.role == UserRole.ADMIN) {
-                                Box {
-                                    IconButton(
-                                        onClick = { halaqaMenuId = hid },
-                                        modifier = Modifier.size(HalaqatiUiTokens.TouchTarget),
-                                    ) { Icon(Icons.Default.MoreVert, contentDescription = "إجراءات الحلقة", tint = Color.White) }
-                                    DropdownMenu(
-                                        expanded = halaqaMenuId == hid,
-                                        onDismissRequest = { halaqaMenuId = null },
-                                    ) {
-                                        DropdownMenuItem(
-                                            text = { Text("تعديل الحلقة") },
-                                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                                            onClick = { halaqaMenuId = null; halaqaDialogError = null; editHalaqa = h },
-                                        )
-                                        DropdownMenuItem(
-                                            text = { Text(if (h.mgmtStr("logo_path").isBlank()) "إضافة شعار للحلقة" else "تغيير شعار الحلقة") },
-                                            leadingIcon = { Icon(Icons.Default.AddPhotoAlternate, contentDescription = null) },
-                                            onClick = { halaqaMenuId = null; logoHalaqa = h },
-                                        )
-                                        DropdownMenuItem(
-                                            text = { Text("تعيين الطاقم") },
-                                            leadingIcon = { Icon(Icons.Default.GroupAdd, contentDescription = null) },
-                                            onClick = { halaqaMenuId = null; staffHalaqa = h },
-                                        )
-                                        DropdownMenuItem(
-                                            text = { Text(if (h.optBoolean("active", true)) "إيقاف الحلقة" else "تفعيل الحلقة") },
-                                            leadingIcon = { Icon(if (h.optBoolean("active", true)) Icons.Default.PauseCircle else Icons.Default.PlayCircle, contentDescription = null) },
-                                            onClick = {
-                                                halaqaMenuId = null
-                                                scope.launch {
-                                                    try {
-                                                        withContext(Dispatchers.IO) {
-                                                            AppGraph.repo.patchConfirmed(
-                                                                "halaqas",
-                                                                "id=eq.$hid",
-                                                                JSONObject().put("active", !h.optBoolean("active", true)).put("updated_at", Instant.now().toString()),
-                                                            )
-                                                        }
-                                                        reload(); onRefresh()
-                                                    } catch (e: kotlinx.coroutines.CancellationException) {
-                                                        throw e
-                                                    } catch (e: Exception) { message = e.message ?: "تعذر تحديث حالة الحلقة" }
+                                Surface(
+                                    onClick = { logoHalaqa = h },
+                                    modifier = Modifier.align(Alignment.BottomEnd).size(22.dp),
+                                    shape = androidx.compose.foundation.shape.CircleShape,
+                                    color = MaterialTheme.colorScheme.tertiary, contentColor = Color.White, shadowElevation = 3.dp,
+                                ) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.AddPhotoAlternate, contentDescription = "إضافة أو تغيير شعار الحلقة", modifier = Modifier.size(14.dp)) } }
+                            }
+                        }
+                    },
+                    menu = {
+                    if (profile.role == UserRole.ADMIN) {
+                        Box {
+                            IconButton(
+                                onClick = { halaqaMenuId = hid },
+                                modifier = Modifier.size(HalaqatiUiTokens.TouchTarget),
+                            ) { Icon(Icons.Default.MoreVert, contentDescription = "إجراءات الحلقة", tint = Color.White) }
+                            DropdownMenu(
+                                expanded = halaqaMenuId == hid,
+                                onDismissRequest = { halaqaMenuId = null },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("تعديل الحلقة") },
+                                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                    onClick = { halaqaMenuId = null; halaqaDialogError = null; editHalaqa = h },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(if (h.mgmtStr("logo_path").isBlank()) "إضافة شعار للحلقة" else "تغيير شعار الحلقة") },
+                                    leadingIcon = { Icon(Icons.Default.AddPhotoAlternate, contentDescription = null) },
+                                    onClick = { halaqaMenuId = null; logoHalaqa = h },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("تعيين الطاقم") },
+                                    leadingIcon = { Icon(Icons.Default.GroupAdd, contentDescription = null) },
+                                    onClick = { halaqaMenuId = null; staffHalaqa = h },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(if (h.optBoolean("active", true)) "إيقاف الحلقة" else "تفعيل الحلقة") },
+                                    leadingIcon = { Icon(if (h.optBoolean("active", true)) Icons.Default.PauseCircle else Icons.Default.PlayCircle, contentDescription = null) },
+                                    onClick = {
+                                        halaqaMenuId = null
+                                        scope.launch {
+                                            try {
+                                                withContext(Dispatchers.IO) {
+                                                    AppGraph.repo.patchConfirmed(
+                                                        "halaqas",
+                                                        "id=eq.$hid",
+                                                        JSONObject().put("active", !h.optBoolean("active", true)).put("updated_at", Instant.now().toString()),
+                                                    )
                                                 }
-                                            },
-                                        )
-                                        DropdownMenuItem(
-                                            text = { Text(if (h.has("archived_at") && !h.isNull("archived_at") && h.optString("archived_at").isNotBlank()) "استعادة الحلقة من الأرشيف" else "أرشفة الحلقة") },
-                                            leadingIcon = { Icon(if (h.has("archived_at") && !h.isNull("archived_at") && h.optString("archived_at").isNotBlank()) Icons.Default.Restore else Icons.Default.Archive, contentDescription = null) },
-                                            onClick = {
-                                                halaqaMenuId = null
-                                                scope.launch {
-                                                    try {
-                                                        val archived = h.has("archived_at") && !h.isNull("archived_at") && h.optString("archived_at").isNotBlank()
-                                                        withContext(Dispatchers.IO) {
-                                                            AppGraph.repo.patchConfirmed(
-                                                                "halaqas",
-                                                                "id=eq.$hid",
-                                                                JSONObject()
-                                                                    .put("active", archived)
-                                                                    .put("archived_at", if (archived) JSONObject.NULL else Instant.now().toString())
-                                                                    .put("updated_at", Instant.now().toString()),
-                                                            )
-                                                        }
-                                                        message = if (archived) "تمت استعادة الحلقة" else "تمت أرشفة الحلقة دون حذف تاريخها"
-                                                        reload(); onRefresh()
-                                                    } catch (e: kotlinx.coroutines.CancellationException) { throw e }
-                                                    catch (e: Exception) { message = e.message ?: "تعذر تحديث أرشيف الحلقة" }
+                                                reload(); onRefresh()
+                                            } catch (e: kotlinx.coroutines.CancellationException) {
+                                                throw e
+                                            } catch (e: Exception) { message = e.message ?: "تعذر تحديث حالة الحلقة" }
+                                        }
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(if (h.has("archived_at") && !h.isNull("archived_at") && h.optString("archived_at").isNotBlank()) "استعادة الحلقة من الأرشيف" else "أرشفة الحلقة") },
+                                    leadingIcon = { Icon(if (h.has("archived_at") && !h.isNull("archived_at") && h.optString("archived_at").isNotBlank()) Icons.Default.Restore else Icons.Default.Archive, contentDescription = null) },
+                                    onClick = {
+                                        halaqaMenuId = null
+                                        scope.launch {
+                                            try {
+                                                val archived = h.has("archived_at") && !h.isNull("archived_at") && h.optString("archived_at").isNotBlank()
+                                                withContext(Dispatchers.IO) {
+                                                    AppGraph.repo.patchConfirmed(
+                                                        "halaqas",
+                                                        "id=eq.$hid",
+                                                        JSONObject()
+                                                            .put("active", archived)
+                                                            .put("archived_at", if (archived) JSONObject.NULL else Instant.now().toString())
+                                                            .put("updated_at", Instant.now().toString()),
+                                                    )
                                                 }
-                                            },
-                                        )
-                                        HorizontalDivider()
-                                        DropdownMenuItem(
-                                            text = { Text("خيارات متقدمة: حذف نهائي", color = MaterialTheme.colorScheme.error) },
-                                            leadingIcon = { Icon(Icons.Default.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-                                            onClick = { halaqaMenuId = null; deleteHalaqa = h },
-                                        )
-                                    }
-                                }
+                                                message = if (archived) "تمت استعادة الحلقة" else "تمت أرشفة الحلقة دون حذف تاريخها"
+                                                reload(); onRefresh()
+                                            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                                            catch (e: Exception) { message = e.message ?: "تعذر تحديث أرشيف الحلقة" }
+                                        }
+                                    },
+                                )
+                                HorizontalDivider()
+                                DropdownMenuItem(
+                                    text = { Text("خيارات متقدمة: حذف نهائي", color = MaterialTheme.colorScheme.error) },
+                                    leadingIcon = { Icon(Icons.Default.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                    onClick = { halaqaMenuId = null; deleteHalaqa = h },
+                                )
                             }
                         }
                     }
-                    Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            CountItem(Icons.Default.Groups, Entity.STUDENT, "${hStudents.size} طالب")
-                            CountItem(Icons.Default.Category, Entity.CATEGORY, "${hCats.size} فئات")
-                            CountItem(Icons.Default.SupervisorAccount, Entity.SUPERVISOR, "${sIds.size} مشرف")
-                            Spacer(Modifier.weight(1f))
-                            Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = if (expanded) "طيّ التفاصيل" else "عرض التفاصيل", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        if (expanded) {
-                        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(Icons.Default.SupervisorAccount, null, Modifier.size(20.dp), tint = EntityColors.of(Entity.SUPERVISOR).accent)
-                            Text("المشرفون: ${sNames.ifBlank { "غير معيّنين" }}", style = MaterialTheme.typography.bodyMedium)
-                        }
-                        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(Icons.Default.Person, null, Modifier.size(20.dp), tint = EntityColors.of(Entity.TEACHER).accent)
-                            Text("المحفّظون: ${tNames.ifBlank { if (profile.role == UserRole.TEACHER) "حسب الربط" else "غير معيّنين" }}", style = MaterialTheme.typography.bodyMedium)
-                        }
-                        }
+                    },
+                    notice = {
                         // RC86: a program is never closed automatically; the administrator is reminded a week before and after its end date.
                         val programEnds = if (hType != "regular") h.mgmtStr("ends_on").takeIf { it.isNotBlank() }?.let { runCatching { LocalDate.parse(it.take(10)) }.getOrNull() } else null
                         if (programEnds != null) {
@@ -362,15 +314,18 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
                                 kind = if (daysLeft < 0) "warning" else "info",
                             )
                         }
-                        if (expanded) {
+                    },
+                    details = {
                         if (additionalIds.isNotEmpty()) {
-                            Text("الانتساب: أساسي ${primaryStudents.size} · إضافي ${additionalIds.size}", style = MaterialTheme.typography.labelMedium, color = com.mohammedsamir.halaqati.ui.theme.textAccent("primary"))
+                            Text("الانتساب: أساسي ${primaryStudents.size} · إضافي ${additionalIds.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                         }
                         Text(
                             "المسارات: حفظ عام ${hStudents.count { it.track != "tathbit" }} · تثبيت ${hStudents.count { it.track == "tathbit" }}",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    },
+                    actions = {
                         if (h.optString("halaqa_type", "regular") != "regular" || h.optBoolean("allow_secondary_members", true)) {
                             FilledTonalButton(
                                 onClick = { membersHalaqa = h },
@@ -397,10 +352,8 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
                                 }
                             }
                         }
-                        }
-                    }
-                  }
-                }
+                    },
+                )
             }
         }
     }
@@ -837,7 +790,7 @@ private fun JSONObject.mgmtStr(key: String): String = optString(key).trim().take
 /** RC86: a number tile with its own gradient and the girih lattice, replacing the flat grey tiles. */
 @Composable
 private fun HalaqaStatTile(label: String, value: String, pair: GradientPair, modifier: Modifier = Modifier) {
-    Box(modifier.clip(RoundedCornerShape(16.dp)).background(pair.brush()).girih(Color.White, .16f, 26.dp).padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+    Box(modifier.clip(RoundedCornerShape(16.dp)).background(pair.brush()).nourPattern(PatternLevel.Tile).padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = Color.White)
             Text(label, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = .95f))
@@ -1271,7 +1224,7 @@ fun CommunityNativeScreen(profile: Profile, pending: Int, onRefresh: () -> Unit)
             LazyColumn(
                 state = annListState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 96.dp),
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = FabClearance),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(announcements, key = { it.optString("id") }) { a ->
@@ -1329,7 +1282,7 @@ fun CommunityNativeScreen(profile: Profile, pending: Int, onRefresh: () -> Unit)
             LazyColumn(
                 state = forumListState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 96.dp),
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = FabClearance),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(posts, key = { it.optString("id") }) { p ->
@@ -2272,7 +2225,7 @@ fun SupervisionNativeScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
         }
         LazyColumn(
         state = androidx.compose.foundation.lazy.rememberLazyListState(),
-            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 96.dp),
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = FabClearance),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item {
@@ -2596,7 +2549,7 @@ fun GuardianProfileNativeScreen(
         if (loading && rows.isEmpty()) LoadingSkeleton(rows = 3, modifier = Modifier.padding(12.dp))
         LazyColumn(
         state = androidx.compose.foundation.lazy.rememberLazyListState(),
-            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 96.dp),
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = FabClearance),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {

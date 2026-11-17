@@ -130,15 +130,16 @@ fun GoldenBottomBar(
     val selectedRoute = if (drawerOpen || normalizedRoute !in coreRoutes)
         AppDestination.More.route else normalizedRoute
     // Nour: a floating capsule with permanent labels under every icon.
-    Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 10.dp)) {
+    Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp)) {
         Surface(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 68.dp),
-            shape = RoundedCornerShape(32.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 62.dp),
+            shape = RoundedCornerShape(28.dp),
             color = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface,
-            shadowElevation = 10.dp,
+            // Lighter bar: a soft shadow and a hairline border instead of a heavy floating slab.
+            shadowElevation = 3.dp,
             tonalElevation = 0.dp,
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
         ) {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp).selectableGroup(),

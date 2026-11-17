@@ -58,7 +58,7 @@ fun heroBrush(primary: Color): Brush = Brush.linearGradient(
 fun Modifier.heroBackground(brush: Brush): Modifier = this
     .drawBehind { drawRect(brush) }
     // RC95: the cached girih tile (one bitmap shader) at one strength for every hero, instead of re-drawing paths.
-    .girih(Color.White, .14f, 44.dp)
+    .nourPattern(PatternLevel.Hero)
 
 @Composable
 fun PatternBox(modifier: Modifier = Modifier, content: @Composable () -> Unit) {

@@ -27,14 +27,15 @@ android {
         minSdk = 23
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 29102
-        versionName = "2.91.2"
+        versionCode = 29103
+        versionName = "2.91.3"
         vectorDrawables { useSupportLibrary = true }
         buildConfigField("String", "SUPABASE_URL", JsonOutput.toJson(conf("SUPABASE_URL", "https://xlxzwucqdtggkfwwqibk.supabase.co")))
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", JsonOutput.toJson(conf("SUPABASE_PUBLISHABLE_KEY", "sb_publishable_VZGYTedRpXfJdswijXoxig_F0Hva8ks")))
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", JsonOutput.toJson(conf("GOOGLE_WEB_CLIENT_ID")))
     }
     buildFeatures { compose = true; buildConfig = true }
+    testOptions { unitTests { isIncludeAndroidResources = true } }
     packaging { resources.excludes += setOf("META-INF/LICENSE*", "META-INF/NOTICE*") }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -112,6 +113,10 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     testImplementation("junit:junit:4.13.2")
+    // Visual preview of Compose cards (only runs when HALAQATI_PREVIEW=1): real rendering to PNG on the JVM.
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation(composeBom)
+    testImplementation("androidx.compose.ui:ui-test-junit4")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
