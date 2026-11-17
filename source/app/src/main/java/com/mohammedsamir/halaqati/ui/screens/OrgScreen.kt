@@ -501,6 +501,8 @@ private fun MissingCard(text: String) {
 private fun PersonCard(p: OrgPerson, pair: GradientPair, roleText: String, halaqat: List<String>, onRemove: (() -> Unit)? = null, modifier: Modifier = Modifier) {
     val cs = MaterialTheme.colorScheme
     Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), color = cs.surface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+      Column {
+        com.mohammedsamir.halaqati.ui.components.EntityBand(if (roleText == "مشرف") com.mohammedsamir.halaqati.ui.theme.Entity.SUPERVISOR else com.mohammedsamir.halaqati.ui.theme.Entity.TEACHER)
         Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant).padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.size(60.dp).background(Color.White, CircleShape).padding(3.dp)) { StudentAvatar(p.photo, p.name, size = 54.dp) }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -509,6 +511,7 @@ private fun PersonCard(p: OrgPerson, pair: GradientPair, roleText: String, halaq
             }
             if (onRemove != null) IconButton(onClick = onRemove, modifier = Modifier.size(48.dp)) { Icon(Icons.Default.LinkOff, "إزالة من الجمعية", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
+      }
     }
 }
 
@@ -574,6 +577,7 @@ private fun OrgHalaqaRow(h: OrgHalaqa, pair: GradientPair, canMove: Boolean, onM
     val cs = MaterialTheme.colorScheme
     Surface(shape = RoundedCornerShape(18.dp), color = cs.surfaceVariant) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            com.mohammedsamir.halaqati.ui.components.EntityRule(com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OrgLogo(h.logo, Icons.Default.MenuBook, pair, tile = 40.dp, glyph = 22.dp)
                 Column(Modifier.weight(1f)) {

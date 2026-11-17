@@ -141,7 +141,7 @@ fun SupervisorSessionsScreen(profile: Profile, pending: Int, onRefresh: () -> Un
                 val rowsOfDay = shown.filter { it.date == ds }
                 items(rowsOfDay, key = { it.id }) { r ->
                     val ended = r.closed || d.isBefore(today)
-                    NourCard(marker = if (ended) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary) {
+                    NourCard(marker = if (ended) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary, entity = com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(r.halaqaName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -161,7 +161,7 @@ fun SupervisorSessionsScreen(profile: Profile, pending: Int, onRefresh: () -> Un
                 // A study day on which a halaqa held no session is shown, so a teacher who never opened one is visible.
                 val missing = halaqasShown.filter { h -> rowsOfDay.none { it.halaqaId == h.first } }
                 items(missing, key = { "m-$ds-${it.first}" }) { h ->
-                    NourCard {
+                    NourCard(entity = com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(h.second, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)

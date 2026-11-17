@@ -60,7 +60,7 @@ internal fun SupStat(label: String, value: String, modifier: Modifier = Modifier
 /** RC84: a person row used in the follow-up lists: photo, name, a short line, and one action. */
 @Composable
 internal fun SupPersonRow(photo: String?, name: String, subtitle: String, @Suppress("UNUSED_PARAMETER") pair: GradientPair, action: String?, actionEnabled: Boolean = true, onAction: () -> Unit = {}) {
-    NourCard {
+    NourCard(entity = com.mohammedsamir.halaqati.ui.theme.Entity.TEACHER) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             NourAvatar(photo, name, NourAvatarSize.Medium)
             Column(Modifier.weight(1f)) {
@@ -76,7 +76,7 @@ internal fun SupPersonRow(photo: String?, name: String, subtitle: String, @Suppr
 
 @Composable
 internal fun SupSectionTitle(text: String, modifier: Modifier = Modifier, trailing: (@Composable () -> Unit)? = null) =
-    com.mohammedsamir.halaqati.ui.components.NourSectionTitle(text, modifier, trailing)
+    com.mohammedsamir.halaqati.ui.components.NourSectionTitle(text, modifier, trailing = trailing)
 
 private val ALERT_TEMPLATES = listOf(
     "لم تبدأ الجلسة" to "لم تُفتح جلسة اليوم في حلقتك حتى الآن. نرجو فتحها وتسجيل الحضور.",
@@ -169,7 +169,7 @@ internal fun SupHalaqaCard(
     }
     val label = if (h.state == TeacherDayState.NOT_STARTED && offDay) "اليوم إجازة" else h.stateLabel
     val hasTeacher = h.teacherNames.isNotEmpty()
-    NourCard(onClick = onOpen, marker = if (kind == "warning") nourTone("warning").first else null) {
+    NourCard(onClick = onOpen, marker = if (kind == "warning") nourTone("warning").first else null, entity = com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(Modifier.clip(CircleShape).background(teacherTone.container).padding(2.dp)) {
                 NourAvatar(if (hasTeacher) h.teacherPhotos.firstOrNull() else h.logo, if (hasTeacher) h.teacherNames.first() else h.name, NourAvatarSize.Small)
@@ -457,7 +457,7 @@ fun SupervisorVisitsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit
                 val done = v.optBoolean("action_done", false)
                 var menuOpen by remember { mutableStateOf(false) }
                 val halaqaTone = com.mohammedsamir.halaqati.ui.theme.EntityColors.of(com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA)
-                BorderedCard(accent = if (pend) MaterialTheme.colorScheme.tertiary else null, padding = 10.dp) {
+                BorderedCard(accent = if (pend) MaterialTheme.colorScheme.tertiary else null, padding = 10.dp, entity = com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Icon(Icons.Default.Visibility, null, tint = halaqaTone.accent, modifier = Modifier.size(18.dp))
                         Column(Modifier.weight(1f)) {

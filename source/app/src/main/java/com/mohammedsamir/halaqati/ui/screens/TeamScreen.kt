@@ -122,11 +122,11 @@ fun TeamScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, navigate: 
                 }
             }
             if (supervisors.isNotEmpty()) {
-                item { com.mohammedsamir.halaqati.ui.components.NourSectionTitle("المشرفون (${supervisors.size})") }
+                item { com.mohammedsamir.halaqati.ui.components.NourSectionTitle("المشرفون (${supervisors.size})", entity = com.mohammedsamir.halaqati.ui.theme.Entity.SUPERVISOR) }
                 items(supervisors, key = { "sup-" + it.id }) { StaffCard(it, canAssign, navigate, Modifier.animateItem()) }
             }
             if (teachers.isNotEmpty()) {
-                item { com.mohammedsamir.halaqati.ui.components.NourSectionTitle("المحفّظون (${teachers.size})") }
+                item { com.mohammedsamir.halaqati.ui.components.NourSectionTitle("المحفّظون (${teachers.size})", entity = com.mohammedsamir.halaqati.ui.theme.Entity.TEACHER) }
                 items(teachers, key = { "tch-" + it.id }) { StaffCard(it, canAssign, navigate, Modifier.animateItem()) }
             }
             if (!loading && shown.isEmpty()) item { EmptyState(if (members.isEmpty()) "لا يوجد مشرفون ولا محفّظون بعد" else "لا يوجد من يطابق البحث") }
@@ -159,6 +159,7 @@ private fun StaffCard(m: StaffMember, canAssign: Boolean, navigate: (String) -> 
         shape = RoundedCornerShape(18.dp), color = cs.surface, border = BorderStroke(1.dp, cs.outlineVariant),
     ) {
         Column {
+            com.mohammedsamir.halaqati.ui.components.EntityBand(if (supervisor) com.mohammedsamir.halaqati.ui.theme.Entity.SUPERVISOR else com.mohammedsamir.halaqati.ui.theme.Entity.TEACHER)
             Row(
                 Modifier.fillMaxWidth().clickable { open = !open }.drawBehind {
                     // RC96: a 5dp colour edge on the reading-start side says the role at a glance (gold supervisor, emerald teacher).

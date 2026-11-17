@@ -147,7 +147,7 @@ fun ObserverScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, embedd
                         }
                     }
                 }
-                item { com.mohammedsamir.halaqati.ui.components.NourSectionTitle("الحلقات") }
+                item { com.mohammedsamir.halaqati.ui.components.NourSectionTitle("الحلقات", entity = com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA) }
                 if (halaqas.isEmpty()) item { EmptyState("لا توجد حلقات مفعّلة", animated = false) }
                 items(halaqas, key = { "h-" + it.optString("halaqa_id") }) { h ->
                     val id = h.optString("halaqa_id")

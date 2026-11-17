@@ -694,7 +694,7 @@ private fun HalaqaStaffDialog(
                 modifier = Modifier.heightIn(max = 520.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                item { com.mohammedsamir.halaqati.ui.components.NourSectionTitle("المحفّظون") }
+                item { com.mohammedsamir.halaqati.ui.components.NourSectionTitle("المحفّظون", entity = com.mohammedsamir.halaqati.ui.theme.Entity.TEACHER) }
                 if (teachers.isEmpty()) item { Text("لا توجد حسابات محفّظين معتمدة.", style = MaterialTheme.typography.bodyMedium) }
                 items(teachers, key = { "t:${it.optString("id")}" }) { person ->
                     val id = person.optString("id")
@@ -2459,6 +2459,7 @@ private fun GuardianProgramsSection(programs: List<GuardianProgramSummary>) {
             }
             Surface(color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .55f), shape = MaterialTheme.shapes.medium) {
                 Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    com.mohammedsamir.halaqati.ui.components.EntityRule(com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.School, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.width(8.dp))

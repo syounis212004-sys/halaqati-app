@@ -391,13 +391,7 @@ fun StudentsScreen(
               groupedStudents.forEach { (groupTitle, groupRows) ->
                 if (groupTitle != null) {
                     item(key = "halaqa-header-" + groupTitle, contentType = "halaqa-header") {
-                        Text(
-                            groupTitle,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = com.mohammedsamir.halaqati.ui.theme.textAccent("primary"),
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp),
-                        )
+                        com.mohammedsamir.halaqati.ui.components.NourSectionTitle(groupTitle, entity = com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA)
                     }
                 }
                 items(groupRows, key = { it.id }, contentType = { "student" }) { student ->
@@ -4455,13 +4449,7 @@ fun PlansScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
             planGroupsByHalaqa.forEach { (groupTitle, groupRows) ->
               if (groupTitle != null) {
                 item(key = "plan-halaqa-header-" + groupTitle, contentType = "halaqa-header") {
-                    Text(
-                        groupTitle,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = com.mohammedsamir.halaqati.ui.theme.textAccent("primary"),
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
-                    )
+                    com.mohammedsamir.halaqati.ui.components.NourSectionTitle(groupTitle, entity = com.mohammedsamir.halaqati.ui.theme.Entity.HALAQA)
                 }
               }
               items(groupRows, key = { "${it.student.id}:${it.plan.id}" }, contentType = { "smart_plan" }) { snapshot ->

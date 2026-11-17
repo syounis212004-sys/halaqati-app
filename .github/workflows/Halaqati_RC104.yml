@@ -30,7 +30,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  ARCHIVE_SHA256: d567307d91b96417cdb7ff7316b4003d34aeab1612eb924b360b30addd269d0b
+  ARCHIVE_SHA256: a0d1f0a9bf8d3bbb516f4972d0da35a17b0c16a56a0224eaf690cca7066b178a
   PROJECT_DIR: ${{ github.workspace }}/extracted/Halaqati_Native_Kotlin_v2.50.0_RC15
   GRADLE_VERSION: '8.13'
 
@@ -547,7 +547,7 @@ jobs:
           ls -la app/build/preview
           count=$(find app/build/preview -name '*.png' -size +2k | wc -l)
           echo "non-empty preview PNG count: $count"
-          test "$count" -ge 12
+          test "$count" -ge 14
           python3 - <<'PY3'
           import glob, xml.etree.ElementTree as ET
           bad = 0

@@ -172,7 +172,7 @@ fun StaffMonitorScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, na
                 val noHalaqa = r.halaqas.isEmpty() && !r.isSupervisor
                 val open = expanded == r.id
                 val tone = nourTone(if (noHalaqa) "neutral" else kind).first
-                NourCard(onClick = { expanded = if (open) null else r.id }, marker = if (noHalaqa) null else tone) {
+                NourCard(onClick = { expanded = if (open) null else r.id }, marker = if (noHalaqa) null else tone, entity = if (r.isSupervisor) com.mohammedsamir.halaqati.ui.theme.Entity.SUPERVISOR else com.mohammedsamir.halaqati.ui.theme.Entity.TEACHER) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         NourAvatar(r.photo, r.name, NourAvatarSize.Small)
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
