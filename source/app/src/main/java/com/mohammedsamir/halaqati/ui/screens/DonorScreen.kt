@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Forum
 import com.mohammedsamir.halaqati.data.AppGraph
 import com.mohammedsamir.halaqati.model.Profile
 import com.mohammedsamir.halaqati.ui.components.AppTopBar
