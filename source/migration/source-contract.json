@@ -171,7 +171,8 @@
     "rc66_my_subscription",
     "rc53_staff_overview",
     "rc53_alert_staff",
-    "rc53_broadcast_special"
+    "rc53_broadcast_special",
+    "rc_ranking_source"
   ],
   "edge_functions": [
     "halaqati-app",
