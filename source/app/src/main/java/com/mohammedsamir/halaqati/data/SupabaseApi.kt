@@ -57,6 +57,7 @@ class SupabaseApi(private val sessionStore: SecureSessionStore) {
         val code = connection.responseCode
         val stream = if (code in 200..299) connection.inputStream else connection.errorStream
         val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+        if (BuildConfig.DEBUG) RequestStats.global.record(method, url, text.length.toLong())
         if (code !in 200..299) {
             val detail = runCatching {
                 val json = JSONObject(text)

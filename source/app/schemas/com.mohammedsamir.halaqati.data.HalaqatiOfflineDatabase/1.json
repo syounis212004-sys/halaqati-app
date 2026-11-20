@@ -1,0 +1,428 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "d792bf2c454b8220073d218edc360386",
+    "entities": [
+      {
+        "tableName": "cache_entries",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`ownerUserId` TEXT NOT NULL, `cacheKey` TEXT NOT NULL, `jsonValue` TEXT NOT NULL, `savedAt` INTEGER NOT NULL, PRIMARY KEY(`ownerUserId`, `cacheKey`))",
+        "fields": [
+          {
+            "fieldPath": "ownerUserId",
+            "columnName": "ownerUserId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cacheKey",
+            "columnName": "cacheKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "jsonValue",
+            "columnName": "jsonValue",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "savedAt",
+            "columnName": "savedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "ownerUserId",
+            "cacheKey"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_cache_entries_ownerUserId_savedAt",
+            "unique": false,
+            "columnNames": [
+              "ownerUserId",
+              "savedAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_cache_entries_ownerUserId_savedAt` ON `${TABLE_NAME}` (`ownerUserId`, `savedAt`)"
+          }
+        ]
+      },
+      {
+        "tableName": "outbox",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `ownerUserId` TEXT NOT NULL, `method` TEXT NOT NULL, `path` TEXT NOT NULL, `body` TEXT, `createdAt` INTEGER NOT NULL, `attempts` INTEGER NOT NULL, `dedupe` TEXT NOT NULL, `state` TEXT NOT NULL, `lastError` TEXT, `baseUpdatedAt` TEXT, `entityTable` TEXT, `entityId` TEXT, `serverJson` TEXT, `forceLocal` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ownerUserId",
+            "columnName": "ownerUserId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "method",
+            "columnName": "method",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "path",
+            "columnName": "path",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "body",
+            "columnName": "body",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attempts",
+            "columnName": "attempts",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dedupe",
+            "columnName": "dedupe",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastError",
+            "columnName": "lastError",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "baseUpdatedAt",
+            "columnName": "baseUpdatedAt",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "entityTable",
+            "columnName": "entityTable",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "entityId",
+            "columnName": "entityId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "serverJson",
+            "columnName": "serverJson",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "forceLocal",
+            "columnName": "forceLocal",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_outbox_ownerUserId_dedupe",
+            "unique": true,
+            "columnNames": [
+              "ownerUserId",
+              "dedupe"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_outbox_ownerUserId_dedupe` ON `${TABLE_NAME}` (`ownerUserId`, `dedupe`)"
+          },
+          {
+            "name": "index_outbox_ownerUserId_state_id",
+            "unique": false,
+            "columnNames": [
+              "ownerUserId",
+              "state",
+              "id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_outbox_ownerUserId_state_id` ON `${TABLE_NAME}` (`ownerUserId`, `state`, `id`)"
+          }
+        ]
+      },
+      {
+        "tableName": "students_local",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`ownerUserId` TEXT NOT NULL, `id` TEXT NOT NULL, `fullName` TEXT NOT NULL, `status` TEXT NOT NULL, `track` TEXT NOT NULL, `categoryId` TEXT, `halaqaId` TEXT, `primaryTeacherId` TEXT, `guardianName` TEXT, `nationalId` TEXT, `phone` TEXT, `dateOfBirth` TEXT, `schoolGrade` TEXT, `guardianPhone` TEXT, `guardianEmail` TEXT, `gender` TEXT, `enrollmentDate` TEXT, `programName` TEXT, `address` TEXT, `notes` TEXT, `photoPath` TEXT, `targetPagesWeekly` REAL, `targetReviewPagesWeekly` REAL, `remoteUpdatedAt` TEXT, `localUpdatedAt` INTEGER NOT NULL, `dirty` INTEGER NOT NULL, `deleted` INTEGER NOT NULL, `rawJson` TEXT NOT NULL, PRIMARY KEY(`ownerUserId`, `id`))",
+        "fields": [
+          {
+            "fieldPath": "ownerUserId",
+            "columnName": "ownerUserId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fullName",
+            "columnName": "fullName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "track",
+            "columnName": "track",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "categoryId",
+            "columnName": "categoryId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "halaqaId",
+            "columnName": "halaqaId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "primaryTeacherId",
+            "columnName": "primaryTeacherId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "guardianName",
+            "columnName": "guardianName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "nationalId",
+            "columnName": "nationalId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "phone",
+            "columnName": "phone",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "dateOfBirth",
+            "columnName": "dateOfBirth",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "schoolGrade",
+            "columnName": "schoolGrade",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "guardianPhone",
+            "columnName": "guardianPhone",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "guardianEmail",
+            "columnName": "guardianEmail",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "gender",
+            "columnName": "gender",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "enrollmentDate",
+            "columnName": "enrollmentDate",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "programName",
+            "columnName": "programName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "address",
+            "columnName": "address",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "photoPath",
+            "columnName": "photoPath",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "targetPagesWeekly",
+            "columnName": "targetPagesWeekly",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "targetReviewPagesWeekly",
+            "columnName": "targetReviewPagesWeekly",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "remoteUpdatedAt",
+            "columnName": "remoteUpdatedAt",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "localUpdatedAt",
+            "columnName": "localUpdatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dirty",
+            "columnName": "dirty",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deleted",
+            "columnName": "deleted",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rawJson",
+            "columnName": "rawJson",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "ownerUserId",
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_students_local_ownerUserId_fullName",
+            "unique": false,
+            "columnNames": [
+              "ownerUserId",
+              "fullName"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_students_local_ownerUserId_fullName` ON `${TABLE_NAME}` (`ownerUserId`, `fullName`)"
+          },
+          {
+            "name": "index_students_local_ownerUserId_status",
+            "unique": false,
+            "columnNames": [
+              "ownerUserId",
+              "status"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_students_local_ownerUserId_status` ON `${TABLE_NAME}` (`ownerUserId`, `status`)"
+          },
+          {
+            "name": "index_students_local_ownerUserId_track",
+            "unique": false,
+            "columnNames": [
+              "ownerUserId",
+              "track"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_students_local_ownerUserId_track` ON `${TABLE_NAME}` (`ownerUserId`, `track`)"
+          },
+          {
+            "name": "index_students_local_ownerUserId_halaqaId",
+            "unique": false,
+            "columnNames": [
+              "ownerUserId",
+              "halaqaId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_students_local_ownerUserId_halaqaId` ON `${TABLE_NAME}` (`ownerUserId`, `halaqaId`)"
+          },
+          {
+            "name": "index_students_local_ownerUserId_categoryId",
+            "unique": false,
+            "columnNames": [
+              "ownerUserId",
+              "categoryId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_students_local_ownerUserId_categoryId` ON `${TABLE_NAME}` (`ownerUserId`, `categoryId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "sync_meta",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`ownerUserId` TEXT NOT NULL, `lastPushAt` INTEGER, `lastPullAt` INTEGER, `lastError` TEXT, PRIMARY KEY(`ownerUserId`))",
+        "fields": [
+          {
+            "fieldPath": "ownerUserId",
+            "columnName": "ownerUserId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastPushAt",
+            "columnName": "lastPushAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastPullAt",
+            "columnName": "lastPullAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastError",
+            "columnName": "lastError",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "ownerUserId"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd792bf2c454b8220073d218edc360386')"
+    ]
+  }
+}

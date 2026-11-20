@@ -220,6 +220,8 @@ interface StudentLocalDao {
     @Query("SELECT * FROM students_local WHERE ownerUserId=:owner AND id=:id LIMIT 1") fun byId(owner: String, id: String): StudentLocalEntity?
     @Query("SELECT * FROM students_local WHERE ownerUserId=:owner AND dirty=1") fun dirty(owner: String): List<StudentLocalEntity>
     @Query("DELETE FROM students_local WHERE ownerUserId=:owner AND dirty=0") fun clearClean(owner: String)
+    /** Atomic: delete every clean row of the owner and insert [rows] (callers leave out the ids of dirty rows, which are never touched). */
+    @Transaction fun replaceClean(owner: String, rows: List<StudentLocalEntity>) { clearClean(owner); upsertAll(rows) }
     @Query("DELETE FROM students_local WHERE ownerUserId=:owner AND id=:id AND dirty=0") fun deleteClean(owner: String, id: String)
     @Query("DELETE FROM students_local WHERE ownerUserId=:owner AND id=:id") fun deleteAny(owner: String, id: String)
     @Query("UPDATE students_local SET dirty=0, deleted=0, remoteUpdatedAt=:updatedAt, rawJson=:rawJson, localUpdatedAt=:now WHERE ownerUserId=:owner AND id=:id")
@@ -251,7 +253,7 @@ abstract class HalaqatiOfflineDatabase : RoomDatabase() {
                 context.applicationContext,
                 HalaqatiOfflineDatabase::class.java,
                 "halaqati-rc7.db",
-            ).build().also { instance = it }
+            ).addMigrations(*HalaqatiMigrations.ALL).build().also { instance = it }
         }
     }
 }

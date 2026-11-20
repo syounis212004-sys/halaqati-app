@@ -423,7 +423,13 @@ class HalaqatiRepository(
         ),
     )
 
-    private fun recordPlanHealthSnapshot(snapshot: PlanSnapshot, today: LocalDate): JSONObject {
+    private val planHealthStore = object : PlanHealthMemo.Store {
+        private val prefs get() = context.applicationContext.getSharedPreferences("halaqati_plan_health_memo", Context.MODE_PRIVATE)
+        override fun read(owner: String): String? = prefs.getString(owner, null)
+        override fun write(owner: String, text: String) { prefs.edit().putString(owner, text).apply() }
+    }
+
+    private fun planHealthInputs(snapshot: PlanSnapshot, today: LocalDate): PlanHealthMemo.Inputs {
         val weekday = SmartPlanEngine.weekday(today)
         // RC19 guardian follow-up is intentionally a Hifz-delay signal. Sard can still
         // show its own health in the UI, but it must never create a "two Hifz days"
@@ -434,22 +440,28 @@ class HalaqatiRepository(
         val effectiveWeekdays = activePhase?.scheduleWeekdays?.takeIf { it.isNotEmpty() } ?: snapshot.plan.scheduleWeekdays
         val scheduled = hifzWindow && weekday in effectiveWeekdays && weekday != snapshot.plan.catchUpWeekday
         val ratio = if (snapshot.progress.plannedByToday <= .001) 1.0 else snapshot.progress.completed / snapshot.progress.plannedByToday
-        return JSONObject(withAuthRetry {
+        return PlanHealthMemo.Inputs(
+            scheduled = scheduled, health = snapshot.progress.health, ratio = ratio,
+            expected = snapshot.progress.plannedByToday, completed = snapshot.progress.completed, behind = snapshot.progress.behindBy,
+        )
+    }
+
+    private fun recordPlanHealthSnapshot(snapshot: PlanSnapshot, today: LocalDate, inputs: PlanHealthMemo.Inputs): JSONObject =
+        JSONObject(withAuthRetry {
             api.rpc(
                 "rc19_record_plan_health",
                 JSONObject()
                     .put("p_plan_id", snapshot.plan.id)
                     .put("p_student_id", snapshot.student.id)
                     .put("p_day", today.toString())
-                    .put("p_scheduled", scheduled)
-                    .put("p_health", snapshot.progress.health)
-                    .put("p_ratio", ratio)
-                    .put("p_expected_pages", snapshot.progress.plannedByToday)
-                    .put("p_completed_pages", snapshot.progress.completed)
-                    .put("p_behind_pages", snapshot.progress.behindBy),
+                    .put("p_scheduled", inputs.scheduled)
+                    .put("p_health", inputs.health)
+                    .put("p_ratio", inputs.ratio)
+                    .put("p_expected_pages", inputs.expected)
+                    .put("p_completed_pages", inputs.completed)
+                    .put("p_behind_pages", inputs.behind),
             )
         })
-    }
 
     private fun markPlanHealthNotification(snapshot: PlanSnapshot, today: LocalDate) {
         withAuthRetry {
@@ -480,9 +492,16 @@ class HalaqatiRepository(
         todaySnapshots.forEach { snapshot ->
             if (authStopped) return@forEach
             val progress = snapshot.progress
-            runCatching { recordPlanHealthSnapshot(snapshot, today) }.onFailure { failure ->
+            // The same plan/student/day with the same numbers was already recorded cleanly on this device: skip the request.
+            val inputs = planHealthInputs(snapshot, today)
+            val memoOwner = currentUserId()
+            val signature = PlanHealthMemo.signature(today.toString(), inputs)
+            if (memoOwner != null && PlanHealthMemo.unchanged(planHealthStore, memoOwner, today.toString(), snapshot.plan.id, snapshot.student.id, signature)) return@forEach
+            val remember = { if (memoOwner != null) PlanHealthMemo.remember(planHealthStore, memoOwner, today.toString(), snapshot.plan.id, snapshot.student.id, signature) }
+            runCatching { recordPlanHealthSnapshot(snapshot, today, inputs) }.onFailure { failure ->
                 if (failure is SupabaseException && (failure.status == 401 || failure.status == 403 || failure.status == 429)) authStopped = true
             }.onSuccess { healthState ->
+                if (!healthState.optBoolean("should_notify", false)) remember()
                 if (healthState.optBoolean("should_notify", false)) {
                     runCatching {
                         val lagPercent = healthState.optDouble("lag_percent", 0.0)
@@ -498,7 +517,7 @@ class HalaqatiRepository(
                                 .put("behind_pages", progress.behindBy),
                         )
                         markPlanHealthNotification(snapshot, today)
-                    }.onSuccess { delivered++ }
+                    }.onSuccess { delivered++; remember() }
                 }
             }
         }
@@ -1008,16 +1027,18 @@ class HalaqatiRepository(
                 }
             }
         }
-        offlineDb.students().clearClean(owner)
+        // The replacement is ONE transaction: a process death between "delete the clean rows" and "insert the new ones" can no longer leave the table empty.
+        val fresh = ArrayList<StudentLocalEntity>(arr.length())
         for (index in 0 until arr.length()) {
             val row = arr.optJSONObject(index) ?: continue
             val id = row.optString("id")
-            if (id in dirtyIds) continue
+            if (id in dirtyIds || id.isBlank()) continue
             val photo = if (fetchedPhotos.containsKey(id)) fetchedPhotos[id] else localPhotos[id]
             row.put("photo_path", photo ?: JSONObject.NULL)
-            upsertStudentLocal(owner, row, dirty = false)
+            fresh += StudentLocalEntity.fromJson(owner, row, dirty = false)
             if (fetchedPhotos.containsKey(id)) photoStamps.put(id, row.optString("updated_at"))
         }
+        offlineDb.students().replaceClean(owner, fresh)
         saveStudentPhotoStamps(photoStamps)
         cache.put(owner, CACHE_STUDENTS, localStudentsJson(owner).toString())
         markPulled(owner)
@@ -1082,8 +1103,30 @@ class HalaqatiRepository(
         if (!online()) return stale
         val arr = runCatching { withAuthRetry { api.select("sessions", "select=*&status=neq.cancelled&order=session_date.desc&limit=300") } }
             .getOrElse { return stale }
-        cache.put(owner, CACHE_SESSIONS, arr.toString())
-        return sessionsFromJson(arr.toString(), includeArchived)
+        val merged = withPendingSessions(owner, arr)
+        cache.put(owner, CACHE_SESSIONS, merged.toString())
+        return sessionsFromJson(merged.toString(), includeArchived)
+    }
+
+    /** Sessions created here but not uploaded yet stay in the list; sessions deleted here but not yet deleted on the server stay hidden. */
+    private fun withPendingSessions(owner: String, server: JSONArray): JSONArray {
+        val pending = runCatching { queue.snapshot(owner, 1_000) }.getOrDefault(emptyList())
+            .filter { it.entityTable == "sessions" || it.path.contains("/rest/v1/sessions") }
+        if (pending.isEmpty()) return server
+        val serverIds = (0 until server.length()).mapNotNull { server.optJSONObject(it)?.optString("id")?.takeIf(String::isNotBlank) }.toSet()
+        val upserts = pending.filter { it.method == "POST" && it.entityTable == "sessions" }
+            .mapNotNull { item -> item.body?.let { runCatching { JSONObject(it) }.getOrNull() }?.takeIf { it.optString("id").isNotBlank() } }
+        val deletes = pending.filter { it.method == "DELETE" }.mapNotNull { SessionDeleteGuard.sessionIdFromPath(it.path) }
+        val plan = SessionPendingMerge.plan(serverIds, upserts.map { it.optString("id") }, deletes)
+        if (plan.addIds.isEmpty() && plan.hideIds.isEmpty()) return server
+        val out = JSONArray()
+        for (i in 0 until server.length()) {
+            val row = server.optJSONObject(i) ?: continue
+            if (row.optString("id") !in plan.hideIds) out.put(row)
+        }
+        val seen = HashSet<String>()
+        upserts.forEach { row -> val id = row.optString("id"); if (id in plan.addIds && seen.add(id)) out.put(row) }
+        return out
     }
 
     fun plans(forceRefresh: Boolean = false): List<PlanRow> {
@@ -3775,10 +3818,16 @@ class HalaqatiRepository(
             val id = row.optString("student_id")
             if (id.isBlank()) continue
             val selection = row.optJSONObject("selection_data") ?: JSONObject()
-            val lines = selection.optJSONArray("qcf_line_keys")?.let { a ->
-                (0 until a.length()).mapNotNull { a.optString(it).takeIf(String::isNotBlank) }
-            }.orEmpty()
-            val effectivePages = com.mohammedsamir.halaqati.quran.RecitationParityRules.effectivePages(row.optDouble("pages_count", 0.0), lines)
+            // the ranking source RPC returns only the distinct line count (qcf_line_count); the REST rows still carry the keys
+            val lineCount = selection.optInt("qcf_line_count", -1)
+            val effectivePages = if (lineCount >= 0) {
+                com.mohammedsamir.halaqati.quran.RecitationParityRules.effectivePagesFromCount(row.optDouble("pages_count", 0.0), lineCount)
+            } else {
+                val lines = selection.optJSONArray("qcf_line_keys")?.let { a ->
+                    (0 until a.length()).mapNotNull { a.optString(it).takeIf(String::isNotBlank) }
+                }.orEmpty()
+                com.mohammedsamir.halaqati.quran.RecitationParityRules.effectivePages(row.optDouble("pages_count", 0.0), lines)
+            }
             val aggregate = byStudent.getOrPut(id) { Aggregate(student) }
             aggregate.points += row.optDouble("points", 0.0)
             if (((rankingTrack == "hifz" && row.optString("activity_type") == "new_hifz") || (rankingTrack == "sard" && row.optString("activity_type") == "sard")) && canonicalProgram == "general_hifz") {
@@ -6434,6 +6483,34 @@ class HalaqatiRepository(
     }
 
     /** Periodic/background reconciliation. Never used as the blocking foreground sync path. */
+    @Volatile private var rankingRpcMissingAt = 0L
+
+    /**
+     * The 62-day ranking source. With the server RPC `rc_ranking_source` each row carries only the number of distinct Quran line keys
+     * (selection_data was 64% of the bytes: 827,699 of 1,288,212 for 1,105 rows); without it (RPC not deployed) the previous REST select is used.
+     */
+    private fun rankingSourceRows(windowStart: String): JSONArray {
+        if (RpcAvailability.shouldTry(rankingRpcMissingAt, System.currentTimeMillis())) {
+            try {
+                val text = withAuthRetry { api.rpc("rc_ranking_source", JSONObject().put("p_from", windowStart).put("p_limit", REPORT_ROW_CEILING)) }
+                return JSONArray(text.ifBlank { "[]" })
+            } catch (e: SupabaseException) {
+                if (!RpcAvailability.isMissing(e.status, e.sqlState, e.message)) throw e
+                rankingRpcMissingAt = System.currentTimeMillis()
+            }
+        }
+        return withAuthRetry {
+            api.select(
+                "recitation_entries",
+                "select=student_id,pages_count,mistakes,prompts,points,activity_type,selection_data,start_surah,start_ayah,end_surah,end_ayah," +
+                    "students!inner(full_name,category_id,track_code),sessions!inner(session_date)&sessions.session_date=gte.$windowStart&sessions.status=neq.cancelled&limit=$REPORT_ROW_CEILING",
+            )
+        }
+    }
+
+    private val fullRefreshLock = Any()
+    @Volatile private var fullRefreshRunning = false
+
     fun fullRefreshNow() {
         if (!online()) return
         val owner = currentUserId() ?: return
@@ -6442,71 +6519,84 @@ class HalaqatiRepository(
         // screens still refresh their own data when opened (90 s cache), so this only warms the offline copy.
         val lastFull = cache.get(owner, CACHE_FULL_REFRESH_AT, maxAge = null)?.toLongOrNull() ?: 0L
         if (System.currentTimeMillis() - lastFull < FULL_REFRESH_MIN_GAP_MS) return
-        cache.put(owner, CACHE_FULL_REFRESH_AT, System.currentTimeMillis().toString())
-        invalidatePlanSnapshotMemory()
-        runCatching { refreshStudents() }
-        runCatching { refreshSessions() }
-        runCatching { warmRecentSessionDetails(owner, cachedSessions(owner, maxAge = null).orEmpty().map { it.id }) }
-        runCatching { refreshPlans() }
-        runCatching { accountProfiles(forceRefresh = true) }
-        runCatching { guardianAccounts(forceRefresh = true) }
-        runCatching { table("halaqas", "select=id,name,active&order=name.asc&limit=200", forceRefresh = true) }
-        runCatching { table("halaqas", "select=id,name,active,halaqa_type,program_specialization,affects_primary_plan,starts_on,ends_on&order=name.asc&limit=200", forceRefresh = true) }
-        runCatching { table("student_categories", "select=id,halaqa_id,name,active&order=name.asc&limit=500", forceRefresh = true) }
-        runCatching {
-            // RC27.34: only the last ~2 months are kept offline for rankings (was every recitation ever, up to 10000 rows, every pull).
-            val windowStart = LocalDate.now().minusDays(RANKING_CACHE_DAYS).toString()
-            val rankingSource = withAuthRetry {
-                api.select(
-                    "recitation_entries",
-                    "select=student_id,pages_count,mistakes,prompts,points,activity_type,selection_data,start_surah,start_ayah,end_surah,end_ayah," +
-                        "students!inner(full_name,category_id,track_code),sessions!inner(session_date)&sessions.session_date=gte.$windowStart&sessions.status=neq.cancelled&limit=$REPORT_ROW_CEILING",
-                )
+        // Two callers (foreground sync and the worker) must not run the pull twice; the "done" stamp is written AFTER the pull.
+        synchronized(fullRefreshLock) { if (fullRefreshRunning) return; fullRefreshRunning = true }
+        try {
+            invalidatePlanSnapshotMemory()
+            val role = cachedProfile()?.role ?: UserRole.UNKNOWN
+            val wanted = FullRefreshPolicy.stepsFor(role)
+            val results = linkedMapOf<FullRefreshPolicy.Step, Boolean>()
+            fun step(step: FullRefreshPolicy.Step, block: () -> Unit) {
+                if (step !in wanted) return
+                results[step] = runCatching(block).isSuccess
             }
-            cache.put(owner, CACHE_RANKING_SOURCE, rankingSource.toString())
-            cache.put(owner, CACHE_RANKING_SOURCE_FROM, windowStart)
-        }
-        runCatching { planEvents(forceRefresh = true) }
-        // Warm the screens that must remain useful after connectivity/DNS disappears.
-        runCatching { planSnapshots(LocalDate.now(), forceRefresh = true) }
-        val today = LocalDate.now()
-        val monthStart = YearMonth.from(today).atDay(1).toString()
-        runCatching { reportRecitations(monthStart, today.toString(), "all", forceRefresh = true) }
-        runCatching { reportSummary(monthStart, today.toString(), "all", "all", "all", forceRefresh = true) }
-        runCatching { table("supervisor_visits", "select=*&order=visit_date.desc&limit=300", forceRefresh = true) }
-        runCatching { table("student_goals", "select=*&period_start=lte.$today&period_end=gte.$today&limit=1000", forceRefresh = true) }
-        // Supervision dashboard uses these exact projections; warm them so it can reopen fully offline.
-        val supervisionSessions = runCatching { table("sessions", "select=*&order=session_date.desc&limit=300", forceRefresh = true) }.getOrElse { JSONArray() }
-        runCatching {
-            table(
-                "smart_plans",
-                "select=id,scope_type,halaqa_id,student_id,category_id,plan_type,start_date,end_date,status,settings&status=neq.archived&limit=1000",
-                forceRefresh = true,
-            )
-        }
-        runCatching { table("halaqas", "select=id,name&active=eq.true&order=name.asc&limit=100", forceRefresh = true) }
-        val todaySessionIds = (0 until supervisionSessions.length()).mapNotNull { index ->
-            supervisionSessions.optJSONObject(index)?.takeIf {
-                it.optString("session_date") == today.toString() && it.optString("status") != "cancelled"
-            }?.optString("id")?.takeIf(String::isNotBlank)
-        }
-        if (todaySessionIds.isNotEmpty()) {
-            runCatching {
+            val today = LocalDate.now()
+            val monthStart = YearMonth.from(today).atDay(1).toString()
+            step(FullRefreshPolicy.Step.STUDENTS) { refreshStudents() }
+            step(FullRefreshPolicy.Step.SESSIONS) { refreshSessions() }
+            step(FullRefreshPolicy.Step.SESSION_DETAILS) { warmRecentSessionDetails(owner, cachedSessions(owner, maxAge = null).orEmpty().map { it.id }) }
+            step(FullRefreshPolicy.Step.PLANS) { refreshPlans() }
+            step(FullRefreshPolicy.Step.ACCOUNTS) { accountProfiles(forceRefresh = true) }
+            step(FullRefreshPolicy.Step.GUARDIAN_ACCOUNTS) { guardianAccounts(forceRefresh = true) }
+            step(FullRefreshPolicy.Step.HALAQAS) {
+                table("halaqas", "select=id,name,active&order=name.asc&limit=200", forceRefresh = true)
+                table("halaqas", "select=id,name,active,halaqa_type,program_specialization,affects_primary_plan,starts_on,ends_on&order=name.asc&limit=200", forceRefresh = true)
+            }
+            step(FullRefreshPolicy.Step.CATEGORIES) { table("student_categories", "select=id,halaqa_id,name,active&order=name.asc&limit=500", forceRefresh = true) }
+            step(FullRefreshPolicy.Step.RANKING) {
+                // RC27.34: only the last ~2 months are kept offline for rankings (was every recitation ever, up to 10000 rows, every pull).
+                val windowStart = LocalDate.now().minusDays(RANKING_CACHE_DAYS).toString()
+                val rankingSource = rankingSourceRows(windowStart)
+                cache.put(owner, CACHE_RANKING_SOURCE, rankingSource.toString())
+                cache.put(owner, CACHE_RANKING_SOURCE_FROM, windowStart)
+            }
+            step(FullRefreshPolicy.Step.PLAN_EVENTS) { planEvents(forceRefresh = true) }
+            // Warm the screens that must remain useful after connectivity/DNS disappears.
+            step(FullRefreshPolicy.Step.PLAN_SNAPSHOTS) { planSnapshots(LocalDate.now(), forceRefresh = true) }
+            step(FullRefreshPolicy.Step.REPORTS) {
+                reportRecitations(monthStart, today.toString(), "all", forceRefresh = true)
+                reportSummary(monthStart, today.toString(), "all", "all", "all", forceRefresh = true)
+            }
+            step(FullRefreshPolicy.Step.SUPERVISOR_VISITS) { table("supervisor_visits", "select=*&order=visit_date.desc&limit=300", forceRefresh = true) }
+            step(FullRefreshPolicy.Step.GOALS) { table("student_goals", "select=*&period_start=lte.$today&period_end=gte.$today&limit=1000", forceRefresh = true) }
+            // Supervision dashboard uses these exact projections; warm them so it can reopen fully offline.
+            step(FullRefreshPolicy.Step.SUPERVISION) {
+                val supervisionSessions = table("sessions", "select=*&order=session_date.desc&limit=300", forceRefresh = true)
                 table(
-                    "attendance_records",
-                    "select=student_id,status&session_id=in.(${todaySessionIds.joinToString(",")})&limit=3000",
+                    "smart_plans",
+                    "select=id,scope_type,halaqa_id,student_id,category_id,plan_type,start_date,end_date,status,settings&status=neq.archived&limit=1000",
                     forceRefresh = true,
                 )
+                table("halaqas", "select=id,name&active=eq.true&order=name.asc&limit=100", forceRefresh = true)
+                val todaySessionIds = (0 until supervisionSessions.length()).mapNotNull { index ->
+                    supervisionSessions.optJSONObject(index)?.takeIf {
+                        it.optString("session_date") == today.toString() && it.optString("status") != "cancelled"
+                    }?.optString("id")?.takeIf(String::isNotBlank)
+                }
+                if (todaySessionIds.isNotEmpty()) {
+                    table(
+                        "attendance_records",
+                        "select=student_id,status&session_id=in.(${todaySessionIds.joinToString(",")})&limit=3000",
+                        forceRefresh = true,
+                    )
+                }
             }
+            step(FullRefreshPolicy.Step.ANNOUNCEMENTS) { table("announcements", "select=*&order=pinned.desc&order=publish_at.desc&limit=200", forceRefresh = true) }
+            step(FullRefreshPolicy.Step.FORUM) {
+                table("forum_posts", "select=*&order=pinned.desc&order=created_at.desc&limit=200", forceRefresh = true)
+                table("forum_comments", "select=*&order=created_at.asc&limit=1000", forceRefresh = true)
+            }
+            val now = System.currentTimeMillis()
+            val success = FullRefreshPolicy.isSuccess(results)
+            cache.put(owner, CACHE_FULL_REFRESH_AT, FullRefreshPolicy.lastStampToStore(now, success, FULL_REFRESH_MIN_GAP_MS).toString())
+            val meta = offlineDb.syncMeta().get(owner) ?: SyncMetaEntity(owner)
+            offlineDb.syncMeta().put(
+                if (success) meta.copy(lastPushAt = now, lastPullAt = now, lastError = FullRefreshPolicy.errorText(results)?.let { "partial:$it" })
+                else meta.copy(lastError = "refresh failed:" + (FullRefreshPolicy.errorText(results) ?: "no result")),
+            )
+        } finally {
+            fullRefreshRunning = false
         }
-        runCatching { table("announcements", "select=*&order=pinned.desc&order=publish_at.desc&limit=200", forceRefresh = true) }
-        runCatching { table("forum_posts", "select=*&order=pinned.desc&order=created_at.desc&limit=200", forceRefresh = true) }
-        runCatching { table("forum_comments", "select=*&order=created_at.asc&limit=1000", forceRefresh = true) }
-        offlineDb.syncMeta().put(
-            (offlineDb.syncMeta().get(owner) ?: SyncMetaEntity(owner)).copy(
-                lastPushAt = System.currentTimeMillis(), lastPullAt = System.currentTimeMillis(), lastError = null,
-            ),
-        )
     }
 
     fun scheduleBackgroundRefresh() {

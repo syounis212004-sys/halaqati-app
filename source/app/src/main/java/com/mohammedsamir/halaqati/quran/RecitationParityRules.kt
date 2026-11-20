@@ -12,6 +12,10 @@ object RecitationParityRules {
         if (qcfLineKeys.isNotEmpty()) qcfLineKeys.distinct().size.toDouble() / 15.0
         else storedPages.coerceAtLeast(0.0)
 
+    /** Same rule as [effectivePages] when only the number of distinct non-blank line keys is known (the ranking source RPC returns the count, not the keys). */
+    fun effectivePagesFromCount(storedPages: Double, distinctLineCount: Int): Double =
+        if (distinctLineCount > 0) distinctLineCount.toDouble() / 15.0 else storedPages.coerceAtLeast(0.0)
+
     fun rankingTrackForActivity(activityType: String): String = when (activityType) {
         "new_hifz", "hifz" -> "hifz"
         in reviewActivities -> "review"
