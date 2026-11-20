@@ -41,6 +41,8 @@ class ConnectivitySyncCoordinator(
     private val foregroundReady = AtomicBoolean(false)
     private val lastAttemptAt = AtomicLong(0L)
     private var delayedJob: Job? = null
+    private var retryJob: Job? = null
+    private val retryAttempt = java.util.concurrent.atomic.AtomicInteger(0)
 
     private fun validated(): Boolean {
         val network = cm.activeNetwork ?: return false
@@ -71,11 +73,22 @@ class ConnectivitySyncCoordinator(
             delay(180)
             try {
                 runCatching { syncAction() }
-                    .onSuccess { _syncEpoch.value = _syncEpoch.value + 1L }
+                    .onSuccess { retryAttempt.set(0); retryJob?.cancel(); _syncEpoch.value = _syncEpoch.value + 1L }
+                    .onFailure { scheduleRetry() }
             } finally {
                 _online.value = validated()
                 syncing.set(false)
             }
+        }
+    }
+
+    /** One try after reconnect is not enough (DNS/token not ready yet): retry with backoff, then leave it to the periodic worker. */
+    private fun scheduleRetry() {
+        val delayMs = SyncRetryPolicy.delayMs(retryAttempt.getAndIncrement()) ?: return
+        retryJob?.cancel()
+        retryJob = scope.launch(Dispatchers.IO) {
+            delay(delayMs)
+            requestImmediateSync()
         }
     }
 
