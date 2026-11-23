@@ -11,12 +11,14 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.util.Base64
 
-class SupabaseException(message: String, val status: Int = 0, val sqlState: String? = null) : Exception(message)
+class SupabaseException(message: String, val status: Int = 0, val sqlState: String? = null, val errorCode: String? = null) : Exception(message)
 
 class SupabaseApi(private val sessionStore: SecureSessionStore) {
     @Volatile private var refreshFailures = 0
     @Volatile private var firstRefreshFailureAt = 0L
     @Volatile private var lastRefreshFailureAt = 0L
+    /** True once Supabase said this device's session no longer exists: nothing authenticated is sent until the next sign-in. */
+    @Volatile private var sessionDead = false
     companion object {
         const val APP_DEEP_LINK = "com.mohammedsamir.halaqati://auth/callback"
         /** PostgREST returns at most this many rows per request unless the project raises "Max rows". */
@@ -49,6 +51,7 @@ class SupabaseApi(private val sessionStore: SecureSessionStore) {
         prefer: String? = null,
         bearerOverride: String? = null,
     ): String {
+        if (auth && bearerOverride == null && sessionDead) throw SupabaseException(AuthFailureRules.SESSION_GONE_MESSAGE, 401)
         val connection = connection(url, method, auth, prefer, bearerOverride)
         if (body != null) {
             connection.doOutput = true
@@ -67,9 +70,22 @@ class SupabaseApi(private val sessionStore: SecureSessionStore) {
                     .ifBlank { text }
             }.getOrDefault(text)
             val sqlState = runCatching { JSONObject(text).optString("code").takeIf { it.isNotBlank() } }.getOrNull()
-            throw SupabaseException(detail.ifBlank { "HTTP $code" }, code, sqlState)
+            val errorCode = runCatching { JSONObject(text).optString("error_code").takeIf { it.isNotBlank() } }.getOrNull()
+            throw SupabaseException(detail.ifBlank { "HTTP $code" }, code, sqlState, errorCode)
         }
         return text
+    }
+
+    /** Every successful sign-in lifts the "session gone" state; refresh success does the same below. */
+    private fun saved(session: UserSession): UserSession {
+        sessionStore.save(session)
+        sessionDead = false
+        refreshBlockedUntil = 0L
+        refreshBlockedError = null
+        refreshFailures = 0
+        firstRefreshFailureAt = 0L
+        SessionExpiry.expired.value = false
+        return session
     }
 
     fun signIn(email: String, password: String): UserSession {
@@ -81,7 +97,7 @@ class SupabaseApi(private val sessionStore: SecureSessionStore) {
                 auth = false,
             ),
         )
-        return sessionFromAuthJson(json, email).also(sessionStore::save)
+        return saved(sessionFromAuthJson(json, email))
     }
 
     fun signInWithGoogleIdToken(idToken: String, rawNonce: String): UserSession {
@@ -98,7 +114,7 @@ class SupabaseApi(private val sessionStore: SecureSessionStore) {
                 auth = false,
             ),
         )
-        return sessionFromAuthJson(json, "").also(sessionStore::save)
+        return saved(sessionFromAuthJson(json, ""))
     }
 
     fun signUp(
@@ -132,7 +148,7 @@ class SupabaseApi(private val sessionStore: SecureSessionStore) {
             sessionStore.savePendingEmailLink(email)
             return null
         }
-        return sessionFromAuthJson(json, email).also(sessionStore::save)
+        return saved(sessionFromAuthJson(json, email))
     }
 
     /** Revokes this device's refresh token on the server. Best effort: sign-out must also work offline. */
@@ -176,8 +192,18 @@ class SupabaseApi(private val sessionStore: SecureSessionStore) {
             refreshFailures = 0
             firstRefreshFailureAt = 0L
             SessionExpiry.expired.value = false
+            sessionDead = false
             sessionFromAuthJson(json, old.email).also(sessionStore::save)
         } catch (e: SupabaseException) {
+            if (AuthFailureRules.isSessionGone(e.status, e.errorCode, e.message)) {
+                // The refresh token does not exist any more: no retry can work. Say so now, stop calling the server, keep local data.
+                val gone = SupabaseException(AuthFailureRules.SESSION_GONE_MESSAGE, 401, e.sqlState, e.errorCode)
+                sessionDead = true
+                refreshBlockedError = gone
+                refreshBlockedUntil = Long.MAX_VALUE
+                SessionExpiry.expired.value = true
+                throw gone
+            }
             val limited = e.status == 429
             val wrapped = if (e.status == 400 || e.status == 401 || e.status == 403 || limited) {
                 SupabaseException("تعذر تجديد جلسة الدخول. أعد المحاولة بعد قليل أو سجّل الدخول من جديد.", 401, e.sqlState)
@@ -228,7 +254,7 @@ class SupabaseApi(private val sessionStore: SecureSessionStore) {
                     auth = false,
                 ),
             )
-            return sessionFromAuthJson(json, "").also(sessionStore::save)
+            return saved(sessionFromAuthJson(json, ""))
         }
         val access = callback.accessToken
         val refresh = callback.refreshToken
@@ -253,7 +279,7 @@ class SupabaseApi(private val sessionStore: SecureSessionStore) {
             throw SupabaseException("رابط الدخول لا يخص الحساب الذي طلبته من هذا الجهاز.")
         }
         if (callback.type.isNotBlank()) sessionStore.clearPendingEmailLink()
-        return UserSession(access, refresh, userId, email).also(sessionStore::save)
+        return saved(UserSession(access, refresh, userId, email))
     }
 
     fun callbackType(url: String): String = AuthCallbackRules.parse(url, APP_DEEP_LINK)?.type.orEmpty()
