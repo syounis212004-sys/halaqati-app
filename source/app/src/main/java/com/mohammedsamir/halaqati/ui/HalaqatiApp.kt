@@ -200,12 +200,13 @@ private fun MainShell(
 
     var quickAddOpen by remember { mutableStateOf(false) }
     val sessionExpired by com.mohammedsamir.halaqati.data.SessionExpiry.expired.collectAsStateWithLifecycle()
-    var expiredDismissed by remember { mutableStateOf(false) }
+    // A new expiry (false -> true) always shows the prompt again, even if an earlier one was dismissed with «لاحقًا».
+    var expiredDismissed by remember(sessionExpired) { mutableStateOf(false) }
     if (sessionExpired && !expiredDismissed) {
         com.mohammedsamir.halaqati.ui.components.HalaqatiAlertDialog(
             onDismissRequest = { expiredDismissed = true },
             title = { androidx.compose.material3.Text("انتهت جلسة الدخول") },
-            text = { androidx.compose.material3.Text("تعذر تجديد الدخول تلقائيًا. سجّل الدخول من جديد لمتابعة الرفع. ما لم يُرفع بعد يبقى محفوظًا على جهازك.") },
+            text = { androidx.compose.material3.Text("انتهت جلسة الدخول على هذا الجهاز (تظل جلسة الويب تعمل). سجّل الدخول من جديد لعرض أحدث البيانات ومتابعة الرفع. ما لم يُرفع بعد يبقى محفوظًا على جهازك.") },
             confirmButton = { androidx.compose.material3.TextButton(onClick = onLogout) { androidx.compose.material3.Text("تسجيل الدخول") } },
             dismissButton = { androidx.compose.material3.TextButton(onClick = { expiredDismissed = true }) { androidx.compose.material3.Text("لاحقًا") } },
         )
