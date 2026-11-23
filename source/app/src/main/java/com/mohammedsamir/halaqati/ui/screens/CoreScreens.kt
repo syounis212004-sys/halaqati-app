@@ -3807,7 +3807,7 @@ private fun RecitationDialog(
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(if (effectiveEvaluation == "repeat") Icons.Default.WarningAmber else Icons.Default.Verified, contentDescription = null)
                             Column {
-                                Text(if (isTilawah) "التقييم العام للتلاوة" else "تقييم V6 تلقائي", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(if (isTilawah) "التقييم العام للتلاوة" else "تقييم تلقائي", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text(recitationEvaluationAr(effectiveEvaluation), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             }
                         }

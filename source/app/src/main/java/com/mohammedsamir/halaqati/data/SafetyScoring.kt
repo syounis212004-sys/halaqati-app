@@ -12,8 +12,6 @@ import kotlin.math.max
  * the percentage is then capped at 69.9 so it never contradicts the grade.
  */
 object SafetyScoring {
-    private fun jsRound(value: Double): Double = floor(value + 0.5)
-
     private fun isOver(pages: Double, mistakes: Int, prompts: Int, lines: Double): Boolean {
         val allowance = max(1.0, ceil(lines / 15.0 - 1e-9))
         return mistakes.coerceAtLeast(0) > allowance || prompts.coerceAtLeast(0) > 2.0 * allowance
@@ -23,10 +21,10 @@ object SafetyScoring {
     fun calculate(pages: Double, mistakes: Int, prompts: Int, heardLines: Double? = null): Double {
         val p = pages.coerceAtLeast(0.0)
         val lines = heardLines?.coerceAtLeast(0.0) ?: (p * 15.0)
-        if (lines <= 0.0) return 0.0
-        val raw = 100.0 - (20.0 * mistakes.coerceAtLeast(0) + 5.0 * prompts.coerceAtLeast(0)) / (lines / 15.0)
+        if (p <= 0.0 || lines <= 0.0) return 0.0
+        val raw = 100.0 - 15.0 * (20.0 * mistakes.coerceAtLeast(0) + 5.0 * prompts.coerceAtLeast(0)) / lines
         val capped = if (isOver(p, mistakes, prompts, lines)) minOf(raw, 69.9) else raw
-        return jsRound(capped.coerceIn(0.0, 100.0) * 10.0) / 10.0
+        return floor(capped.coerceIn(0.0, 100.0) * 10.0 + 0.5 + 1e-9) / 10.0
     }
 
     fun inferredEvaluation(safety: Double, hasContent: Boolean = true): String = when {
@@ -45,6 +43,6 @@ object SafetyScoring {
         val p = pages.coerceAtLeast(0.0)
         if (p <= 0.0) return 0.0
         val value = (p - penaltyUnits(mistakes, prompts) * 0.25).coerceAtLeast(0.0)
-        return jsRound(value * 100.0) / 100.0
+        return floor(value * 100.0 + 0.5 + 1e-9) / 100.0
     }
 }

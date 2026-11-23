@@ -40,6 +40,12 @@ class SafetyScoringTest {
         assertEquals(0.0, SafetyScoring.calculate(0.0, 0, 0), 0.0)
     }
 
+    @Test fun exactTiesRoundUpLikeTheServer() {
+        assertEquals(0.23, SafetyScoring.points(0.6, 0, 6), 0.0001)
+        assertEquals(0.0, SafetyScoring.calculate(0.0, 0, 0, 3.0), 0.0)
+        assertEquals("excellent", ev(112.0 / 15.0, 1, 11, 112.0))
+    }
+
     @Test fun pointsKeepTheirShape() {
         assertEquals(0.88, SafetyScoring.points(1.0, 0, 2), 0.0001)
         assertEquals(0.75, SafetyScoring.points(1.0, 1, 0), 0.0001)

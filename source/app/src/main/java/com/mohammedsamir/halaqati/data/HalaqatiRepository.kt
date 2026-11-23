@@ -3843,7 +3843,7 @@ class HalaqatiRepository(
         val ordered = byStudent.entries.sortedWith(
             compareByDescending<Map.Entry<String, Aggregate>> { it.value.points }
                 .thenByDescending { it.value.pages }
-                .thenBy { (it.value.mistakes + it.value.prompts * 0.5) / it.value.pages.coerceAtLeast(0.0001) },
+                .thenBy { (it.value.mistakes + it.value.prompts * 0.25) / it.value.pages.coerceAtLeast(0.0001) },
         )
         val result = JSONArray().apply {
             ordered.forEach { (id, aggregate) ->
@@ -6070,7 +6070,7 @@ class HalaqatiRepository(
             .put("penalty_units", penaltyUnits)
             .put("penalty_per_page", penaltyPerPage)
             .put("points", points)
-            .put("scoring_version", if (draft.activityType == "tilawah") "TILAWAH_V1" else "V6")
+            .put("scoring_version", if (draft.activityType == "tilawah") "TILAWAH_V1" else "V7")
             .put("selection_data", selectionData)
         // RC15.2: tathbit recitations belong to the monthly plan, never to a phase. The server
         // trigger resolves plan_id from the session date, so no schema-dependent column is sent.

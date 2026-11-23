@@ -96,7 +96,7 @@ object OrgInsightRules {
 
     data class HalaqaSession(val halaqaId: String, val date: String, val cancelled: Boolean)
     data class HalaqaAttendance(val halaqaId: String, val status: String)
-    /** [safety] is the recitation's stored safety percentage (errors + prompts, scoring V6); null when the row has none. */
+    /** [safety] is the recitation's stored safety percentage (errors + prompts, scoring V7); null when the row has none. */
     data class HalaqaRecitation(val halaqaId: String, val activityType: String, val pages: Double, val evaluation: String, val safety: Double? = null)
     data class HalaqaStats(
         val halaqaId: String,

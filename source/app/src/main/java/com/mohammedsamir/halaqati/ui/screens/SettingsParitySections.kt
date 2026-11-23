@@ -265,8 +265,8 @@ internal fun AppUpdateSettingsCard() {
 internal fun V6ScoringSettingsCard() {
     Card(Modifier.fillMaxWidth(), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("معيار جودة التسميع V6", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text("الخطأ = 1 · التلقين = 0.5 · تطبيع على 15 سطرًا حسب السطور المسمعة فعليًا.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("معيار جودة التسميع", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("الخطأ = جملة (مرة واحدة) · التلقين = كلمة أو حركتان · الحد الأعلى للصفحة: خطأ وتلقينان.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 V6Band("ممتاز", "90–100%", Modifier.weight(1f))
                 V6Band("جيد جدًا", "80–<90%", Modifier.weight(1f))
