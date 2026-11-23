@@ -107,6 +107,9 @@ fun SmartPlanBulkCycleManagerSheet(
     var commonTarget by remember { mutableStateOf("25") }
     var commonDirection by remember { mutableStateOf(SmartPlanPhaseEngine.ROUTE_FROM_NAS_TO_BAQARAH) }
     var sardWeekdays by remember { mutableStateOf(setOf(0, 1, 2, 3, 4, 5)) }
+    // the days the students really have when the sheet opened: untouched common days never overwrite an individual choice
+    var initialSardWeekdays by remember { mutableStateOf(setOf(0, 1, 2, 3, 4, 5)) }
+    var weekdaysWereSeeded by remember { mutableStateOf(false) }
     var selectedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var expandedStudent by remember { mutableStateOf<String?>(null) }
     var customizations by remember { mutableStateOf<Map<String, BulkCycleCustomization>>(emptyMap()) }
@@ -166,10 +169,19 @@ fun SmartPlanBulkCycleManagerSheet(
                 .eachCount().maxByOrNull { it.value }?.key ?: commonHifzStart
             commonStartWasSeeded = true
         }
+        if (!weekdaysWereSeeded && rows.isNotEmpty()) {
+            com.mohammedsamir.halaqati.plans.PhaseDaysRules.commonDays(rows.map { it.sardPhase?.scheduleWeekdays })?.let {
+                sardWeekdays = it.toSet(); initialSardWeekdays = it.toSet()
+            }
+            weekdaysWereSeeded = true
+        }
     }
 
     fun effectiveCustomization(row: BulkCycleRow): BulkCycleCustomization = customizations[row.student.id]
-        ?: BulkCycleCustomization(commonHifzStart, commonHifzEnd, commonSardStart, commonSardEnd, commonTarget, commonDirection, sardWeekdays)
+        ?: BulkCycleCustomization(
+            commonHifzStart, commonHifzEnd, commonSardStart, commonSardEnd, commonTarget, commonDirection,
+            com.mohammedsamir.halaqati.plans.PhaseDaysRules.resolve(emptyList(), sardWeekdays, initialSardWeekdays, row.sardPhase?.scheduleWeekdays).toSet(),
+        )
 
     fun setCustomization(row: BulkCycleRow, transform: (BulkCycleCustomization) -> BulkCycleCustomization) {
         customizations = customizations + (row.student.id to transform(effectiveCustomization(row)))
