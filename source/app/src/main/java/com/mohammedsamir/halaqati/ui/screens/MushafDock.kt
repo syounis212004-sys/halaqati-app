@@ -209,7 +209,7 @@ private fun DockStrip(expanded: Boolean, single: Boolean, a: DockActions) {
     val label = if (expanded) "طي شريط الأدوات" else "توسيع شريط الأدوات"
     if (expanded && single) {
         Box(
-            Modifier.fillMaxWidth().height(28.dp).clickable(role = Role.Button, onClickLabel = label) { a.toggle(false) },
+            Modifier.fillMaxWidth().height(28.dp).clickable(role = Role.Button, onClickLabel = label) { a.toggle(false) }.semantics { contentDescription = label },
             contentAlignment = Alignment.Center,
         ) { HandlePill(a.pal) }
         return
