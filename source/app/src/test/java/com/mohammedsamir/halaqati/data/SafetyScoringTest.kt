@@ -51,4 +51,13 @@ class SafetyScoringTest {
         assertEquals(0.75, SafetyScoring.points(1.0, 1, 0), 0.0001)
         assertEquals(0.63, SafetyScoring.points(1.0, 1, 2), 0.0001)
     }
+
+    @Test fun aFlaggedPageForcesRepeatEvenWithinTheTotals() {
+        // 5 pages: one mistake and 2 prompts in total are well inside the allowance, but one page went over its own limit.
+        val ok = SafetyScoring.calculate(5.0, 1, 2)
+        val flagged = SafetyScoring.calculate(5.0, 1, 2, overLimitPage = true)
+        assertTrue(ok >= 90.0)
+        assertTrue(flagged <= 69.9)
+        assertEquals("repeat", SafetyScoring.inferredEvaluation(flagged))
+    }
 }

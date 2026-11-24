@@ -9,7 +9,8 @@ import kotlin.math.max
  * A mistake is a phrase (counted once however long); a prompt is one word, every two harakat are one prompt.
  * The most allowed on one page is ONE mistake and TWO prompts (a started page has the full allowance, more pages allow
  * proportionally more). safety = 100 - (20 * mistakes + 5 * prompts) / pages. Going over the allowance is always "repeat":
- * the percentage is then capped at 69.9 so it never contradicts the grade.
+ * the percentage is then capped at 69.9 so it never contradicts the grade. A single page marked over its own limit
+ * (mushaf marking: more than one mistake or more than two prompts on that page) is also "repeat" (overLimitPage).
  */
 object SafetyScoring {
     private fun isOver(pages: Double, mistakes: Int, prompts: Int, lines: Double): Boolean {
@@ -18,12 +19,12 @@ object SafetyScoring {
     }
 
     /** 15 lines are assumed per full Mushaf page when no QCF line selection is present. */
-    fun calculate(pages: Double, mistakes: Int, prompts: Int, heardLines: Double? = null): Double {
+    fun calculate(pages: Double, mistakes: Int, prompts: Int, heardLines: Double? = null, overLimitPage: Boolean = false): Double {
         val p = pages.coerceAtLeast(0.0)
         val lines = heardLines?.coerceAtLeast(0.0) ?: (p * 15.0)
         if (p <= 0.0 || lines <= 0.0) return 0.0
         val raw = 100.0 - 15.0 * (20.0 * mistakes.coerceAtLeast(0) + 5.0 * prompts.coerceAtLeast(0)) / lines
-        val capped = if (isOver(p, mistakes, prompts, lines)) minOf(raw, 69.9) else raw
+        val capped = if (overLimitPage || isOver(p, mistakes, prompts, lines)) minOf(raw, 69.9) else raw
         return floor(capped.coerceIn(0.0, 100.0) * 10.0 + 0.5 + 1e-9) / 10.0
     }
 
