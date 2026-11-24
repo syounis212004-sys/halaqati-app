@@ -14,7 +14,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -34,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.mohammedsamir.halaqati.quran.MushafOfflinePlan
 import com.mohammedsamir.halaqati.quran.MushafStore
+import com.mohammedsamir.halaqati.ui.components.ProFilterChip
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -96,14 +96,14 @@ internal fun MushafOfflineDialog(currentPage: Int, onDismiss: () -> Unit) {
                 Text("اختر الأجزاء:", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     val curJuz = (1..30).firstOrNull { currentPage in MushafOfflinePlan.juzPages(it) } ?: 1
-                    FilterChip(selected = selected == setOf(curJuz), enabled = !running, onClick = { selected = setOf(curJuz) }, label = { Text("الجزء الحالي") })
-                    FilterChip(selected = selected.size == 30, enabled = !running, onClick = { selected = (1..30).toSet() }, label = { Text("المصحف كاملًا") })
-                    FilterChip(selected = selected.isEmpty(), enabled = !running, onClick = { selected = emptySet() }, label = { Text("مسح الاختيار") })
+                    ProFilterChip(selected = selected == setOf(curJuz), enabled = !running, onClick = { selected = setOf(curJuz) }, label = "الجزء الحالي")
+                    ProFilterChip(selected = selected.size == 30, enabled = !running, onClick = { selected = (1..30).toSet() }, label = "المصحف كاملًا")
+                    ProFilterChip(selected = selected.isEmpty(), enabled = !running, onClick = { selected = emptySet() }, label = "مسح الاختيار")
                 }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    for (j in 1..30) FilterChip(
+                    for (j in 1..30) ProFilterChip(
                         selected = j in selected, enabled = !running,
-                        onClick = { selected = if (j in selected) selected - j else selected + j }, label = { Text(digits(j)) },
+                        onClick = { selected = if (j in selected) selected - j else selected + j }, label = digits(j),
                     )
                 }
                 if (pages.isNotEmpty()) Text(
