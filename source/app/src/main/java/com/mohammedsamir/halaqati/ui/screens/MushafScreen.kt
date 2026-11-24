@@ -205,6 +205,7 @@ internal fun MushafScreenContent(
     var preview by remember { mutableStateOf<Set<String>>(emptySet()) }
     var kindMenu by remember { mutableStateOf<Pair<String, Offset>?>(null) }
     var jumpDialog by remember { mutableStateOf(false) }
+    var offlineDialog by remember { mutableStateOf(false) }
     var announce by remember { mutableStateOf("") }
 
     LaunchedEffect(page) {
@@ -285,6 +286,7 @@ internal fun MushafScreenContent(
                                     onKind = { id, kind -> kindMenu = null; report(session.markWord(id, type, kind, page), "تم وضع علامة ${if (type == MarkType.Mistake) "خطأ" else "تلقين"}") },
                                     onDismissKind = { kindMenu = null },
                                     onRetry = { val p = page; page = 0; page = p },
+                                    onOffline = { offlineDialog = true },
                                 )
                             }
                         }
@@ -314,6 +316,8 @@ internal fun MushafScreenContent(
         }
     }
 
+    if (offlineDialog) MushafOfflineDialog(currentPage = page, onDismiss = { offlineDialog = false })
+
     if (jumpDialog) {
         var input by remember { mutableStateOf(page.toString()) }
         AlertDialog(
@@ -326,7 +330,12 @@ internal fun MushafScreenContent(
                 )
             },
             confirmButton = { TextButton(onClick = { input.toIntOrNull()?.let { page = MushafEngine.clampPage(it) }; jumpDialog = false }) { Text("انتقال") } },
-            dismissButton = { TextButton(onClick = { jumpDialog = false }) { Text("إلغاء") } },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { jumpDialog = false; offlineDialog = true }) { Text("بدون إنترنت") }
+                    TextButton(onClick = { jumpDialog = false }) { Text("إلغاء") }
+                }
+            },
         )
     }
 }
@@ -387,7 +396,7 @@ private fun MushafPage(
     state: PageState, page: Int, pageW: androidx.compose.ui.unit.Dp, pageH: androidx.compose.ui.unit.Dp, pal: MushafPalette, tick: Int, tool: Tool,
     session: MushafEngine.Session, preview: Set<String>, inRange: (Int, Int, Int) -> Boolean,
     onTapWord: (String) -> Unit, onLongWord: (String, Offset) -> Unit, onPreview: (Set<String>) -> Unit, onSpan: (List<String>) -> Unit,
-    kindMenuFor: Pair<String, Offset>?, onKind: (String, MarkKind) -> Unit, onDismissKind: () -> Unit, onRetry: () -> Unit,
+    kindMenuFor: Pair<String, Offset>?, onKind: (String, MarkKind) -> Unit, onDismissKind: () -> Unit, onRetry: () -> Unit, onOffline: () -> Unit,
 ) {
     Box(
         Modifier.width(pageW).height(pageH).background(pal.pageBg, RoundedCornerShape(6.dp))
@@ -399,6 +408,7 @@ private fun MushafPage(
                 Text("تعذّر عرض صفحة ${digits(page)}.", color = pal.pageInk, fontWeight = FontWeight.Bold)
                 Text(state.message + " يمكنك متابعة التسميع بالعدّادات اليدوية دون المصحف.", color = pal.pageInk, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
                 TextButton(onClick = onRetry) { Text("إعادة المحاولة") }
+                TextButton(onClick = onOffline) { Text("تنزيل المصحف للاستخدام بدون إنترنت", color = pal.chromeAccent) }
             }
             is PageState.Ready -> ReadyPage(state.page, page, pageW, pageH, pal, tick, tool, session, preview, inRange, onTapWord, onLongWord, onPreview, onSpan, kindMenuFor, onKind, onDismissKind)
         }

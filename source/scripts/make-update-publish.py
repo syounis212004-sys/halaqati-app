@@ -6,8 +6,8 @@ target=out/'Halaqati-latest.apk'
 shutil.copy2(apk,target)
 sha=hashlib.sha256(apk.read_bytes()).hexdigest()
 manifest={
-    'versionName':'2.91.10',
-    'versionCode':29110,
+    'versionName':'2.91.11',
+    'versionCode':29111,
     'apkUrl':'https://syounis212004-sys.github.io/halaqati-web/Halaqati-latest.apk',
     'sha256':sha,
     'native':True,
@@ -15,9 +15,9 @@ manifest={
     # workflow (input "mandatory"). Default is optional; use mandatory only for releases that fix wrong data or security.
     'mandatory':os.environ.get('HALAQATI_MANDATORY','false').strip().lower()=='true',
     'notes':[
-        "الإدارة الجماعية: اختيار أيام السرد من الأعلى يُطبَّق مباشرة على كل الطلاب المحددين (بما فيهم من خُصِّصت أيامهم)",
-        "أزرار الاعتماد صارت ثابتة أعلى الشاشة فلا حاجة للنزول إلى آخر القائمة",
-        "ضُبطت أيام مراحل السرد النشطة على الأحد–الجمعة (السبت إجازة)",
+        "المصحف بدون إنترنت: من نافذة «بدون إنترنت» في المصحف تنزّل جزءًا أو عدة أجزاء أو المصحف كاملًا (نحو ٢٠٠ م.ب) مرة واحدة على Wi-Fi، وتُفتح صفحاتها بلا اتصال",
+        "إذا انقطع الإنترنت تُفتح الصفحة المحمّلة سابقًا بدل رسالة الخطأ، ويمكن حذف المصحف المحمّل من النافذة نفسها",
+        "علامات التسميع والمعادلات وقاعدة البيانات دون تغيير"
     ]
 }
 (out/'version.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
