@@ -543,7 +543,8 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf app/build/preview
-          python3 scripts/ci-build.py testDebugUnitTest 660 --tests com.mohammedsamir.halaqati.ui.HalaqaCardPreviewTest
+          # --rerun: a build-cache hit would skip the test and produce no preview PNGs
+          python3 scripts/ci-build.py testDebugUnitTest 660 --tests com.mohammedsamir.halaqati.ui.HalaqaCardPreviewTest --rerun
           ls -la app/build/preview
           count=$(find app/build/preview -name '*.png' -size +2k | wc -l)
           echo "non-empty preview PNG count: $count"
