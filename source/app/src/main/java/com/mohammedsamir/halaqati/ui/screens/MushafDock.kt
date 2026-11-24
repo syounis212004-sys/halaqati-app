@@ -243,9 +243,9 @@ private fun SideRail(expanded: Boolean, a: DockActions, modifier: Modifier) {
     val shape = RoundedCornerShape(DockSpec.ContainerRadiusRail)
     var drag by remember { mutableFloatStateOf(0f) }
     BoxWithConstraints(modifier.fillMaxHeight()) {
-        val rowH = 68.dp   // 46dp plate + label + gap
+        val rowH = 76.dp   // 46dp plate + label (+ padding) + the 4dp gap between rows
         // fewest columns whose rows fit in the height we were given (chevron + padding take 60dp); the rail scrolls only as a last resort
-        val cols = (1..3).firstOrNull { c -> rowH * ((DockSpec.CellsInRow + c - 1) / c) + 60.dp <= maxHeight } ?: 3
+        val cols = (1..3).firstOrNull { c -> rowH * ((DockSpec.CellsInRow + c - 1) / c) + 64.dp <= maxHeight } ?: 3
         val twoCols = expanded && cols > 1
         val cell = 56.dp
         val w = if (!expanded) 60.dp else cell * cols + 8.dp
