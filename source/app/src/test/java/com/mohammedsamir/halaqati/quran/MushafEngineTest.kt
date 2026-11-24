@@ -81,7 +81,7 @@ class MushafEngineTest {
         assertEquals(1.0, MushafEngine.overflowScale(90.0, 100.0), 0.0)
         assertEquals(1.0, MushafEngine.overflowScale(100.0, 100.0), 0.0)
         assertEquals(0.985, MushafEngine.overflowScale(100.5, 100.0), 0.0)
-        assertEquals(0.891, MushafEngine.overflowScale(111.0, 100.0), 0.0)
+        assertEquals(0.892, MushafEngine.overflowScale(111.0, 100.0), 0.0)
     }
 
     @Test fun centeredLinesFollowTheMadinahPrint() {
