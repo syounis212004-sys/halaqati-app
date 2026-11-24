@@ -3566,6 +3566,12 @@ private fun RecitationDialog(
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var showQuranPicker by remember { mutableStateOf(false) }
+    // interactive mushaf: the marks live here while the form is open; a new range starts a fresh session (as on the web)
+    var showMushaf by remember { mutableStateOf(false) }
+    var mushafEpoch by remember { mutableIntStateOf(0) }
+    var mushafTick by remember { mutableIntStateOf(0) }
+    var mushafStartPage by remember(existing?.id) { mutableIntStateOf(1) }
+    val mushafSession = remember(student.id, session.id, existing?.id, mushafEpoch) { com.mohammedsamir.halaqati.quran.MushafEngine.Session(mushafStartPage) }
     var selectedQuranRange by remember(student.id, session.id, existing?.id) {
         mutableStateOf(existing?.let { row ->
             if (row.qcfLineKeys.isNotEmpty() || row.startSurah == null || row.startAyah == null || row.endSurah == null || row.endAyah == null) null
@@ -3628,7 +3634,11 @@ private fun RecitationDialog(
     }
     val mistakeValue = mistakes.toIntOrNull()?.coerceAtLeast(0) ?: 0
     val promptValue = prompts.toIntOrNull()?.coerceAtLeast(0) ?: 0
-    val safety = SafetyScoring.calculate(pageValue, mistakeValue, promptValue)
+    // a page the marks put over the per-page limit makes the whole recitation "repeat"; without a mushaf session an old entry keeps its own flag
+    val overLimitPages = remember(mushafTick, mushafSession, existing?.id) {
+        if (!mushafSession.isEmpty) mushafSession.overLimitPages().map { it.page } else existing?.overLimitPages.orEmpty()
+    }
+    val safety = SafetyScoring.calculate(pageValue, mistakeValue, promptValue, overLimitPage = overLimitPages.isNotEmpty())
     val evaluation = SafetyScoring.inferredEvaluation(safety, pageValue > 0.0)
     val isTilawah = resolvedActivityType == "tilawah"
     val tilawahBaseScore = ((makharijRating + tajweedRating + waqfRating + fluencyRating) / 20.0) * 100.0
@@ -3645,6 +3655,9 @@ private fun RecitationDialog(
             runCatching { QuranCore.engine().endpointsForLineKeys(keys) }.getOrNull()
         }
     }
+    val mushafRangeStartPage = selectedQuranRange?.startPage
+        ?: prefillEndpoints?.first?.let { runCatching { QuranMetadata.pageFor(it.surah, it.ayah) }.getOrNull() }
+        ?: manualPageRange?.startPage ?: start.toIntOrNull()?.takeIf { it in 1..604 }
     val visibleRangeLabel = selectedQuranRange?.displayLabel ?: prefillEndpoints?.let { (a, b) ->
         RecitationParityRules.quranRangeLabel(a.surah, a.ayah, b.surah, b.ayah, start.toIntOrNull(), end.toIntOrNull())
     } ?: manualPageRange?.displayLabel
@@ -3725,6 +3738,16 @@ private fun RecitationDialog(
                             Spacer(Modifier.width(7.dp))
                             Text(if (visibleRangeLabel == null) "اختيار المقرر من المصحف" else "تعديل المقرر")
                         }
+                        if (!isTilawah && pageValue > 0.0001) {
+                            OutlinedButton(
+                                onClick = { mushafStartPage = mushafRangeStartPage ?: 1; if (mushafSession.isEmpty) mushafEpoch++; showMushaf = true },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = HalaqatiUiTokens.TouchTarget),
+                            ) {
+                                Icon(Icons.Default.Edit, contentDescription = null)
+                                Spacer(Modifier.width(7.dp))
+                                Text("تعليم الأخطاء والتلقين على المصحف")
+                            }
+                        }
                     }
                 }
 
@@ -3786,10 +3809,10 @@ private fun RecitationDialog(
                 } else {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Box(Modifier.weight(1f)) {
-                            RecitationCounter("الأخطاء", mistakeValue, { mistakes = (mistakeValue - 1).coerceAtLeast(0).toString() }, { mistakes = (mistakeValue + 1).toString() })
+                            RecitationCounter("الأخطاء", mistakeValue, { mistakes = (mistakeValue - 1).coerceAtLeast(mushafSession.totals().mistakes).toString() }, { mistakes = (mistakeValue + 1).toString() })
                         }
                         Box(Modifier.weight(1f)) {
-                            RecitationCounter("التلقين", promptValue, { prompts = (promptValue - 1).coerceAtLeast(0).toString() }, { prompts = (promptValue + 1).toString() })
+                            RecitationCounter("التلقين", promptValue, { prompts = (promptValue - 1).coerceAtLeast(mushafSession.totals().prompts).toString() }, { prompts = (promptValue + 1).toString() })
                         }
                     }
                 }
@@ -3903,6 +3926,7 @@ private fun RecitationDialog(
                                                 .put("overall_score", kotlin.math.round(tilawahScore * 10.0) / 10.0)
                                                 .put("manual_teacher_assessment", true)
                                             else null,
+                                            overLimitPages = if (isTilawah) emptyList() else overLimitPages,
                                             createdAt = existing?.createdAt,
                                         ),
                                     )
@@ -3942,7 +3966,34 @@ private fun RecitationDialog(
                 end = selected.endPage?.toString().orEmpty()
                 pages = plainNumber(selected.exactPages)
                 showQuranPicker = false
+                mushafEpoch++; mushafTick++   // a new range starts a fresh mushaf session
             },
+        )
+    }
+    if (showMushaf) {
+        com.mohammedsamir.halaqati.ui.screens.MushafMarkingDialog(
+            session = mushafSession,
+            rangeStartPage = mushafRangeStartPage,
+            counters = { mistakeValue to promptValue },
+            score = { MushafScore(safety, recitationEvaluationAr(evaluation), pageValue) },
+            inRange = { s, a, pg ->
+                val rng = selectedQuranRange
+                val rs = rng?.start; val re = rng?.end
+                when {
+                    rng != null && rng.selectedSurahs.isNotEmpty() -> s in rng.selectedSurahs
+                    rs != null && re != null -> (s > rs.surah || (s == rs.surah && a >= rs.ayah)) && (s < re.surah || (s == re.surah && a <= re.ayah))
+                    else -> {
+                        val sp = start.toIntOrNull(); val ep = end.toIntOrNull()
+                        sp != null && ep != null && pg in kotlin.math.min(sp, ep)..kotlin.math.max(sp, ep)
+                    }
+                }
+            },
+            onMark = { dm, dp ->
+                mistakes = ((mistakes.toIntOrNull() ?: 0) + dm).coerceAtLeast(0).toString()
+                prompts = ((prompts.toIntOrNull() ?: 0) + dp).coerceAtLeast(0).toString()
+                mushafTick++
+            },
+            onDismiss = { showMushaf = false; mushafTick++ },
         )
     }
 }

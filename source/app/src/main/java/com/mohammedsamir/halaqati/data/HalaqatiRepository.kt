@@ -6007,7 +6007,7 @@ class HalaqatiRepository(
             ?.optDouble("overall_score", Double.NaN)
             ?.takeIf { !it.isNaN() }
             ?.coerceIn(0.0, 100.0)
-        val safety = tilawahScore ?: SafetyScoring.calculate(actualPages, draft.mistakes, draft.prompts)
+        val safety = tilawahScore ?: SafetyScoring.calculate(actualPages, draft.mistakes, draft.prompts, overLimitPage = draft.overLimitPages.isNotEmpty())
         val evaluation = if (draft.activityType == "tilawah" && tilawahScore != null) {
             when {
                 tilawahScore >= 90.0 -> "excellent"
@@ -6047,6 +6047,8 @@ class HalaqatiRepository(
         if (normalizedQcfLines.isNotEmpty()) selectionData.put("qcf_line_keys", JSONArray(normalizedQcfLines))
         draft.traversalDirection?.takeIf { it.isNotBlank() }?.let { selectionData.put("quran_traversal_direction", it) }
         if (draft.quranSegments.isNotEmpty()) selectionData.put("quran_segments", JSONArray(draft.quranSegments))
+        // pages that went over the per-page limit on the mushaf: kept so the server (V7) grades the same way and an edit does not lose them
+        if (draft.overLimitPages.isNotEmpty()) selectionData.put("over_limit_pages", JSONArray(draft.overLimitPages.distinct().sorted()))
         if (draft.selectedSurahs.isNotEmpty()) selectionData.put("selected_surahs", JSONArray(draft.selectedSurahs))
         if (draft.selectedJuz.isNotEmpty()) selectionData.put("selected_juz", JSONArray(draft.selectedJuz))
         draft.tilawahAssessment?.takeIf { draft.activityType == "tilawah" }?.let {

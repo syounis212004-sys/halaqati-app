@@ -157,6 +157,8 @@ data class RecitationDraft(
     val traversalDirection: String? = null,
     val quranSegments: List<String> = emptyList(),
     val tilawahAssessment: JSONObject? = null,
+    /** Pages where the mushaf marks went over the circle's per-page limit; the server grades the entry "repeat" (V7). */
+    val overLimitPages: List<Int> = emptyList(),
     val createdAt: String? = null,
 )
 
@@ -190,6 +192,7 @@ data class RecitationRow(
     val smartPlanType: String? = null,
     val smartPlanDate: String? = null,
     val tilawahAssessment: JSONObject? = null,
+    val overLimitPages: List<Int> = emptyList(),
     val createdAt: String = "",
 ) {
     companion object {
@@ -232,6 +235,7 @@ data class RecitationRow(
                 smartPlanType = selection.optNullableString("smart_plan_type"),
                 smartPlanDate = selection.optNullableString("smart_plan_date"),
                 tilawahAssessment = selection.optJSONObject("tilawah_assessment"),
+                overLimitPages = jsonInts(selection.optJSONArray("over_limit_pages")),
                 createdAt = j.optString("created_at"),
             )
         }
