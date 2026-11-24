@@ -25,7 +25,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  ARCHIVE_SHA256: 1e3fe01a9a9ba78ca4e796c90327bd59d18766c0770869f4a3e5c9ac2e7f3c9f
+  ARCHIVE_SHA256: 75ad0ae97845184ccc30729199e8b475e5436d7020478a93bad415a2773dcb27
   PROJECT_DIR: ${{ github.workspace }}/extracted/Halaqati_Native_Kotlin_v2.50.0_RC15
   GRADLE_VERSION: '8.13'
 
@@ -130,7 +130,7 @@ jobs:
           HALAQATI_KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
           HALAQATI_KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
           GOOGLE_WEB_CLIENT_ID_SECRET: ${{ secrets.HALAQATI_GOOGLE_WEB_CLIENT_ID }}
-          VARIANT: ${{ inputs.variant || 'debug' }}
+          VARIANT: ${{ inputs.variant || 'release' }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -558,6 +558,31 @@ jobs:
           sdkmanager --version
           sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
 
+      - name: Warm the Gradle dependency cache (Maven Central answers 429 to shared runners; retry with a growing pause)
+        timeout-minutes: 20
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          set -uo pipefail
+          cat > "$RUNNER_TEMP/warm.init.gradle" <<'GRADLE'
+          gradle.projectsEvaluated {
+            gradle.rootProject.allprojects { p ->
+              p.tasks.register('warmResolve') {
+                doLast {
+                  ['debugCompileClasspath', 'debugRuntimeClasspath', 'debugUnitTestRuntimeClasspath', 'releaseRuntimeClasspath', 'releaseUnitTestRuntimeClasspath'].each { n ->
+                    def c = p.configurations.findByName(n)
+                    if (c != null && c.canBeResolved) { c.files }
+                  }
+                }
+              }
+            }
+          }
+          GRADLE
+          for i in 1 2 3 4 5 6; do
+            if gradle --no-daemon --console=plain --init-script "$RUNNER_TEMP/warm.init.gradle" :app:warmResolve; then echo "dependencies cached on try $i"; exit 0; fi
+            echo "try $i failed (probably HTTP 429); pausing $((i*30))s"; sleep $((i*30))
+          done
+          echo "::error::dependencies could not be downloaded after 6 tries"; exit 1
+
       - name: Fetch verified Cairo font for Compose and local documents
         timeout-minutes: 2
         working-directory: ${{ env.PROJECT_DIR }}
@@ -578,7 +603,7 @@ jobs:
           HALAQATI_KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
           HALAQATI_KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
           GOOGLE_WEB_CLIENT_ID_SECRET: ${{ secrets.HALAQATI_GOOGLE_WEB_CLIENT_ID }}
-          VARIANT: ${{ inputs.variant || 'debug' }}
+          VARIANT: ${{ inputs.variant || 'release' }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -652,7 +677,7 @@ jobs:
         timeout-minutes: 10
         working-directory: ${{ env.PROJECT_DIR }}
         env:
-          VARIANT: ${{ inputs.variant || 'debug' }}
+          VARIANT: ${{ inputs.variant || 'release' }}
           HALAQATI_STORE_PASSWORD: ${{ secrets.HALAQATI_STORE_PASSWORD }}
           HALAQATI_KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
           HALAQATI_KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
@@ -667,7 +692,7 @@ jobs:
         timeout-minutes: 10
         working-directory: ${{ env.PROJECT_DIR }}
         env:
-          VARIANT: ${{ inputs.variant || 'debug' }}
+          VARIANT: ${{ inputs.variant || 'release' }}
           HALAQATI_STORE_PASSWORD: ${{ secrets.HALAQATI_STORE_PASSWORD }}
           HALAQATI_KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
           HALAQATI_KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
@@ -694,7 +719,7 @@ jobs:
         timeout-minutes: 10
         working-directory: ${{ env.PROJECT_DIR }}
         env:
-          VARIANT: ${{ inputs.variant || 'debug' }}
+          VARIANT: ${{ inputs.variant || 'release' }}
           HALAQATI_STORE_PASSWORD: ${{ secrets.HALAQATI_STORE_PASSWORD }}
           HALAQATI_KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
           HALAQATI_KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
@@ -835,6 +860,31 @@ jobs:
           sdkmanager --version
           sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
 
+      - name: Warm the Gradle dependency cache (Maven Central answers 429 to shared runners; retry with a growing pause)
+        timeout-minutes: 20
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          set -uo pipefail
+          cat > "$RUNNER_TEMP/warm.init.gradle" <<'GRADLE'
+          gradle.projectsEvaluated {
+            gradle.rootProject.allprojects { p ->
+              p.tasks.register('warmResolve') {
+                doLast {
+                  ['debugCompileClasspath', 'debugRuntimeClasspath', 'debugUnitTestRuntimeClasspath', 'releaseRuntimeClasspath', 'releaseUnitTestRuntimeClasspath'].each { n ->
+                    def c = p.configurations.findByName(n)
+                    if (c != null && c.canBeResolved) { c.files }
+                  }
+                }
+              }
+            }
+          }
+          GRADLE
+          for i in 1 2 3 4 5 6; do
+            if gradle --no-daemon --console=plain --init-script "$RUNNER_TEMP/warm.init.gradle" :app:warmResolve; then echo "dependencies cached on try $i"; exit 0; fi
+            echo "try $i failed (probably HTTP 429); pausing $((i*30))s"; sleep $((i*30))
+          done
+          echo "::error::dependencies could not be downloaded after 6 tries"; exit 1
+
       - name: Fetch verified Cairo font for Compose and local documents
         timeout-minutes: 2
         working-directory: ${{ env.PROJECT_DIR }}
@@ -855,7 +905,7 @@ jobs:
           HALAQATI_KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
           HALAQATI_KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
           GOOGLE_WEB_CLIENT_ID_SECRET: ${{ secrets.HALAQATI_GOOGLE_WEB_CLIENT_ID }}
-          VARIANT: ${{ inputs.variant || 'debug' }}
+          VARIANT: ${{ inputs.variant || 'release' }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -908,7 +958,7 @@ jobs:
         timeout-minutes: 10
         working-directory: ${{ env.PROJECT_DIR }}
         env:
-          VARIANT: ${{ inputs.variant || 'debug' }}
+          VARIANT: ${{ inputs.variant || 'release' }}
           HALAQATI_STORE_PASSWORD: ${{ secrets.HALAQATI_STORE_PASSWORD }}
           HALAQATI_KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
           HALAQATI_KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
@@ -923,7 +973,7 @@ jobs:
         timeout-minutes: 10
         working-directory: ${{ env.PROJECT_DIR }}
         env:
-          VARIANT: ${{ inputs.variant || 'debug' }}
+          VARIANT: ${{ inputs.variant || 'release' }}
           HALAQATI_STORE_PASSWORD: ${{ secrets.HALAQATI_STORE_PASSWORD }}
           HALAQATI_KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
           HALAQATI_KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
@@ -938,7 +988,7 @@ jobs:
         timeout-minutes: 3
         working-directory: ${{ env.PROJECT_DIR }}
         env:
-          VARIANT: ${{ inputs.variant || 'debug' }}
+          VARIANT: ${{ inputs.variant || 'release' }}
         run: |
           set -euo pipefail
           mkdir -p verified ci-logs

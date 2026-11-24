@@ -72,7 +72,7 @@ class MushafPreviewTest {
         var painted = false
         repeat(200) {
             rule.waitForIdle(); Thread.sleep(50)
-            if (rule.onAllNodesWithContentDescription("المجيد", substring = true).fetchSemanticsNodes().isNotEmpty()) { painted = true; return@repeat }
+            if (rule.onAllNodesWithContentDescription(" — خطأ", substring = true).fetchSemanticsNodes().isNotEmpty()) { painted = true; return@repeat }
         }
         assertTrue("$name: the page never finished loading", painted)
         rule.waitForIdle()

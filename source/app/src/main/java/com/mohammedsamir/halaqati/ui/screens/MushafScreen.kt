@@ -262,7 +262,7 @@ internal fun MushafScreenContent(
                         // ---- the page takes every pixel the rail leaves
                         BoxWithConstraints(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
                             val pageW = maxWidth
-                            val pageH = min(maxHeight.value, pageW.value * 1.6f).dp
+                            val pageH = min(maxHeight.value, pageW.value * 1.95f).dp   // fill the height the rail leaves; only very tall screens stop here
                             MushafPage(
                                 state = state, page = page, pageW = pageW, pageH = pageH, pal = pal, tick = tick, tool = tool,
                                 session = session, preview = preview, inRange = inRange,
