@@ -35,6 +35,8 @@ import androidx.compose.material.icons.filled.BorderColor
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.AlertDialog
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -109,26 +111,38 @@ data class MushafScore(val safety: Double, val label: String, val pages: Double)
 
 private enum class Tool { Tap, Highlight, Erase }
 
-/** The printed page is always light paper (it is a mushaf page, not an app surface); the chrome around it follows the system theme with the web's teal/amber identity. */
-private class MushafPalette(dark: Boolean) {
+/**
+ * Every colour comes from the app theme the user chose in Settings (light, dark or system), so the mushaf matches all other screens:
+ * paper = warm paper in the light theme and the theme's surface in the dark one; ink, frame and rule follow the scheme; a mistake is the
+ * scheme's error colour and a prompt its info blue (the same status colours the rest of the app uses).
+ */
+private class MushafPalette(scheme: ColorScheme, info: Color) {
+    private val dark = scheme.background.luminance() < 0.5f
     // paper
-    val pageBg = Color(0xFFFFFCF3)
-    val pageInk = Color(0xFF1F2A27)
-    val frame = Color(0xFF134E4A)
-    val rule = Color(0xFFB45309)
-    val mistake = Color(0xFFDC2626)
-    val mistakeBg = mistake.copy(alpha = 0.16f)
-    val prompt = Color(0xFF2563EB)
-    val promptBg = prompt.copy(alpha = 0.14f)
-    val rangeBg = Color(0xFF0D9488).copy(alpha = 0.10f)
-    val accent = Color(0xFF0F766E)
-    // chrome (same tokens as the web mushaf: --hm-surface, --hm-surface-ink, --hm-surface-line, --hm-accent)
-    val chromeBg = if (dark) Color(0xFF0B1715) else Color(0xFFF0FDFA)
-    val chromeInk = if (dark) Color(0xFFD9EFE9) else Color(0xFF134E4A)
-    val chromeLine = if (dark) Color(0xFF2C5A53) else Color(0xFF99D6CF)
-    val chromeAccent = if (dark) Color(0xFF5EEAD4) else Color(0xFF0F766E)
-    val chromeMistake = if (dark) Color(0xFFF87171) else Color(0xFFDC2626)
-    val chromePrompt = if (dark) Color(0xFF60A5FA) else Color(0xFF2563EB)
+    val pageBg = if (dark) scheme.surface else Color(0xFFFFFCF3)
+    val pageInk = scheme.onSurface
+    val frame = scheme.primary
+    val rule = scheme.tertiary
+    val mistake = scheme.error
+    val mistakeBg = mistake.copy(alpha = if (dark) 0.22f else 0.16f)
+    val prompt = info
+    val promptBg = prompt.copy(alpha = if (dark) 0.24f else 0.14f)
+    val rangeBg = scheme.primary.copy(alpha = 0.10f)
+    val accent = scheme.primary
+    // chrome around the page
+    val chromeBg = scheme.surface
+    val chromeInk = scheme.onSurface
+    val chromeLine = scheme.outlineVariant
+    val chromeAccent = scheme.primary
+    val chromeMistake = scheme.error
+    val chromePrompt = info
+}
+
+@Composable
+private fun rememberMushafPalette(): MushafPalette {
+    val scheme = MaterialTheme.colorScheme
+    val info = com.mohammedsamir.halaqati.ui.theme.statusColors("info").first
+    return remember(scheme, info) { MushafPalette(scheme, info) }
 }
 
 private fun digits(n: Any?): String = n.toString().map { if (it in '0'..'9') "٠١٢٣٤٥٦٧٨٩"[it - '0'] else it }.joinToString("")
@@ -170,8 +184,7 @@ internal fun MushafScreenContent(
 ) {
     val context = LocalContext.current
     val store = remember { MushafStore.get(context) }
-    val dark = isSystemInDarkTheme()
-    val pal = remember(dark) { MushafPalette(dark) }
+    val pal = rememberMushafPalette()
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
 
@@ -285,7 +298,6 @@ internal fun MushafScreenContent(
                 OutlinedTextField(
                     value = input, onValueChange = { input = it.filter(Char::isDigit).take(3) }, singleLine = true,
                     label = { Text("رقم الصفحة (١–٦٠٤)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    supportingText = { Text("خطوط المصحف: مجمع الملك فهد لطباعة المصحف الشريف، عبر Quran Foundation") },
                 )
             },
             confirmButton = { TextButton(onClick = { input.toIntOrNull()?.let { page = MushafEngine.clampPage(it) }; jumpDialog = false }) { Text("انتقال") } },

@@ -30,7 +30,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  ARCHIVE_SHA256: 14643e2147a4e347fc2b4dc3bed78f62653d554807194e963a6ded2b88ec6c2a
+  ARCHIVE_SHA256: 1e3fe01a9a9ba78ca4e796c90327bd59d18766c0770869f4a3e5c9ac2e7f3c9f
   PROJECT_DIR: ${{ github.workspace }}/extracted/Halaqati_Native_Kotlin_v2.50.0_RC15
   GRADLE_VERSION: '8.13'
 
@@ -722,7 +722,7 @@ jobs:
           set -euo pipefail
           rm -rf app/build/preview
           # --rerun: a build-cache hit would skip the test and produce no preview PNGs
-          python3 scripts/ci-build.py testDebugUnitTest 660 --tests com.mohammedsamir.halaqati.ui.HalaqaCardPreviewTest --tests com.mohammedsamir.halaqati.ui.MushafPreviewTest --rerun
+          python3 scripts/ci-build.py testDebugUnitTest 660 --tests com.mohammedsamir.halaqati.ui.HalaqaCardPreviewTest --tests com.mohammedsamir.halaqati.ui.MushafPreviewTest --tests com.mohammedsamir.halaqati.ui.PremiumUiPreviewTest --rerun
           ls -la app/build/preview
           count=$(find app/build/preview -name '*.png' -size +2k | wc -l)
           echo "non-empty preview PNG count: $count"

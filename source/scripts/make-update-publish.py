@@ -15,7 +15,8 @@ manifest={
     # workflow (input "mandatory"). Default is optional; use mandatory only for releases that fix wrong data or security.
     'mandatory':os.environ.get('HALAQATI_MANDATORY','false').strip().lower()=='true',
     'notes':[
-        "تحسين المصحف التفاعلي: صفحة فاتحة بكامل المساحة وشريط أدوات جانبي وأيقونات جديدة للخطأ والتلقين",
+        "تحسين المصحف التفاعلي: يتبع الثيم المختار، صفحة بكامل المساحة، شريط أدوات جانبي وأيقونات جديدة للخطأ والتلقين",
+        "تحميل أنعم بتأثير Shimmer، وأشرطة تقدم تنزلق إلى القيمة الجديدة",
         "تقييم V7: الصفحة التي تتجاوز الحد (خطأ واحد وتلقينان) تُحتسب إعادة، ويطابق التطبيق الخادم والموقع",
     ]
 }

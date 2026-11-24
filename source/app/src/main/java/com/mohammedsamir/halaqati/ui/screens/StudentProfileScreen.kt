@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.mohammedsamir.halaqati.ui.components.AnimatedLinearProgress
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -435,7 +436,7 @@ private fun ProgressOverview(snapshot: PlanSnapshot?, eligible: Boolean = true) 
                 values.forEach { (label, value) -> MiniMetric(label, "${n(value)} ص", Modifier.weight(1f)) }
             }
             val fraction = if (snapshot.plan.target <= 0.0) 0f else (snapshot.progress.completed / snapshot.plan.target).coerceIn(0.0, 1.0).toFloat()
-            LinearProgressIndicator(drawStopIndicator = {}, progress = { fraction }, modifier = Modifier.fillMaxWidth().height(6.dp))
+            AnimatedLinearProgress(progress = fraction, modifier = Modifier.fillMaxWidth().height(6.dp))
             snapshot.progress.originalDaily.takeIf { it > 0.001 && snapshot.progress.plannedByToday > 0.0 }?.let { daily ->
                 val totalDays = snapshot.plan.target / daily
                 val elapsed = snapshot.progress.plannedByToday / daily

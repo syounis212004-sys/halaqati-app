@@ -4934,7 +4934,7 @@ private fun PlanMonthHistorySheet(student: Student, close: () -> Unit) {
                                 StatusPill(if (done + .001 >= target && (sardTarget <= .001 || sardDone + .001 >= sardTarget)) "مكتملة" else "منتهية", if (done + .001 >= target) "success" else "warning")
                             }
                             if (target > .001) {
-                                LinearProgressIndicator(drawStopIndicator = {}, progress = { (percent / 100.0).toFloat() }, modifier = Modifier.fillMaxWidth().height(6.dp))
+                                AnimatedLinearProgress(progress = (percent / 100.0).toFloat(), modifier = Modifier.fillMaxWidth().height(6.dp))
                                 Text("${if (planType == "tathbit") "التثبيت" else "الحفظ"}: ${plainNumber(done)} / ${plainNumber(target)} ص · ${plainNumber(percent)}٪", style = MaterialTheme.typography.bodyMedium)
                             }
                             if (sardTarget > .001 || sardDone > .001) {
@@ -5847,7 +5847,7 @@ private fun SmartPlanOverviewCard(snapshot: PlanSnapshot) {
                     Text("${plainNumber(week.completed)} / ${plainNumber(week.target)} ص", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.ExtraBold)
                 }
                 val weekProgress = if (week.target <= 0.001) 0f else (week.completed / week.target).toFloat().coerceIn(0f, 1f)
-                LinearProgressIndicator(drawStopIndicator = {}, progress = { weekProgress }, modifier = Modifier.fillMaxWidth().height(6.dp).graphicsLayer(scaleX = -1f))
+                AnimatedLinearProgress(progress = weekProgress, modifier = Modifier.fillMaxWidth().height(6.dp).graphicsLayer(scaleX = -1f))
                 Text(
                     when {
                         week.behindBy > 0.001 -> "متبقي على المطلوب حتى اليوم ${plainNumber(week.behindBy)} ص"
@@ -6008,7 +6008,7 @@ private fun SmartPlanAccordionCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            LinearProgressIndicator(drawStopIndicator = {}, progress = { monthlyProgress }, modifier = Modifier.fillMaxWidth().height(5.dp))
+            AnimatedLinearProgress(progress = monthlyProgress, modifier = Modifier.fillMaxWidth().height(5.dp))
 
             if (expanded) {
                 if (snapshot.student.track == "tathbit" || snapshot.plan.type == "tathbit") {

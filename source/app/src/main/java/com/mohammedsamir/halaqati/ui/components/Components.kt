@@ -29,6 +29,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.valentinilk.shimmer.shimmer
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -424,14 +427,9 @@ fun StatusPill(text: String, kind: String = "info", modifier: Modifier = Modifie
 @Composable
 fun LoadingSkeleton(rows: Int = 3, modifier: Modifier = Modifier) {
     val reduced = LocalReducedMotion.current
-    val transition = rememberInfiniteTransition(label = "skeleton")
-    val pulse = transition.animateFloat(
-        initialValue = 0.55f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
-        label = "skeleton-pulse",
-    )
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    // one shared shimmer so every placeholder row sweeps in step; "reduce motion" leaves them still
+    val shimmer = com.valentinilk.shimmer.rememberShimmer(com.valentinilk.shimmer.ShimmerBounds.View)
+    Column(modifier.semantics { contentDescription = "جارٍ التحميل" }, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         // RC27.15: the olive loader above the placeholders (skipped for the one-row strips).
         if (rows >= 2) {
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { HalaqatiLoader(size = 56.dp) }
@@ -441,7 +439,7 @@ fun LoadingSkeleton(rows: Int = 3, modifier: Modifier = Modifier) {
                 Modifier
                     .fillMaxWidth()
                     .heightIn(min = 104.dp)
-                    .graphicsLayer { alpha = if (reduced) 1f else pulse.value },
+                    .then(if (reduced) Modifier else Modifier.shimmer(shimmer)),
                 shape = RoundedCornerShape(HalaqatiUiTokens.RadiusLarge),
                 color = MaterialTheme.colorScheme.surfaceVariant,
             ) {
@@ -453,6 +451,21 @@ fun LoadingSkeleton(rows: Int = 3, modifier: Modifier = Modifier) {
             }
         }
     }
+}
+
+/**
+ * A completion bar whose fill glides to the new value (for example after a recitation is saved) instead of jumping.
+ * The first composition shows the value at once (an appearance is not a change); "reduce motion" snaps.
+ */
+@Composable
+fun AnimatedLinearProgress(progress: Float, modifier: Modifier = Modifier, label: String = "progress") {
+    val reduced = LocalReducedMotion.current
+    val shown by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = progress.coerceIn(0f, 1f),
+        animationSpec = if (reduced) androidx.compose.animation.core.snap() else androidx.compose.animation.core.tween(600, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+        label = label,
+    )
+    LinearProgressIndicator(drawStopIndicator = {}, progress = { shown }, modifier = modifier)
 }
 
 @Composable

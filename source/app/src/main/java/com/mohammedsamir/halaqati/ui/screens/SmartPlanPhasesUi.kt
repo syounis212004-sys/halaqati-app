@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.mohammedsamir.halaqati.ui.components.AnimatedLinearProgress
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -1598,7 +1599,7 @@ fun TathbitMonthlyPlanSheet(
                 ElevatedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         OneLineName(snap.student.fullName, fontWeight = FontWeight.Bold)
-                        LinearProgressIndicator(drawStopIndicator = {}, progress = { (pct / 100.0).toFloat() }, modifier = Modifier.fillMaxWidth())
+                        AnimatedLinearProgress(progress = (pct / 100.0).toFloat(), modifier = Modifier.fillMaxWidth())
                         Text(
                             "المنجز ${phaseNumber(progress.completed)} ص · المتبقي ${phaseNumber(progress.remaining)} ص · ${phaseNumber(pct)}٪",
                             style = MaterialTheme.typography.bodyMedium,

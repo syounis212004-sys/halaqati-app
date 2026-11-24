@@ -3,6 +3,9 @@ package com.mohammedsamir.halaqati.ui
 import android.graphics.Bitmap
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import com.mohammedsamir.halaqati.data.ThemeMode
+import com.mohammedsamir.halaqati.data.UiPreferences
+import com.mohammedsamir.halaqati.ui.theme.HalaqatiTheme
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onRoot
@@ -46,7 +49,7 @@ class MushafPreviewTest {
     }).around(composeRule)
     private val rule get() = composeRule
 
-    private fun render(name: String) {
+    private fun render(name: String, dark: Boolean) {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         // page and fonts first: no network (or a blocked CDN) skips the preview instead of failing the build
         val ready = runCatching { runBlocking { MushafStore.get(context).preparePage(518) } }.getOrNull()
@@ -55,8 +58,9 @@ class MushafPreviewTest {
         session.markWord("50:1:3", MushafEngine.MarkType.Mistake, pageNo = 518)
         session.markWord("50:2:3", MushafEngine.MarkType.Prompt, pageNo = 518)
         rule.setContent {
-            MaterialTheme {
-                Surface {
+            // the app's own theme, exactly as Settings chooses it (light or dark), not the system's
+            HalaqatiTheme(UiPreferences.defaults().copy(themeMode = if (dark) ThemeMode.DARK else ThemeMode.LIGHT, motion = com.mohammedsamir.halaqati.data.MotionLevel.REDUCED)) {
+                Surface(color = MaterialTheme.colorScheme.background) {
                     MushafScreenContent(
                         session = session, rangeStartPage = 518,
                         counters = { 1 to 1 }, score = { MushafScore(94.2, "ممتاز", 25.0) },
@@ -79,9 +83,11 @@ class MushafPreviewTest {
         File(dir, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
-    @Test fun mushaf_light_411() = render("mushaf_light_411")
+    @Test fun mushaf_light_411() = render("mushaf_light_411", dark = false)
 
-    @Test @Config(qualifiers = "w411dp-h900dp-xxhdpi-night") fun mushaf_dark_411() = render("mushaf_dark_411")
+    @Test fun mushaf_dark_411() = render("mushaf_dark_411", dark = true)
 
-    @Test @Config(qualifiers = "w360dp-h640dp-xhdpi") fun mushaf_light_small_360() = render("mushaf_light_small_360")
+    @Test @Config(qualifiers = "w360dp-h640dp-xhdpi") fun mushaf_light_small_360() = render("mushaf_light_small_360", dark = false)
+
+    @Test @Config(qualifiers = "w360dp-h640dp-xhdpi") fun mushaf_dark_small_360() = render("mushaf_dark_small_360", dark = true)
 }

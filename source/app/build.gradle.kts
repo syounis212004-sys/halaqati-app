@@ -100,6 +100,8 @@ dependencies {
     implementation("androidx.compose.animation:animation")
     // RC27.12: Halaqati motion identity (Lottie files in res/raw).
     implementation("com.airbnb.android:lottie-compose:6.6.2")
+    // RC108: shimmer sweep for loading placeholders (Apache-2.0); used only inside LoadingSkeleton. 1.3.3 on purpose: 1.4.x/1.5.x pull Compose from 1.9.3 up to 1.11.1.
+    implementation("com.valentinilk.shimmer:compose-shimmer:1.3.3")
     implementation("androidx.work:work-runtime-ktx:2.11.2")
     implementation("androidx.room:room-runtime:2.8.5")
     implementation("androidx.room:room-ktx:2.8.5")
