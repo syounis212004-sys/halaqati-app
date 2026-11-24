@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - feature/halaqati-premium-compose-ui
+      - feature/mushaf-floating-dock
   workflow_dispatch:
     inputs:
       source_repository:
@@ -25,7 +26,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  ARCHIVE_SHA256: 75ad0ae97845184ccc30729199e8b475e5436d7020478a93bad415a2773dcb27
+  ARCHIVE_SHA256: 1f5086051fc82dac481a7ca0fa9f9f53ffcff2806af273d0cfca8f86ff04644d
   PROJECT_DIR: ${{ github.workspace }}/extracted/Halaqati_Native_Kotlin_v2.50.0_RC15
   GRADLE_VERSION: '8.13'
 
@@ -49,14 +50,14 @@ jobs:
           persist-credentials: false
 
 
-      - name: Verify exact RC108 v2.91.8 archive and extract
+      - name: Verify exact RC109 v2.91.9 archive and extract
         timeout-minutes: 2
         run: |
           set -euo pipefail
           python3 - <<'PY'
           import hashlib, os, zipfile
           from pathlib import Path
-          expected_name = 'Halaqati_RC108.zip'
+          expected_name = 'Halaqati_RC109.zip'
           matches = [
               p for p in Path('source-repo').rglob(expected_name)
               if '.git' not in p.parts
@@ -80,7 +81,7 @@ jobs:
           project = Path(os.environ['PROJECT_DIR'])
           if not project.is_dir():
               raise SystemExit(f'Expected Halaqati project directory missing: {project}')
-          print('Verified RC108 source SHA-256:', os.environ['ARCHIVE_SHA256'])
+          print('Verified RC109 source SHA-256:', os.environ['ARCHIVE_SHA256'])
           print('Project:', project)
           PY
 
@@ -323,7 +324,7 @@ jobs:
           test -s RELEASE_2_72_0_RC36_AR.md
           test -s RELEASE_2_73_0_RC37_AR.md
           test -s RELEASE_2_74_0_RC38_AR.md
-          test -s RELEASE_2_91_8_RC108_AR.md
+          test -s RELEASE_2_91_9_RC109_AR.md
           test -s docs/RC28_VERIFICATION.md
           test -s app/src/main/res/raw/halaqati_trophy.json
           test -s app/src/main/res/raw/halaqati_role_teacher.json
@@ -417,33 +418,33 @@ jobs:
             timeout 120s python3 scripts/rc38-choice-clarity-check.py
             echo '=== RC39 audit fixes ==='
             timeout 120s python3 scripts/rc39-audit-fixes-check.py
-            echo "=== RC108 ==="
+            echo "=== RC109 ==="
             timeout 120s python3 scripts/rc40-check.py
-            echo "=== RC108 ==="
+            echo "=== RC109 ==="
             timeout 120s python3 scripts/rc41-check.py
-            echo "=== RC108 ==="
+            echo "=== RC109 ==="
             timeout 120s python3 scripts/rc42-check.py
-            echo "=== RC108 ==="
+            echo "=== RC109 ==="
             timeout 120s python3 scripts/rc43-check.py
-            echo "=== RC108 ==="
+            echo "=== RC109 ==="
             timeout 120s python3 scripts/rc44-check.py
-            echo "=== RC108 ==="
+            echo "=== RC109 ==="
             timeout 120s python3 scripts/rc45-check.py
-            echo "=== RC108 ==="
+            echo "=== RC109 ==="
             timeout 120s python3 scripts/rc46-check.py
-            echo "=== RC108 ==="
+            echo "=== RC109 ==="
             timeout 120s python3 scripts/rc47-check.py
-            echo "=== RC108 ==="
+            echo "=== RC109 ==="
             timeout 120s python3 scripts/rc48-check.py
-            echo "=== RC108 ==="
+            echo "=== RC109 ==="
             timeout 120s python3 scripts/rc49-check.py
-            echo "=== RC108 ==="
+            echo "=== RC109 ==="
             timeout 120s python3 scripts/rc50-check.py
-            echo "=== RC108 ==="
+            echo "=== RC109 ==="
             timeout 120s python3 scripts/rc51-check.py
-            echo "=== RC108 ==="
+            echo "=== RC109 ==="
             timeout 120s python3 scripts/rc52-check.py
-            echo "=== RC108 ==="
+            echo "=== RC109 ==="
             timeout 120s python3 scripts/rc53-check.py
             echo '=== Release contract ==='
             timeout 120s python3 scripts/release-contract-check.py
@@ -471,7 +472,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: Halaqati-v2.91.8-RC108-gates-diagnostics-${{ github.run_id }}
+          name: Halaqati-v2.91.9-RC109-gates-diagnostics-${{ github.run_id }}
           path: |
             ${{ env.PROJECT_DIR }}/ci-logs/
             ${{ env.PROJECT_DIR }}/app/build/reports/
@@ -497,14 +498,14 @@ jobs:
           persist-credentials: false
 
 
-      - name: Verify exact RC108 v2.91.8 archive and extract
+      - name: Verify exact RC109 v2.91.9 archive and extract
         timeout-minutes: 2
         run: |
           set -euo pipefail
           python3 - <<'PY'
           import hashlib, os, zipfile
           from pathlib import Path
-          expected_name = 'Halaqati_RC108.zip'
+          expected_name = 'Halaqati_RC109.zip'
           matches = [
               p for p in Path('source-repo').rglob(expected_name)
               if '.git' not in p.parts
@@ -528,7 +529,7 @@ jobs:
           project = Path(os.environ['PROJECT_DIR'])
           if not project.is_dir():
               raise SystemExit(f'Expected Halaqati project directory missing: {project}')
-          print('Verified RC108 source SHA-256:', os.environ['ARCHIVE_SHA256'])
+          print('Verified RC109 source SHA-256:', os.environ['ARCHIVE_SHA256'])
           print('Project:', project)
           PY
 
@@ -773,7 +774,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: Halaqati-v2.91.8-RC108-tests-diagnostics-${{ github.run_id }}
+          name: Halaqati-v2.91.9-RC109-tests-diagnostics-${{ github.run_id }}
           path: |
             ${{ env.PROJECT_DIR }}/ci-logs/
             ${{ env.PROJECT_DIR }}/app/build/reports/
@@ -799,14 +800,14 @@ jobs:
           persist-credentials: false
 
 
-      - name: Verify exact RC108 v2.91.8 archive and extract
+      - name: Verify exact RC109 v2.91.9 archive and extract
         timeout-minutes: 2
         run: |
           set -euo pipefail
           python3 - <<'PY'
           import hashlib, os, zipfile
           from pathlib import Path
-          expected_name = 'Halaqati_RC108.zip'
+          expected_name = 'Halaqati_RC109.zip'
           matches = [
               p for p in Path('source-repo').rglob(expected_name)
               if '.git' not in p.parts
@@ -830,7 +831,7 @@ jobs:
           project = Path(os.environ['PROJECT_DIR'])
           if not project.is_dir():
               raise SystemExit(f'Expected Halaqati project directory missing: {project}')
-          print('Verified RC108 source SHA-256:', os.environ['ARCHIVE_SHA256'])
+          print('Verified RC109 source SHA-256:', os.environ['ARCHIVE_SHA256'])
           print('Project:', project)
           PY
 
@@ -1002,10 +1003,10 @@ jobs:
           from pathlib import Path
           badging = Path('ci-logs/badging.txt').read_text()
           assert "name='com.mohammedsamir.halaqati'" in badging
-          assert "versionCode='29108'" in badging
+          assert "versionCode='29109'" in badging
           assert int(re.search(r"versionCode='(\d+)'", badging).group(1)) > 24400, 'must upgrade legacy 2.44 (24400)'
           assert 'applicationIdSuffix' not in Path('app/build.gradle.kts').read_text()
-          expected_name = '2.91.8' if os.environ['VARIANT'] == 'release' else '2.91.8-debug'
+          expected_name = '2.91.9' if os.environ['VARIANT'] == 'release' else '2.91.9-debug'
           assert f"versionName='{expected_name}'" in badging, f'Unexpected versionName; expected {expected_name}'
           assert "sdkVersion:'23'" in badging
           assert "targetSdkVersion:'36'" in badging
@@ -1018,7 +1019,7 @@ jobs:
               assert expected, 'Derived signing certificate fingerprint missing'
               assert normalize(match.group(1)) == normalize(expected), 'Signing certificate mismatch versus restored legacy keystore'
           PY
-          OUT="verified/Halaqati-v2.91.8-$VARIANT.apk"
+          OUT="verified/Halaqati-v2.91.9-$VARIANT.apk"
           cp "$APK" "$OUT"
           cp migration/20261002_v2540_rc18_privacy_monthly_achievements.sql verified/RC18_REQUIRED_SUPABASE_MIGRATION.sql
           cp migration/20261002_v2542_rc18_2_session_monthly_continuity.sql verified/RC18_2_REQUIRED_SUPABASE_MIGRATION.sql
@@ -1045,7 +1046,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: Halaqati-v2.91.8-RC108-package-diagnostics-${{ github.run_id }}
+          name: Halaqati-v2.91.9-RC109-package-diagnostics-${{ github.run_id }}
           path: |
             ${{ env.PROJECT_DIR }}/ci-logs/
             ${{ env.PROJECT_DIR }}/app/build/reports/

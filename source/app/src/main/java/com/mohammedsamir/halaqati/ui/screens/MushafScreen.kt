@@ -54,6 +54,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -106,18 +107,22 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
+/** The printed page is 14 wide by 20 high; the page box always keeps this shape (never stretched). */
+internal const val MUSHAF_ASPECT_W = 14f
+internal const val MUSHAF_ASPECT_H = 20f
+
 /** What the recitation form already knows, so the mushaf can show the official V7 estimate next to the page. */
 data class MushafScore(val safety: Double, val label: String, val pages: Double)
 
-private enum class Tool { Tap, Highlight, Erase }
+internal enum class Tool { Tap, Highlight, Erase }
 
 /**
  * Every colour comes from the app theme the user chose in Settings (light, dark or system), so the mushaf matches all other screens:
  * paper = warm paper in the light theme and the theme's surface in the dark one; ink, frame and rule follow the scheme; a mistake is the
  * scheme's error colour and a prompt its info blue (the same status colours the rest of the app uses).
  */
-private class MushafPalette(scheme: ColorScheme, info: Color) {
-    private val dark = scheme.background.luminance() < 0.5f
+internal class MushafPalette(scheme: ColorScheme, info: Color) {
+    val dark = scheme.background.luminance() < 0.5f
     // paper
     val pageBg = if (dark) scheme.surface else Color(0xFFFFFCF3)
     val pageInk = scheme.onSurface
@@ -129,6 +134,9 @@ private class MushafPalette(scheme: ColorScheme, info: Color) {
     val promptBg = prompt.copy(alpha = if (dark) 0.24f else 0.14f)
     val rangeBg = scheme.primary.copy(alpha = 0.10f)
     val accent = scheme.primary
+    /** Highlighter: the app's identity green (the theme primary). */
+    val highlight = scheme.primary
+    val dockBg = scheme.surfaceContainerHigh
     // chrome around the page
     val chromeBg = scheme.surface
     val chromeInk = scheme.onSurface
@@ -145,9 +153,9 @@ private fun rememberMushafPalette(): MushafPalette {
     return remember(scheme, info) { MushafPalette(scheme, info) }
 }
 
-private fun digits(n: Any?): String = n.toString().map { if (it in '0'..'9') "٠١٢٣٤٥٦٧٨٩"[it - '0'] else it }.joinToString("")
+internal fun digits(n: Any?): String = n.toString().map { if (it in '0'..'9') "٠١٢٣٤٥٦٧٨٩"[it - '0'] else it }.joinToString("")
 
-private sealed interface PageState {
+internal sealed interface PageState {
     data object Loading : PageState
     data class Error(val message: String) : PageState
     data class Ready(val page: MushafStore.PreparedPage) : PageState
@@ -190,8 +198,9 @@ internal fun MushafScreenContent(
 
     var page by remember { mutableIntStateOf(session.page) }
     var state by remember { mutableStateOf<PageState>(PageState.Loading) }
-    var tool by remember { mutableStateOf(Tool.Tap) }
-    var type by remember { mutableStateOf(MarkType.Mistake) }
+    var tool by rememberSaveable { mutableStateOf(Tool.Tap) }
+    var type by rememberSaveable { mutableStateOf(MarkType.Mistake) }
+    var dockOpen by rememberSaveable { mutableStateOf(true) }
     var tick by remember { mutableIntStateOf(0) }            // marks live outside Compose state: bump to repaint
     var preview by remember { mutableStateOf<Set<String>>(emptySet()) }
     var kindMenu by remember { mutableStateOf<Pair<String, Offset>?>(null) }
@@ -252,35 +261,51 @@ internal fun MushafScreenContent(
                     // ---- the official V7 estimate on one line (more only when a page is over its limit)
                     ScoreStrip(session, tick, counters(), score(), pal)
 
-                    Row(Modifier.weight(1f).fillMaxWidth().padding(start = 4.dp, end = 2.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        // ---- the tools rail (first child = the start edge, which is the right edge in Arabic)
-                        ToolRail(
-                            c = counters(), type = type, tool = tool, pal = pal,
-                            canUndo = remember(tick) { session.canUndo }, canRedo = remember(tick) { session.canRedo },
-                            onType = { type = it }, onTool = { tool = it }, onUndo = { undoRedo(true) }, onRedo = { undoRedo(false) },
-                        )
-                        // ---- the page takes every pixel the rail leaves
-                        BoxWithConstraints(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
-                            val pageW = maxWidth
-                            val pageH = min(maxHeight.value, pageW.value * 1.95f).dp   // fill the height the rail leaves; only very tall screens stop here
-                            MushafPage(
-                                state = state, page = page, pageW = pageW, pageH = pageH, pal = pal, tick = tick, tool = tool,
-                                session = session, preview = preview, inRange = inRange,
-                                onTapWord = { actOnWord(it) },
-                                onLongWord = { id, at -> kindMenu = id to at },
-                                onPreview = { preview = it },
-                                onSpan = { ids ->
-                                    preview = emptySet()
-                                    if (ids.isNotEmpty()) {
-                                        if (tool == Tool.Erase) report(session.eraseWords(ids), "مُسحت العلامات")
-                                        else report(session.markSpan(ids, type, pageNo = page), "تم تظليل ${ids.size} كلمة")
-                                    }
-                                },
-                                kindMenuFor = kindMenu,
-                                onKind = { id, kind -> kindMenu = null; report(session.markWord(id, type, kind, page), "تم وضع علامة ${if (type == MarkType.Mistake) "خطأ" else "تلقين"}") },
-                                onDismissKind = { kindMenu = null },
-                                onRetry = { val p = page; page = 0; page = p },
+                    BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                        val landscape = maxWidth > maxHeight
+                        val pageArea: @Composable (Modifier) -> Unit = { m ->
+                            // the page keeps its printed 14:20 shape; spare height (tall screens) is shared above and below it
+                            BoxWithConstraints(m, contentAlignment = Alignment.Center) {
+                                val pageW = min(maxWidth.value, maxHeight.value * MUSHAF_ASPECT_W / MUSHAF_ASPECT_H).dp
+                                val pageH = (pageW.value * MUSHAF_ASPECT_H / MUSHAF_ASPECT_W).dp
+                                MushafPage(
+                                    state = state, page = page, pageW = pageW, pageH = pageH, pal = pal, tick = tick, tool = tool,
+                                    session = session, preview = preview, inRange = inRange,
+                                    onTapWord = { actOnWord(it) },
+                                    onLongWord = { id, at -> kindMenu = id to at },
+                                    onPreview = { preview = it },
+                                    onSpan = { ids ->
+                                        preview = emptySet()
+                                        if (ids.isNotEmpty()) {
+                                            if (tool == Tool.Erase) report(session.eraseWords(ids), "مُسحت العلامات")
+                                            else report(session.markSpan(ids, type, pageNo = page), "تم تظليل ${ids.size} كلمة")
+                                        }
+                                    },
+                                    kindMenuFor = kindMenu,
+                                    onKind = { id, kind -> kindMenu = null; report(session.markWord(id, type, kind, page), "تم وضع علامة ${if (type == MarkType.Mistake) "خطأ" else "تلقين"}") },
+                                    onDismissKind = { kindMenu = null },
+                                    onRetry = { val p = page; page = 0; page = p },
+                                )
+                            }
+                        }
+                        val dock: @Composable (Boolean, Modifier) -> Unit = { side, m ->
+                            MushafDock(
+                                side = side, expanded = dockOpen, onExpanded = { dockOpen = it }, counts = counters(), type = type, tool = tool,
+                                canUndo = remember(tick) { session.canUndo }, canRedo = remember(tick) { session.canRedo }, pal = pal,
+                                onType = { type = it }, onTool = { tool = it }, onUndo = { undoRedo(true) }, onRedo = { undoRedo(false) }, modifier = m,
                             )
+                        }
+                        if (landscape) {
+                            // landscape: a vertical rail on the start edge, the page takes the rest of the width
+                            Row(Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                dock(true, Modifier)
+                                pageArea(Modifier.weight(1f).fillMaxHeight())
+                            }
+                        } else {
+                            Column(Modifier.fillMaxSize().padding(horizontal = 4.dp).padding(bottom = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                pageArea(Modifier.weight(1f).fillMaxWidth())
+                                dock(false, Modifier)
+                            }
                         }
                     }
                     Text(announce, modifier = Modifier.size(0.dp).semantics { contentDescription = announce })
@@ -334,7 +359,7 @@ private fun ScoreStrip(session: MushafEngine.Session, tick: Int, c: Pair<Int, In
  * They repeat the underline each mark leaves on the page (solid ×, dashed ت), so colour is never the only cue.
  */
 @Composable
-private fun MarkBadge(mistake: Boolean, color: Color, size: androidx.compose.ui.unit.Dp) {
+internal fun MarkBadge(mistake: Boolean, color: Color, size: androidx.compose.ui.unit.Dp) {
     Box(
         Modifier.size(size).drawBehind {
             val w = this.size.minDimension
@@ -354,58 +379,6 @@ private fun MarkBadge(mistake: Boolean, color: Color, size: androidx.compose.ui.
                 drawLine(Color.White, Offset(this.size.width, 0f), Offset(0f, this.size.height), strokeWidth = t, cap = androidx.compose.ui.graphics.StrokeCap.Round)
             })
         } else Text("ت", color = color, fontWeight = FontWeight.ExtraBold, fontSize = with(LocalDensity.current) { (size * 0.52f).toSp() })
-    }
-}
-
-@Composable
-private fun RailType(label: String, count: Int, selected: Boolean, mistake: Boolean, color: Color, pal: MushafPalette, onClick: () -> Unit) {
-    Column(
-        Modifier.fillMaxWidth().heightIn(min = 56.dp)
-            .background(if (selected) color.copy(alpha = 0.16f) else Color.Transparent, RoundedCornerShape(14.dp))
-            .border(if (selected) 2.dp else 1.dp, if (selected) color else pal.chromeLine, RoundedCornerShape(14.dp))
-            .clickable(role = Role.RadioButton, onClick = onClick)
-            .semantics { contentDescription = "$label، العدد $count" }
-            .padding(vertical = 5.dp),
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        Box(contentAlignment = Alignment.TopEnd) {
-            MarkBadge(mistake, color, 30.dp)
-        }
-        Text("$label ${digits(count)}", color = pal.chromeInk, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, softWrap = false)
-    }
-}
-
-@Composable
-private fun RailTool(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, selected: Boolean, pal: MushafPalette, onClick: () -> Unit) {
-    Column(
-        Modifier.fillMaxWidth().heightIn(min = 48.dp)
-            .background(if (selected) pal.chromeAccent.copy(alpha = 0.18f) else Color.Transparent, RoundedCornerShape(12.dp))
-            .clickable(role = Role.RadioButton, onClick = onClick)
-            .semantics { contentDescription = label }
-            .padding(vertical = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Icon(icon, contentDescription = null, tint = if (selected) pal.chromeAccent else pal.chromeInk, modifier = Modifier.size(22.dp))
-        // one line, always: a long label must never wrap and push the rail wider
-        Text(label, color = if (selected) pal.chromeAccent else pal.chromeInk, fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1, softWrap = false)
-    }
-}
-
-@Composable
-private fun ToolRail(
-    c: Pair<Int, Int>, type: MarkType, tool: Tool, pal: MushafPalette, canUndo: Boolean, canRedo: Boolean,
-    onType: (MarkType) -> Unit, onTool: (Tool) -> Unit, onUndo: () -> Unit, onRedo: () -> Unit,
-) {
-    Column(Modifier.width(64.dp).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        RailType("خطأ", c.first, type == MarkType.Mistake, true, pal.chromeMistake, pal) { onType(MarkType.Mistake) }
-        RailType("تلقين", c.second, type == MarkType.Prompt, false, pal.chromePrompt, pal) { onType(MarkType.Prompt) }
-        Box(Modifier.fillMaxWidth().height(1.dp).background(pal.chromeLine))
-        RailTool("لمس", Icons.Default.TouchApp, tool == Tool.Tap, pal) { onTool(Tool.Tap) }
-        RailTool("تظليل", Icons.Default.BorderColor, tool == Tool.Highlight, pal) { onTool(Tool.Highlight) }
-        RailTool("ممحاة", Icons.Default.AutoFixNormal, tool == Tool.Erase, pal) { onTool(Tool.Erase) }
-        Box(Modifier.fillMaxWidth().height(1.dp).background(pal.chromeLine))
-        IconButton(onClick = onUndo, enabled = canUndo, modifier = Modifier.size(48.dp)) { Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "تراجع") }
-        IconButton(onClick = onRedo, enabled = canRedo, modifier = Modifier.size(48.dp)) { Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "إعادة") }
     }
 }
 
@@ -433,7 +406,7 @@ private fun MushafPage(
 }
 
 @Composable
-private fun ReadyPage(
+internal fun ReadyPage(
     p: MushafStore.PreparedPage, page: Int, pageW: androidx.compose.ui.unit.Dp, pageH: androidx.compose.ui.unit.Dp, pal: MushafPalette, tick: Int, tool: Tool,
     session: MushafEngine.Session, preview: Set<String>, inRange: (Int, Int, Int) -> Boolean,
     onTapWord: (String) -> Unit, onLongWord: (String, Offset) -> Unit, onPreview: (Set<String>) -> Unit, onSpan: (List<String>) -> Unit,

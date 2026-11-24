@@ -8,7 +8,9 @@ import com.mohammedsamir.halaqati.data.UiPreferences
 import com.mohammedsamir.halaqati.ui.theme.HalaqatiTheme
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import com.mohammedsamir.halaqati.quran.MushafEngine
 import com.mohammedsamir.halaqati.quran.MushafStore
@@ -49,7 +51,7 @@ class MushafPreviewTest {
     }).around(composeRule)
     private val rule get() = composeRule
 
-    private fun render(name: String, dark: Boolean) {
+    private fun render(name: String, dark: Boolean, collapse: Boolean = false) {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         // page and fonts first: no network (or a blocked CDN) skips the preview instead of failing the build
         val ready = runCatching { runBlocking { MushafStore.get(context).preparePage(518) } }.getOrNull()
@@ -75,6 +77,10 @@ class MushafPreviewTest {
             if (rule.onAllNodesWithContentDescription(" — خطأ", substring = true).fetchSemanticsNodes().isNotEmpty()) { painted = true; return@repeat }
         }
         assertTrue("$name: the page never finished loading", painted)
+        if (collapse) {
+            rule.onAllNodesWithContentDescription("طي شريط الأدوات").onFirst().performClick()
+            rule.mainClock.advanceTimeBy(600)
+        }
         rule.waitForIdle()
         val view = rule.onRoot().fetchSemanticsNode().root as android.view.View
         val bmp = Bitmap.createBitmap(view.width.coerceAtLeast(1), view.height.coerceAtLeast(1), Bitmap.Config.ARGB_8888)
@@ -90,4 +96,16 @@ class MushafPreviewTest {
     @Test @Config(qualifiers = "w360dp-h640dp-xhdpi") fun mushaf_light_small_360() = render("mushaf_light_small_360", dark = false)
 
     @Test @Config(qualifiers = "w360dp-h640dp-xhdpi") fun mushaf_dark_small_360() = render("mushaf_dark_small_360", dark = true)
+
+    @Test @Config(qualifiers = "w411dp-h900dp-xxhdpi") fun mushaf_light_collapsed_411() = render("mushaf_light_collapsed_411", dark = false, collapse = true)
+
+    @Test @Config(qualifiers = "w360dp-h640dp-xhdpi") fun mushaf_dark_collapsed_360() = render("mushaf_dark_collapsed_360", dark = true, collapse = true)
+
+    @Test @Config(qualifiers = "w800dp-h1280dp-xhdpi") fun mushaf_light_tablet_800() = render("mushaf_light_tablet_800", dark = false)
+
+    @Test @Config(qualifiers = "w800dp-h1280dp-xhdpi") fun mushaf_dark_tablet_800() = render("mushaf_dark_tablet_800", dark = true)
+
+    @Test @Config(qualifiers = "w891dp-h411dp-land-xxhdpi") fun mushaf_light_landscape() = render("mushaf_light_landscape", dark = false)
+
+    @Test @Config(qualifiers = "w891dp-h411dp-land-xxhdpi") fun mushaf_dark_landscape() = render("mushaf_dark_landscape", dark = true)
 }
