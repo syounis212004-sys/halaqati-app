@@ -198,7 +198,7 @@ fun SmartPlanPhasesManagerSheet(
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-            message = e.message ?: "تعذر تحميل مراحل الخطة"
+            message = com.mohammedsamir.halaqati.plans.PlanErrorRules.friendly(e.message).takeIf { e.message != null } ?: "تعذر تحميل مراحل الخطة"
         } finally {
             loading = false
         }
@@ -359,7 +359,7 @@ fun SmartPlanPhasesManagerSheet(
                                         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-                                            message = e.message ?: "تعذر إنشاء المراحل"
+                                            message = com.mohammedsamir.halaqati.plans.PlanErrorRules.friendly(e.message).takeIf { e.message != null } ?: "تعذر إنشاء المراحل"
                                         }
                                     }
                                 },
@@ -382,7 +382,7 @@ fun SmartPlanPhasesManagerSheet(
                                         reload(false); onChanged(); message = "تم تطبيق قالب ${template.name}"
                                     } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
-        } catch (e: Exception) { message = e.message ?: "تعذر تطبيق القالب" }
+        } catch (e: Exception) { message = com.mohammedsamir.halaqati.plans.PlanErrorRules.friendly(e.message).takeIf { e.message != null } ?: "تعذر تطبيق القالب" }
                                 }
                             },
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
@@ -620,7 +620,7 @@ fun SmartPlanPhasesManagerSheet(
                                                                             reload(false); onChanged(); message = "سيستمر ${snap.student.fullName} بسرد إضافي"
                                                                         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
-        } catch (e: Exception) { message = e.message ?: "تعذر تفعيل الاستمرار الإضافي" }
+        } catch (e: Exception) { message = com.mohammedsamir.halaqati.plans.PlanErrorRules.friendly(e.message).takeIf { e.message != null } ?: "تعذر تفعيل الاستمرار الإضافي" }
                                                                     }
                                                                 }) { Text("استمرار إضافي") }
                                                             }
@@ -697,7 +697,7 @@ fun SmartPlanPhasesManagerSheet(
                                                     reload(false); message = "تم حفظ القالب $label"
                                                 } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
-        } catch (e: Exception) { message = e.message ?: "تعذر حفظ القالب" }
+        } catch (e: Exception) { message = com.mohammedsamir.halaqati.plans.PlanErrorRules.friendly(e.message).takeIf { e.message != null } ?: "تعذر حفظ القالب" }
                                             }
                                         },
                                         modifier = Modifier.heightIn(min = 44.dp),
@@ -778,7 +778,7 @@ fun SmartPlanPhasesManagerSheet(
                             reload(false); onChanged(); message = "تم تجهيز نقل ${included.size} طالب إلى السرد مع تجميد أهداف الحفظ الفردية."
                         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
-        } catch (e: Exception) { message = e.message ?: "تعذر تنفيذ الانتقال الجماعي" }
+        } catch (e: Exception) { message = com.mohammedsamir.halaqati.plans.PlanErrorRules.friendly(e.message).takeIf { e.message != null } ?: "تعذر تنفيذ الانتقال الجماعي" }
                     }
                 }) { Text("اعتماد وبدء السرد") }
             },
@@ -829,7 +829,7 @@ fun SmartPlanPhasesManagerSheet(
                             reload(false); onChanged(); message = "تم إنهاء حفظ ${targetSnap.student.fullName} وبدء السرد"
                         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
-        } catch (e: Exception) { message = e.message ?: "تعذر إنهاء مرحلة الحفظ" }
+        } catch (e: Exception) { message = com.mohammedsamir.halaqati.plans.PlanErrorRules.friendly(e.message).takeIf { e.message != null } ?: "تعذر إنهاء مرحلة الحفظ" }
                     }
                 }) { Text("اعتماد وإنهاء الحفظ") }
             },
@@ -920,7 +920,7 @@ fun SmartPlanPhasesManagerSheet(
                                 reload(false); onChanged(); message = "تم إنهاء مرحلة السرد لـ${snap.student.fullName}"
                             } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
-        } catch (e: Exception) { message = e.message ?: "تعذر إنهاء مرحلة السرد" }
+        } catch (e: Exception) { message = com.mohammedsamir.halaqati.plans.PlanErrorRules.friendly(e.message).takeIf { e.message != null } ?: "تعذر إنهاء مرحلة السرد" }
                         }
                     }) { Text("إنهاء المرحلة") }
                 },
@@ -946,7 +946,7 @@ fun SmartPlanPhasesManagerSheet(
                         adding = false; addingType = null; editing = null; reload(false); onChanged(); message = "تم حفظ المرحلة محليًا وستُزامن تلقائيًا."
                     } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
-        } catch (e: Exception) { message = e.message ?: "تعذر حفظ المرحلة" }
+        } catch (e: Exception) { message = com.mohammedsamir.halaqati.plans.PlanErrorRules.friendly(e.message).takeIf { e.message != null } ?: "تعذر حفظ المرحلة" }
                 }
             },
         )

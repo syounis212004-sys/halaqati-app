@@ -4005,7 +4005,7 @@ fun ImportExportScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = if (valid) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
                             )
-                            Text("اعتماد التسميعات القديمة يتطلب اتصالًا بالإنترنت حتى يتم ربط كل صف بجلسة صحيحة ومنع التكرار. التقييم والنقاط تُعاد حسابها بمحرك V6 نفسه.", style = MaterialTheme.typography.bodyMedium)
+                            Text("اعتماد التسميعات القديمة يتطلب اتصالًا بالإنترنت حتى يتم ربط كل صف بجلسة صحيحة ومنع التكرار. التقييم والنقاط تُعاد حسابها بمحرك V7 نفسه.", style = MaterialTheme.typography.bodyMedium)
                             ImportCommitButton(importing, valid && rows.isNotEmpty() && selectedHalaqaId.isNotBlank(), "اعتماد التسميعات بعد المراجعة") {
                                 importing = true
                                 scope.launch {

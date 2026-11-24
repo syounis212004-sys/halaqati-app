@@ -60,4 +60,15 @@ class SafetyScoringTest {
         assertTrue(flagged <= 69.9)
         assertEquals("repeat", SafetyScoring.inferredEvaluation(flagged))
     }
+
+    @Test fun shortSegmentsNormalizeByActualLines() {
+        assertEquals(89.3, SafetyScoring.calculate(7.0 / 15.0, 0, 1, heardLines = 7.0), 0.0001)
+        assertEquals(90.6, SafetyScoring.calculate(8.0 / 15.0, 0, 1, heardLines = 8.0), 0.0001)
+        assertEquals("very_good", ev(7.0 / 15.0, 0, 1, 7.0))
+        assertEquals("excellent", ev(8.0 / 15.0, 0, 1, 8.0))
+    }
+
+    @Test fun noContentIsNotRated() {
+        assertEquals("not_rated", SafetyScoring.inferredEvaluation(0.0, hasContent = false))
+    }
 }

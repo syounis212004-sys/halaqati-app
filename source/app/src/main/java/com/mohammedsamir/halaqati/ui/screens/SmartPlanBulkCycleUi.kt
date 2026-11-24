@@ -463,7 +463,7 @@ fun SmartPlanBulkCycleManagerSheet(
                             } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-                                message = e.message ?: "تعذر تنفيذ الانتقال الجماعي"
+                                message = com.mohammedsamir.halaqati.plans.PlanErrorRules.friendly(e.message).takeIf { e.message != null } ?: "تعذر تنفيذ الانتقال الجماعي"
                             } finally {
                                 applying = false
                             }

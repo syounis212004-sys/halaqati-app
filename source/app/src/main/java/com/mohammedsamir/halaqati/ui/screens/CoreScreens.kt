@@ -5943,7 +5943,20 @@ private fun SmartPlanAccordionCard(
     onRecite: () -> Unit,
     onEditPhase: () -> Unit = onPhases,
 ) {
-    val progress = snapshot.progress
+    // While the student is in the Sard phase the card shows the Sard phase itself (its own target and scheduled days), not the month's
+    // Hifz progress measured against the Sard target (that showed "25 / 15.73 · 0.63 behind" for a student who had not started).
+    val sardPhase = snapshot.phase?.phaseType == "sard"
+    val phaseProgress = snapshot.phaseProgress?.takeIf { sardPhase }
+    val sardPace = phaseProgress?.let {
+        com.mohammedsamir.halaqati.plans.PhaseDaysRules.sardPace(it.targetPages, it.completedPages, it.scheduledDays, it.remainingScheduledDays)
+    }
+    val progress = if (sardPace != null && phaseProgress != null) snapshot.progress.copy(
+        completed = phaseProgress.completedPages,
+        remaining = phaseProgress.remainingPages ?: 0.0,
+        plannedByToday = sardPace.expected,
+        behindBy = sardPace.behind,
+        aheadBy = sardPace.ahead,
+    ) else snapshot.progress
     val health = SmartPlanHealthRules.fromProgress(
         completed = progress.completed,
         requiredByToday = progress.plannedByToday,
@@ -5952,7 +5965,7 @@ private fun SmartPlanAccordionCard(
     val monthEndDay = runCatching { LocalDate.parse(snapshot.plan.endDate).dayOfMonth }.getOrDefault(YearMonth.now().lengthOfMonth())
     val currentPhase = planCurrentPhaseLabel(snapshot)
     val hifzMonthlyTarget = snapshot.plan.settings.monthlyHifzTargetPages.takeIf { it > .001 } ?: snapshot.plan.target
-    val activeTarget = if (snapshot.phase?.phaseType == "sard") 25.0 else snapshot.plan.target
+    val activeTarget = if (sardPhase) (phaseProgress?.targetPages ?: snapshot.plan.target) else snapshot.plan.target
     val monthlyProgress = if (activeTarget <= .001) 0f else (progress.completed / activeTarget).toFloat().coerceIn(0f, 1f)
     val assignment = progress.assignment
     val assignmentText = when {

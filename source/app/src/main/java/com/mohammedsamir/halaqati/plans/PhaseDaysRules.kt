@@ -21,4 +21,22 @@ object PhaseDaysRules {
         if (e.isNotEmpty() && clean(common) == clean(initial)) return e
         return clean(common)
     }
+
+    data class SardPace(val expected: Double, val behind: Double, val ahead: Double, val health: String)
+
+    /**
+     * Pace of a Sard phase against its own schedule (same as the web's sardPace): pages due so far = target x scheduled days already
+     * passed / scheduled days, with the plan engine's bands (ratio > 1.10 ahead, >= 0.90 on track, >= 0.75 needs attention, else follow-up).
+     */
+    fun sardPace(target: Double?, completed: Double, scheduledDays: Int, remainingDays: Int): SardPace {
+        val t = target ?: 0.0
+        val elapsed = maxOf(0, scheduledDays - remainingDays)
+        val expected = if (t > 0.0 && scheduledDays > 0) Math.round(t * elapsed / scheduledDays * 100.0) / 100.0 else 0.0
+        if (!(expected > 0.001)) return SardPace(0.0, 0.0, 0.0, "green")
+        val ratio = completed / expected
+        val behind = maxOf(0.0, Math.round((expected - completed) * 100.0) / 100.0)
+        val ahead = maxOf(0.0, Math.round((completed - expected) * 100.0) / 100.0)
+        val health = when { ratio > 1.10 -> "blue"; ratio >= 0.90 -> "green"; ratio >= 0.75 -> "yellow"; else -> "red" }
+        return SardPace(expected, if (ratio in 0.90..1.10) 0.0 else behind, if (ratio > 1.10) ahead else 0.0, health)
+    }
 }

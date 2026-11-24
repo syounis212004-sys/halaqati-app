@@ -18,4 +18,15 @@ class PhaseDaysRulesTest {
         assertEquals(listOf(5), PhaseDaysRules.resolve(emptyList(), listOf(5), listOf(5), null))
         assertEquals(listOf(0, 5), PhaseDaysRules.resolve(emptyList(), listOf(5, 0, 5, 9, -1), emptyList(), null))
     }
+
+    @Test fun sardPaceMeasuresTheSardPhaseItself() {
+        val first = PhaseDaysRules.sardPace(25.0, 0.0, 8, 8)
+        assertEquals(PhaseDaysRules.SardPace(0.0, 0.0, 0.0, "green"), first)
+        assertEquals(PhaseDaysRules.SardPace(12.5, 0.0, 0.0, "green"), PhaseDaysRules.sardPace(25.0, 12.5, 8, 4))
+        assertEquals("red", PhaseDaysRules.sardPace(25.0, 0.0, 8, 4).health)
+        assertEquals("yellow", PhaseDaysRules.sardPace(25.0, 10.0, 8, 4).health)
+        val fast = PhaseDaysRules.sardPace(25.0, 15.0, 8, 4)
+        assertEquals("blue", fast.health); assertEquals(2.5, fast.ahead, 0.0)
+        assertEquals(PhaseDaysRules.SardPace(0.0, 0.0, 0.0, "green"), PhaseDaysRules.sardPace(null, 3.0, 0, 0))
+    }
 }
