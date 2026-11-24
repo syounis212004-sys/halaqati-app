@@ -110,6 +110,8 @@ fun SmartPlanBulkCycleManagerSheet(
     // the days the students really have when the sheet opened: untouched common days never overwrite an individual choice
     var initialSardWeekdays by remember { mutableStateOf(setOf(0, 1, 2, 3, 4, 5)) }
     var weekdaysWereSeeded by remember { mutableStateOf(false) }
+    // once the manager picks the common days they apply to every student at once (an explicit pick for one student is replaced too)
+    var commonDaysTouched by remember { mutableStateOf(false) }
     var selectedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var expandedStudent by remember { mutableStateOf<String?>(null) }
     var customizations by remember { mutableStateOf<Map<String, BulkCycleCustomization>>(emptyMap()) }
@@ -181,7 +183,7 @@ fun SmartPlanBulkCycleManagerSheet(
     fun effectiveCustomization(row: BulkCycleRow): BulkCycleCustomization = customizations[row.student.id]
         ?: BulkCycleCustomization(
             commonHifzStart, commonHifzEnd, commonSardStart, commonSardEnd, commonTarget, commonDirection,
-            com.mohammedsamir.halaqati.plans.PhaseDaysRules.resolve(emptyList(), sardWeekdays, initialSardWeekdays, row.sardPhase?.scheduleWeekdays).toSet(),
+            com.mohammedsamir.halaqati.plans.PhaseDaysRules.resolve(emptyList(), sardWeekdays, initialSardWeekdays, if (commonDaysTouched) null else row.sardPhase?.scheduleWeekdays).toSet(),
         )
 
     fun setCustomization(row: BulkCycleRow, transform: (BulkCycleCustomization) -> BulkCycleCustomization) {
@@ -198,10 +200,33 @@ fun SmartPlanBulkCycleManagerSheet(
     val totalTarget = selectedRows.sumOf { it.hifzTarget.coerceAtLeast(0.0) }
     val canMutate = schemaIssue == null && !applying
 
+    val commonDatesValid = runCatching {
+        LocalDate.parse(commonHifzEnd) >= LocalDate.parse(commonHifzStart) &&
+            LocalDate.parse(commonSardStart) > LocalDate.parse(commonHifzEnd) &&
+            LocalDate.parse(commonSardEnd) >= LocalDate.parse(commonSardStart)
+    }.getOrDefault(false)
+    val daysOnlyTargets = selectedRows.filter { it.sardPhase?.status == "active" }
+
     ModalBottomSheet(onDismissRequest = onDismiss) {
+      Column(Modifier.fillMaxWidth()) {
+        // the approve buttons stay at the top, always in reach, so a long student list never hides them
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { showConfirm = true },
+                enabled = canMutate && selectedRows.isNotEmpty() && commonTarget.toDoubleOrNull()?.let { it > 0.0 } == true && commonDatesValid && sardWeekdays.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+            ) {
+                Icon(Icons.Default.RecordVoiceOver, null); Spacer(Modifier.width(7.dp)); Text("معاينة وإعتماد الانتقال الجماعي (${selectedRows.size})")
+            }
+            OutlinedButton(
+                onClick = { showDaysOnly = true },
+                enabled = canMutate && daysOnlyTargets.isNotEmpty() && sardWeekdays.isNotEmpty() && !applying,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+            ) { Text("تعديل أيام السرد فقط (${daysOnlyTargets.size}) بدون مرحلة جديدة") }
+        }
         LazyColumn(
         state = androidx.compose.foundation.lazy.rememberLazyListState(),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 38.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -252,7 +277,9 @@ fun SmartPlanBulkCycleManagerSheet(
                             ProFilterChip(commonDirection == route, { commonDirection = route }, label, itemModifier.fillMaxWidth(), showCheckIcon = false)
                         }
                         PhaseDaysPicker(
-                            days = sardWeekdays, onDays = { sardWeekdays = it }, start = commonSardStart, end = commonSardEnd,
+                            days = sardWeekdays,
+                            onDays = { d -> sardWeekdays = d; commonDaysTouched = true; customizations = customizations.mapValues { (_, c) -> c.copy(sardWeekdays = d) } },
+                            start = commonSardStart, end = commonSardEnd,
                             targetPages = commonTarget.toDoubleOrNull(),
                         )
                     }
@@ -362,27 +389,8 @@ fun SmartPlanBulkCycleManagerSheet(
                 }
             }
 
-            item {
-                val commonDatesValid = runCatching {
-                    LocalDate.parse(commonHifzEnd) >= LocalDate.parse(commonHifzStart) &&
-                        LocalDate.parse(commonSardStart) > LocalDate.parse(commonHifzEnd) &&
-                        LocalDate.parse(commonSardEnd) >= LocalDate.parse(commonSardStart)
-                }.getOrDefault(false)
-                Button(
-                    onClick = { showConfirm = true },
-                    enabled = canMutate && selectedRows.isNotEmpty() && commonTarget.toDoubleOrNull()?.let { it > 0.0 } == true && commonDatesValid && sardWeekdays.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                ) {
-                    Icon(Icons.Default.RecordVoiceOver, null); Spacer(Modifier.width(7.dp)); Text("معاينة وإعتماد الانتقال الجماعي")
-                }
-                val daysOnlyTargets = selectedRows.filter { it.sardPhase?.status == "active" }
-                OutlinedButton(
-                    onClick = { showDaysOnly = true },
-                    enabled = canMutate && daysOnlyTargets.isNotEmpty() && sardWeekdays.isNotEmpty() && !applying,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                ) { Text("تعديل أيام السرد فقط (${daysOnlyTargets.size}) بدون مرحلة جديدة") }
-            }
         }
+      }
     }
 
     datePickerTarget?.let { (key, current) ->
