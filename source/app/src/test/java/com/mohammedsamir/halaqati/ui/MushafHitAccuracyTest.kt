@@ -33,6 +33,13 @@ import com.mohammedsamir.halaqati.ui.screens.Tool
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
+import org.junit.rules.RuleChain
+import org.junit.rules.TestRule
+import org.junit.runners.model.Statement
+import org.robolectric.Shadows.shadowOf
+import android.content.ComponentName
+import androidx.activity.ComponentActivity
+import androidx.test.core.app.ApplicationProvider
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -48,7 +55,19 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], application = android.app.Application::class, qualifiers = "w411dp-h900dp-xxhdpi")
 class MushafHitAccuracyTest {
-    @get:Rule val rule = createComposeRule()
+    private val composeRule = createComposeRule()
+
+    // The release unit-test classpath has no ui-test-manifest, so ComponentActivity is registered by hand before the compose rule starts it.
+    @get:Rule val chain: RuleChain = RuleChain.outerRule(TestRule { base, _ ->
+        object : Statement() {
+            override fun evaluate() {
+                val app = ApplicationProvider.getApplicationContext<android.app.Application>()
+                shadowOf(app.packageManager).addActivityIfNotPresent(ComponentName(app.packageName, ComponentActivity::class.java.name))
+                base.evaluate()
+            }
+        }
+    }).around(composeRule)
+    private val rule get() = composeRule
 
     private fun page(no: Int, ayahBase: Int): MushafStore.PreparedPage {
         val items = (1..15).flatMap { n ->
