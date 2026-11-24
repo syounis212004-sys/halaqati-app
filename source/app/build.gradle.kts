@@ -27,8 +27,8 @@ android {
         minSdk = 23
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 29107
-        versionName = "2.91.7"
+        versionCode = 29108
+        versionName = "2.91.8"
         vectorDrawables { useSupportLibrary = true }
         buildConfigField("String", "SUPABASE_URL", JsonOutput.toJson(conf("SUPABASE_URL", "https://xlxzwucqdtggkfwwqibk.supabase.co")))
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", JsonOutput.toJson(conf("SUPABASE_PUBLISHABLE_KEY", "sb_publishable_VZGYTedRpXfJdswijXoxig_F0Hva8ks")))
