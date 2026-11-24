@@ -29,4 +29,29 @@ class PhaseDaysRulesTest {
         assertEquals("blue", fast.health); assertEquals(2.5, fast.ahead, 0.0)
         assertEquals(PhaseDaysRules.SardPace(0.0, 0.0, 0.0, "green"), PhaseDaysRules.sardPace(null, 3.0, 0, 0))
     }
+
+    @Test fun fridayOnlyInAWeekLongPeriodPutsTheWholeTargetOnOneDay() {
+        val today = java.time.LocalDate.of(2026, 11, 24)   // a Tuesday
+        val end = java.time.LocalDate.of(2026, 11, 30)
+        val friday = PhaseDaysRules.check(today, java.time.LocalDate.of(2026, 11, 23), end, PhaseDaysRules.FRIDAY_ONLY, 25.0)
+        assertEquals(1, friday.daysLeft); assertEquals("warn", friday.level); assertEquals(25.0, friday.perDay!!, 0.0)
+        val all = PhaseDaysRules.check(today, java.time.LocalDate.of(2026, 11, 23), end, PhaseDaysRules.SUN_TO_FRI, 25.0)
+        assertEquals(6, all.daysLeft); assertEquals("ok", all.level); assertEquals(25.0 / 6, all.perDay!!, 1e-9)
+    }
+
+    @Test fun noDaysOrNoScheduledDayLeftIsAnError() {
+        val today = java.time.LocalDate.of(2026, 11, 24)
+        assertEquals("error", PhaseDaysRules.check(today, today, today.plusDays(5), emptyList(), 25.0).level)
+        // Saturday only, period ends Friday: nothing is left
+        assertEquals("error", PhaseDaysRules.check(today, today, java.time.LocalDate.of(2026, 11, 27), listOf(6), 25.0).level)
+        assertEquals(0, PhaseDaysRules.scheduledDays(today.plusDays(1), today, PhaseDaysRules.SUN_TO_FRI))
+    }
+
+    @Test fun heavyDailyShareWarnsAndPastStartDatesAreNotCounted() {
+        val today = java.time.LocalDate.of(2026, 11, 24)
+        val heavy = PhaseDaysRules.check(today, today, today.plusDays(2), PhaseDaysRules.SUN_TO_FRI, 40.0)
+        assertEquals("warn", heavy.level)
+        // a period that starts next week counts from its own start, not from today
+        assertEquals(6, PhaseDaysRules.scheduledDays(java.time.LocalDate.of(2026, 11, 29), java.time.LocalDate.of(2026, 12, 4), PhaseDaysRules.SUN_TO_FRI))
+    }
 }

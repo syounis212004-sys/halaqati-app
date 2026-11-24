@@ -114,6 +114,7 @@ fun SmartPlanBulkCycleManagerSheet(
     var expandedStudent by remember { mutableStateOf<String?>(null) }
     var customizations by remember { mutableStateOf<Map<String, BulkCycleCustomization>>(emptyMap()) }
     var showConfirm by remember { mutableStateOf(false) }
+    var showDaysOnly by remember { mutableStateOf(false) }
     var datePickerTarget by remember { mutableStateOf<Pair<String, String>?>(null) }
     var studentQuery by remember { mutableStateOf("") }
 
@@ -250,17 +251,10 @@ fun SmartPlanBulkCycleManagerSheet(
                         ) { (route, label), itemModifier ->
                             ProFilterChip(commonDirection == route, { commonDirection = route }, label, itemModifier.fillMaxWidth(), showCheckIcon = false)
                         }
-                        Text("أيام السرد", style = MaterialTheme.typography.labelLarge)
-                        ResponsiveChipGrid(items = listOf(0 to "الأحد", 1 to "الاثنين", 2 to "الثلاثاء", 3 to "الأربعاء", 4 to "الخميس", 5 to "الجمعة", 6 to "السبت"), minItemWidth = 104.dp, maxColumns = 3) { (day, label), itemModifier ->
-                            ProFilterChip(
-                                selected = day in sardWeekdays,
-                                onClick = { sardWeekdays = if (day in sardWeekdays) sardWeekdays - day else sardWeekdays + day },
-                                label = label,
-                                modifier = itemModifier.fillMaxWidth(),
-                                showCheckIcon = false,
-                            )
-                        }
-                        if (6 in sardWeekdays) Text("تنبيه: السبت إجازة ثابتة في الحلقة؛ اختره فقط إذا أردت مرحلة استثنائية.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        PhaseDaysPicker(
+                            days = sardWeekdays, onDays = { sardWeekdays = it }, start = commonSardStart, end = commonSardEnd,
+                            targetPages = commonTarget.toDoubleOrNull(),
+                        )
                     }
                 }
             }
@@ -357,16 +351,11 @@ fun SmartPlanBulkCycleManagerSheet(
                             ) { (route, label), itemModifier ->
                                 ProFilterChip(effective.direction == route, { setCustomization(row) { it.copy(direction = route) } }, label, itemModifier.fillMaxWidth(), showCheckIcon = false)
                             }
-                            Text("أيام السرد لهذا الطالب", style = MaterialTheme.typography.labelMedium)
-                            ResponsiveChipGrid(items = listOf(0 to "الأحد", 1 to "الاثنين", 2 to "الثلاثاء", 3 to "الأربعاء", 4 to "الخميس", 5 to "الجمعة", 6 to "السبت"), minItemWidth = 104.dp, maxColumns = 3) { (day, label), itemModifier ->
-                                ProFilterChip(
-                                    selected = day in effective.sardWeekdays,
-                                    onClick = { setCustomization(row) { c -> c.copy(sardWeekdays = if (day in c.sardWeekdays) c.sardWeekdays - day else c.sardWeekdays + day) } },
-                                    label = label,
-                                    modifier = itemModifier.fillMaxWidth(),
-                                    showCheckIcon = false,
-                                )
-                            }
+                            PhaseDaysPicker(
+                                days = effective.sardWeekdays, onDays = { d -> setCustomization(row) { it.copy(sardWeekdays = d) } },
+                                start = effective.sardStart, end = effective.sardEnd, targetPages = effective.sardTarget.toDoubleOrNull(),
+                                title = "أيام السرد لهذا الطالب",
+                            )
                             if (custom != null) TextButton(onClick = { customizations = customizations - row.student.id }) { Text("إزالة التخصيص والعودة للإعداد الموحد") }
                         }
                     }
@@ -386,6 +375,12 @@ fun SmartPlanBulkCycleManagerSheet(
                 ) {
                     Icon(Icons.Default.RecordVoiceOver, null); Spacer(Modifier.width(7.dp)); Text("معاينة وإعتماد الانتقال الجماعي")
                 }
+                val daysOnlyTargets = selectedRows.filter { it.sardPhase?.status == "active" }
+                OutlinedButton(
+                    onClick = { showDaysOnly = true },
+                    enabled = canMutate && daysOnlyTargets.isNotEmpty() && sardWeekdays.isNotEmpty() && !applying,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                ) { Text("تعديل أيام السرد فقط (${daysOnlyTargets.size}) بدون مرحلة جديدة") }
             }
         }
     }
@@ -407,6 +402,57 @@ fun SmartPlanBulkCycleManagerSheet(
                 }
                 datePickerTarget = null
             },
+        )
+    }
+
+    if (showDaysOnly) {
+        val targets = selectedRows.filter { it.sardPhase?.status == "active" }
+        HalaqatiAlertDialog(
+            onDismissRequest = { if (!applying) showDaysOnly = false },
+            title = { Text("تعديل أيام السرد فقط") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text("سيتم تحديث أيام السرد لـ${targets.size} طالب لديهم مرحلة سرد نشطة.", fontWeight = FontWeight.Bold)
+                    Text("هي نفس المراحل: لا تُنشأ مراحل جديدة، ولا يتغير الهدف أو التواريخ أو الإنجاز، ولا يتجمّد الحفظ.")
+                    val sample = targets.firstOrNull()
+                    if (sample != null) {
+                        val c = effectiveCustomization(sample)
+                        val ph = sample.sardPhase
+                        val chk = if (ph != null) com.mohammedsamir.halaqati.plans.PhaseDaysRules.check(LocalDate.now(), LocalDate.parse(ph.startDate), LocalDate.parse(ph.endDate), c.sardWeekdays, ph.targetPages) else null
+                        if (chk != null) Text("مثال: ${sample.student.fullName}: ${chk.message}", style = MaterialTheme.typography.bodySmall, color = if (chk.level == "ok") MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = !applying && targets.isNotEmpty(),
+                    onClick = {
+                        applying = true
+                        scope.launch {
+                            var ok = 0; var failed = 0
+                            try {
+                                for (row in targets) {
+                                    val ph = row.sardPhase ?: continue
+                                    val days = effectiveCustomization(row).sardWeekdays.sorted()
+                                    if (days.isEmpty()) { failed++; continue }
+                                    try {
+                                        withContext(Dispatchers.IO) { AppGraph.repo.savePlanPhase(ph.withDays(days)) }
+                                        ok++
+                                    } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { failed++ }
+                                }
+                                message = if (failed == 0) "تم تعديل أيام السرد لـ$ok طالب." else "تم تعديل $ok وتعذر تعديل $failed (قد تكون مرحلتهم تغيّرت من جهاز آخر)."
+                                if (ok > 0) com.mohammedsamir.halaqati.ui.components.HalaqatiMotionEvents.saved()
+                                showDaysOnly = false
+                                load(force = true)
+                                onChanged()
+                            } finally {
+                                applying = false
+                            }
+                        }
+                    },
+                ) { Text("اعتماد الأيام") }
+            },
+            dismissButton = { TextButton(enabled = !applying, onClick = { showDaysOnly = false }) { Text("رجوع") } },
         )
     }
 

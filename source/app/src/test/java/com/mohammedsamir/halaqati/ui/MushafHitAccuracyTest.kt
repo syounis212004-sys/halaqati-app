@@ -173,41 +173,46 @@ class MushafHitAccuracyTest {
         rule.waitForIdle()
     }
 
-    @Test fun dock_keeps_every_tool_and_collapses_and_expands() {
-        for (w in listOf(360, 411, 800)) {
-            val r = DockRig()
-            showDock(r, w)
-            for (name in listOf("لمس", "تظليل", "ممحاة", "تراجع", "إعادة")) rule.onNodeWithContentDescription(name).assertExists()
-            rule.onNodeWithContentDescription("خطأ، العدد 3").assertExists()
-            rule.onNodeWithContentDescription("تلقين، العدد 4").assertExists()
-            rule.onNodeWithContentDescription("تظليل").performClick(); rule.waitForIdle()
-            assertEquals("width $w", Tool.Highlight, r.tool)
-            rule.onNodeWithContentDescription("تلقين، العدد 4").performClick(); rule.waitForIdle()
-            assertEquals(MarkType.Prompt, r.type)
-            rule.onNodeWithContentDescription("تراجع").performClick(); rule.waitForIdle()
-            assertEquals(1, r.undos)
-            // collapse: tools fold into the compact bar, which keeps type, current tool, undo and redo
-            rule.onNodeWithContentDescription("طي شريط الأدوات").performClick(); rule.waitForIdle()
-            assertEquals(false, r.expanded)
-            rule.onAllNodesWithContentDescription("ممحاة").assertCountEquals(0)
-            rule.onNodeWithContentDescription("تراجع").assertExists()
-            rule.onNodeWithContentDescription("إعادة").assertExists()
-            // the current tool in the compact bar expands the dock again; all tools are back
-            rule.onNodeWithContentDescription("توسيع شريط الأدوات").performClick(); rule.waitForIdle()
-            assertEquals(true, r.expanded)
-            rule.onNodeWithContentDescription("ممحاة").assertExists()
+    private fun dockKeepsEveryTool(w: Int) {
+        val r = DockRig()
+        showDock(r, w)
+        for (name in listOf("لمس", "تظليل", "ممحاة", "تراجع", "إعادة")) rule.onNodeWithContentDescription(name).assertExists()
+        rule.onNodeWithContentDescription("خطأ، العدد 3").assertExists()
+        rule.onNodeWithContentDescription("تلقين، العدد 4").assertExists()
+        rule.onNodeWithContentDescription("تظليل").performClick(); rule.waitForIdle()
+        assertEquals("width $w", Tool.Highlight, r.tool)
+        rule.onNodeWithContentDescription("تلقين، العدد 4").performClick(); rule.waitForIdle()
+        assertEquals(MarkType.Prompt, r.type)
+        rule.onNodeWithContentDescription("تراجع").performClick(); rule.waitForIdle()
+        assertEquals(1, r.undos)
+        // collapse: tools fold into the compact bar, which keeps type, current tool, undo and redo
+        rule.onNodeWithContentDescription("طي شريط الأدوات").performClick(); rule.waitForIdle()
+        assertEquals(false, r.expanded)
+        rule.onAllNodesWithContentDescription("ممحاة").assertCountEquals(0)
+        rule.onNodeWithContentDescription("تراجع").assertExists()
+        rule.onNodeWithContentDescription("إعادة").assertExists()
+        // expand again: every tool is back
+        rule.onNodeWithContentDescription("توسيع شريط الأدوات").performClick(); rule.waitForIdle()
+        assertEquals(true, r.expanded)
+        rule.onNodeWithContentDescription("ممحاة").assertExists()
+    }
+
+    @Test fun dock_keeps_every_tool_360() = dockKeepsEveryTool(360)
+    @Test fun dock_keeps_every_tool_411() = dockKeepsEveryTool(411)
+    @Test fun dock_keeps_every_tool_800() = dockKeepsEveryTool(800)
+
+    private fun dockTouchTargets(w: Int, side: Boolean) {
+        val r = DockRig()
+        showDock(r, w, side)
+        for (name in listOf("لمس", "تظليل", "ممحاة", "تراجع", "إعادة", "خطأ، العدد 3", "تلقين، العدد 4")) {
+            rule.onNodeWithContentDescription(name).assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
         }
     }
 
-    @Test fun dock_buttons_are_at_least_48dp_to_touch() {
-        for ((w, side) in listOf(360 to false, 411 to false, 800 to false, 160 to true)) {
-            val r = DockRig()
-            showDock(r, w, side)
-            for (name in listOf("لمس", "تظليل", "ممحاة", "تراجع", "إعادة", "خطأ، العدد 3", "تلقين، العدد 4")) {
-                rule.onNodeWithContentDescription(name).assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
-            }
-        }
-    }
+    @Test fun dock_touch_targets_360() = dockTouchTargets(360, false)
+    @Test fun dock_touch_targets_411() = dockTouchTargets(411, false)
+    @Test fun dock_touch_targets_800() = dockTouchTargets(800, false)
+    @Test fun rail_touch_targets() = dockTouchTargets(200, true)
 
     @Test fun side_rail_collapses_to_icons_and_keeps_undo() {
         val r = DockRig()

@@ -1124,25 +1124,20 @@ private fun PhaseEditorDialog(
                         Text("الفترة", style = MaterialTheme.typography.labelLarge)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(onClick = { showStartDatePicker = true }, modifier = Modifier.weight(1f).heightIn(min = 56.dp)) {
-                                Icon(Icons.Default.CalendarMonth, null); Spacer(Modifier.width(6.dp)); Column { Text("البداية", style = MaterialTheme.typography.labelSmall); Text(startDate) }
+                                Icon(Icons.Default.CalendarMonth, null); Spacer(Modifier.width(6.dp)); Column { Text("البداية", style = MaterialTheme.typography.labelSmall); Text(startDate, maxLines = 1, softWrap = false, style = MaterialTheme.typography.bodyMedium) }
                             }
                             OutlinedButton(onClick = { showEndDatePicker = true }, modifier = Modifier.weight(1f).heightIn(min = 56.dp)) {
-                                Icon(Icons.Default.Event, null); Spacer(Modifier.width(6.dp)); Column { Text("النهاية", style = MaterialTheme.typography.labelSmall); Text(endDate) }
+                                Icon(Icons.Default.Event, null); Spacer(Modifier.width(6.dp)); Column { Text("النهاية", style = MaterialTheme.typography.labelSmall); Text(endDate, maxLines = 1, softWrap = false, style = MaterialTheme.typography.bodyMedium) }
                             }
                         }
                     }
 
                     item {
-                        Text("أيام المرحلة", style = MaterialTheme.typography.labelLarge)
-                        ResponsiveChipGrid(items = (0..6).map { it to phaseWeekdayName(it) }, minItemWidth = 104.dp, maxColumns = 3) { pair, itemModifier ->
-                            ProFilterChip(
-                                selected = pair.first in weekdays,
-                                onClick = { weekdays = if (pair.first in weekdays) weekdays - pair.first else weekdays + pair.first },
-                                label = pair.second,
-                                modifier = itemModifier.fillMaxWidth(),
-                                showCheckIcon = false,
-                            )
-                        }
+                        PhaseDaysPicker(
+                            days = weekdays, onDays = { weekdays = it }, start = startDate, end = endDate,
+                            targetPages = when (goalMode) { "pages" -> target.toDoubleOrNull(); "juz" -> target.toDoubleOrNull()?.times(20.0); else -> null },
+                            title = if (type == "sard") "أيام السرد" else "أيام المرحلة",
+                        )
                     }
 
                     item {
@@ -1362,6 +1357,10 @@ private fun PhaseEditorDialog(
             title = { Text("معاينة تأثير التعديل") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    val daysOnly = source != null && draft.scheduleWeekdays.toSet() != source.scheduleWeekdays.toSet() &&
+                        draft.startDate == source.startDate && draft.endDate == source.endDate && draft.targetPages == source.targetPages &&
+                        draft.targetUnits == source.targetUnits && draft.goalMode == source.goalMode && draft.distributionMode == source.distributionMode && draft.startMode == source.startMode
+                    if (daysOnly) Text("تعديل الأيام فقط: هذه نفس المرحلة، لا تُنشأ مرحلة جديدة، ولا يتغير الهدف ولا الإنجاز.", fontWeight = FontWeight.SemiBold, color = com.mohammedsamir.halaqati.ui.theme.textAccent("primary"))
                     Text("الفترة الجديدة: ${draft.startDate} ← ${draft.endDate}")
                     Text("الهدف الجديد: ${newTarget?.let { "${phaseNumber(it)} ص" } ?: "مفتوح"}")
                     Text("هناك $stateCount طالب لديهم حالة منفذة/نشطة في هذه المرحلة.")
