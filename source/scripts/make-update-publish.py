@@ -6,8 +6,8 @@ target=out/'Halaqati-latest.apk'
 shutil.copy2(apk,target)
 sha=hashlib.sha256(apk.read_bytes()).hexdigest()
 manifest={
-    'versionName':'2.91.9',
-    'versionCode':29109,
+    'versionName':'2.91.10',
+    'versionCode':29110,
     'apkUrl':'https://syounis212004-sys.github.io/halaqati-web/Halaqati-latest.apk',
     'sha256':sha,
     'native':True,
@@ -15,9 +15,9 @@ manifest={
     # workflow (input "mandatory"). Default is optional; use mandatory only for releases that fix wrong data or security.
     'mandatory':os.environ.get('HALAQATI_MANDATORY','false').strip().lower()=='true',
     'notes':[
-        "شريط أدوات المصحف الجديد: أزرار مربعة مستديرة بأسماء عربية، يُطوى ويُوسَّع بالسحب أو الضغط، وفي الوضع الأفقي يصير شريطًا جانبيًا",
-        "صفحة المصحف تحافظ على أبعادها المطبوعة (14:20) وتستفيد من المساحة أعلى الشريط وأسفله دون تمديد",
-        "أيام السرد: خيارات جاهزة (الأحد–الجمعة / أيام الحلقة / الجمعة فقط) مع تنبيه فوري إذا وقع الهدف كله على يوم واحد، وتعديل أيام السرد للمحددين دفعة واحدة دون إنشاء مراحل جديدة",
+        "الإدارة الجماعية: اختيار أيام السرد من الأعلى يُطبَّق مباشرة على كل الطلاب المحددين (بما فيهم من خُصِّصت أيامهم)",
+        "أزرار الاعتماد صارت ثابتة أعلى الشاشة فلا حاجة للنزول إلى آخر القائمة",
+        "ضُبطت أيام مراحل السرد النشطة على الأحد–الجمعة (السبت إجازة)",
     ]
 }
 (out/'version.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
