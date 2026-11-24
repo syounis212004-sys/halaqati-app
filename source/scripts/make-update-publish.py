@@ -15,8 +15,9 @@ manifest={
     # workflow (input "mandatory"). Default is optional; use mandatory only for releases that fix wrong data or security.
     'mandatory':os.environ.get('HALAQATI_MANDATORY','false').strip().lower()=='true',
     'notes':[
-        "الهيكل الإداري: المشرف الذي لا تتبع حلقاته جمعية لا تظهر له «جمعية» وهمية، بل شاشة «حلقاتي» بحلقاته ومحفّظيه وطلابه فقط",
-        "بطاقة الرئيسية تعرض «حلقاتي» بدل «الجمعية» حين لا توجد جمعية",
+        "المصحف التفاعلي: صفحة المصحف كاملة لتعليم الأخطاء والتلقين كلمةً كلمة (لمس، تظليل، ممحاة، تراجع)",
+        "تقييم V7: الصفحة التي تتجاوز الحد (خطأ واحد وتلقينان) تُحتسب إعادة، ويطابق التطبيق الخادم والموقع",
+        "بطاقة الخطة في مرحلة السرد تعرض إنجاز السرد وهدفه، والاعتماد الجماعي يحفظ أيام السرد الحقيقية للطلاب",
     ]
 }
 (out/'version.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')

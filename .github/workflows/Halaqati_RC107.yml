@@ -30,14 +30,15 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  ARCHIVE_SHA256: 7d36d15959f1ee6af2d04161569ccf2b6609d224ddfa761f0345948b2b849029
+  ARCHIVE_SHA256: 66cad7667ceb32b6e72a5e5d1fb2105cbcb8a733482cb3c50e6bc835bbc064bc
   PROJECT_DIR: ${{ github.workspace }}/extracted/Halaqati_Native_Kotlin_v2.50.0_RC15
   GRADLE_VERSION: '8.13'
 
 jobs:
-  build:
+  gates:
+    name: Source gates and visual fixtures
     runs-on: ubuntu-24.04
-    timeout-minutes: 80
+    timeout-minutes: 25
     defaults:
       run:
         shell: bash
@@ -51,6 +52,7 @@ jobs:
           token: ${{ secrets.SOURCE_REPO_TOKEN || secrets.HALAQATI_SOURCE_TOKEN || secrets.SOURCE_PAT || secrets.GH_PAT || github.token }}
           path: source-repo
           persist-credentials: false
+
 
       - name: Verify exact RC107 v2.91.7 archive and extract
         timeout-minutes: 2
@@ -86,6 +88,101 @@ jobs:
           print('Verified RC107 source SHA-256:', os.environ['ARCHIVE_SHA256'])
           print('Project:', project)
           PY
+
+
+      - name: Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Gradle 8.13 with dependency cache
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+          cache-provider: basic
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+          log-accepted-android-sdk-licenses: false
+
+      - name: Ensure SDK 36 is available
+        timeout-minutes: 8
+        run: |
+          set -euo pipefail
+          sdkmanager --version
+          sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Fetch verified Cairo font for Compose and local documents
+        timeout-minutes: 2
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          set -euo pipefail
+          python3 scripts/fetch-cairo-font.py
+          test -s app/src/main/res/font/cairo.ttf
+          test -s app/src/main/assets/documents/cairo.ttf
+
+      - name: Restore Firebase and optional release signing
+        timeout-minutes: 2
+        working-directory: ${{ env.PROJECT_DIR }}
+        env:
+          FIREBASE_JSON_B64: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64 }}
+          FIREBASE_JSON: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON }}
+          KEYSTORE_B64: ${{ secrets.HALAQATI_KEYSTORE_BASE64 }}
+          HALAQATI_STORE_PASSWORD: ${{ secrets.HALAQATI_STORE_PASSWORD }}
+          HALAQATI_KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
+          HALAQATI_KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
+          GOOGLE_WEB_CLIENT_ID_SECRET: ${{ secrets.HALAQATI_GOOGLE_WEB_CLIENT_ID }}
+          VARIANT: ${{ inputs.variant }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, json, os
+          from pathlib import Path
+          b64 = os.environ.get('FIREBASE_JSON_B64', '')
+          raw = base64.b64decode(b64).decode() if b64 else os.environ.get('FIREBASE_JSON', '')
+          if not raw:
+              raise SystemExit('Missing HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64 or HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON')
+          data = json.loads(raw)
+          packages = [c.get('client_info', {}).get('android_client_info', {}).get('package_name') for c in data.get('client', [])]
+          if 'com.mohammedsamir.halaqati' not in packages:
+              raise SystemExit('Firebase package mismatch')
+          Path('app/google-services.json').write_text(raw)
+          web_client = ''
+          for client in data.get('client', []):
+              for oauth in client.get('oauth_client', []):
+                  if oauth.get('client_type') == 3 and oauth.get('client_id'):
+                      web_client = oauth['client_id']; break
+              if web_client: break
+          web_client = web_client or os.environ.get('GOOGLE_WEB_CLIENT_ID_SECRET', '').strip()
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write('GOOGLE_WEB_CLIENT_ID=' + web_client + '\n')
+          if not web_client:
+              print('NOTICE: Native Google Web Client ID is not configured; the app will use the existing Supabase Google OAuth fallback.')
+          if os.environ['VARIANT'] == 'release':
+              for name in ['KEYSTORE_B64','HALAQATI_STORE_PASSWORD','HALAQATI_KEY_ALIAS','HALAQATI_KEY_PASSWORD']:
+                  if not os.environ.get(name): raise SystemExit('Missing release signing secret: ' + name)
+              keystore = Path(os.environ['RUNNER_TEMP']) / 'halaqati-release.jks'
+              keystore.write_bytes(base64.b64decode(os.environ['KEYSTORE_B64']))
+              with open(os.environ['GITHUB_ENV'], 'a') as f:
+                  f.write('HALAQATI_KEYSTORE_PATH=' + str(keystore) + '\n')
+          print('Firebase / Google auth / legacy release signing inputs validated.')
+          PY
+          if [ "$VARIANT" = release ]; then
+            KEYSTORE="$RUNNER_TEMP/halaqati-release.jks"
+            test -s "$KEYSTORE"
+            CERT_SHA256="$(keytool -list -v \
+              -keystore "$KEYSTORE" \
+              -alias "$HALAQATI_KEY_ALIAS" \
+              -storepass "$HALAQATI_STORE_PASSWORD" 2>/dev/null \
+              | awk -F': ' '/SHA256:/{print $2; exit}')"
+            test -n "$CERT_SHA256" || { echo 'Unable to derive SHA-256 signing certificate from the legacy keystore'; exit 1; }
+            echo "HALAQATI_SIGNING_CERT_SHA256=$CERT_SHA256" >> "$GITHUB_ENV"
+            echo 'Legacy 2.44 signing keystore validated and certificate fingerprint derived.'
+          fi
+
 
       - name: RC24 database contract and required migrations
         timeout-minutes: 1
@@ -257,102 +354,8 @@ jobs:
           echo "::notice::RC24 v2600 Certificate Archive/Rendering migration is already applied on current production. DO NOT re-run it there. CI never runs live DDL."
           echo "::notice::RC15.2 requires migrations 20260928_v2500_rc15, 20260928_v2501_rc15_1 AND 20260929_v2502_rc15_2 applied manually BEFORE installing the APK. CI never runs live DDL."
 
-      - name: Java 17
-        uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Gradle 8.13 with dependency cache
-        uses: gradle/actions/setup-gradle@v6
-        with:
-          gradle-version: ${{ env.GRADLE_VERSION }}
-          cache-provider: basic
-
-      - name: Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          packages: 'platform-tools'
-          log-accepted-android-sdk-licenses: false
-
-      - name: Ensure SDK 36 is available
-        timeout-minutes: 8
-        run: |
-          set -euo pipefail
-          sdkmanager --version
-          sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
-
-      - name: Fetch verified Cairo font for Compose and local documents
-        timeout-minutes: 2
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          set -euo pipefail
-          python3 scripts/fetch-cairo-font.py
-          test -s app/src/main/res/font/cairo.ttf
-          test -s app/src/main/assets/documents/cairo.ttf
-
-      - name: Restore Firebase and optional release signing
-        timeout-minutes: 2
-        working-directory: ${{ env.PROJECT_DIR }}
-        env:
-          FIREBASE_JSON_B64: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64 }}
-          FIREBASE_JSON: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON }}
-          KEYSTORE_B64: ${{ secrets.HALAQATI_KEYSTORE_BASE64 }}
-          HALAQATI_STORE_PASSWORD: ${{ secrets.HALAQATI_STORE_PASSWORD }}
-          HALAQATI_KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
-          HALAQATI_KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
-          GOOGLE_WEB_CLIENT_ID_SECRET: ${{ secrets.HALAQATI_GOOGLE_WEB_CLIENT_ID }}
-          VARIANT: ${{ inputs.variant }}
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import base64, json, os
-          from pathlib import Path
-          b64 = os.environ.get('FIREBASE_JSON_B64', '')
-          raw = base64.b64decode(b64).decode() if b64 else os.environ.get('FIREBASE_JSON', '')
-          if not raw:
-              raise SystemExit('Missing HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64 or HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON')
-          data = json.loads(raw)
-          packages = [c.get('client_info', {}).get('android_client_info', {}).get('package_name') for c in data.get('client', [])]
-          if 'com.mohammedsamir.halaqati' not in packages:
-              raise SystemExit('Firebase package mismatch')
-          Path('app/google-services.json').write_text(raw)
-          web_client = ''
-          for client in data.get('client', []):
-              for oauth in client.get('oauth_client', []):
-                  if oauth.get('client_type') == 3 and oauth.get('client_id'):
-                      web_client = oauth['client_id']; break
-              if web_client: break
-          web_client = web_client or os.environ.get('GOOGLE_WEB_CLIENT_ID_SECRET', '').strip()
-          with open(os.environ['GITHUB_ENV'], 'a') as f:
-              f.write('GOOGLE_WEB_CLIENT_ID=' + web_client + '\n')
-          if not web_client:
-              print('NOTICE: Native Google Web Client ID is not configured; the app will use the existing Supabase Google OAuth fallback.')
-          if os.environ['VARIANT'] == 'release':
-              for name in ['KEYSTORE_B64','HALAQATI_STORE_PASSWORD','HALAQATI_KEY_ALIAS','HALAQATI_KEY_PASSWORD']:
-                  if not os.environ.get(name): raise SystemExit('Missing release signing secret: ' + name)
-              keystore = Path(os.environ['RUNNER_TEMP']) / 'halaqati-release.jks'
-              keystore.write_bytes(base64.b64decode(os.environ['KEYSTORE_B64']))
-              with open(os.environ['GITHUB_ENV'], 'a') as f:
-                  f.write('HALAQATI_KEYSTORE_PATH=' + str(keystore) + '\n')
-          print('Firebase / Google auth / legacy release signing inputs validated.')
-          PY
-          if [ "$VARIANT" = release ]; then
-            KEYSTORE="$RUNNER_TEMP/halaqati-release.jks"
-            test -s "$KEYSTORE"
-            CERT_SHA256="$(keytool -list -v \
-              -keystore "$KEYSTORE" \
-              -alias "$HALAQATI_KEY_ALIAS" \
-              -storepass "$HALAQATI_STORE_PASSWORD" 2>/dev/null \
-              | awk -F': ' '/SHA256:/{print $2; exit}')"
-            test -n "$CERT_SHA256" || { echo 'Unable to derive SHA-256 signing certificate from the legacy keystore'; exit 1; }
-            echo "HALAQATI_SIGNING_CERT_SHA256=$CERT_SHA256" >> "$GITHUB_ENV"
-            echo 'Legacy 2.44 signing keystore validated and certificate fingerprint derived.'
-          fi
 
       - name: RC24 targeted source and regression gates
-        id: source_gates
-        continue-on-error: true
         timeout-minutes: 18
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -453,9 +456,8 @@ jobs:
             timeout 480s bash scripts/run-kotlin-selftests.sh
           } 2>&1 | tee ci-logs/rc24-source-gates.log
 
+
       - name: RC24 browser/PDF visual fixture gate
-        id: visual_gate
-        continue-on-error: true
         timeout-minutes: 5
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -469,9 +471,189 @@ jobs:
           python3 scripts/rc24-certificate-render-fixtures.py --verify --out ci-logs/rc24-certificate-fixtures
           cat ci-logs/rc24-certificate-fixtures/results.json
 
+
+      - name: Upload RC19 diagnostics and rendered fixtures even on failure
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: Halaqati-v2.91.7-RC107-gates-diagnostics-${{ github.run_id }}
+          path: |
+            ${{ env.PROJECT_DIR }}/ci-logs/
+            ${{ env.PROJECT_DIR }}/app/build/reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  tests:
+    name: Gradle tests and visual preview
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.source_repository || github.repository }}
+          ref: ${{ inputs.source_ref }}
+          token: ${{ secrets.SOURCE_REPO_TOKEN || secrets.HALAQATI_SOURCE_TOKEN || secrets.SOURCE_PAT || secrets.GH_PAT || github.token }}
+          path: source-repo
+          persist-credentials: false
+
+
+      - name: Verify exact RC107 v2.91.7 archive and extract
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, os, zipfile
+          from pathlib import Path
+          expected_name = 'Halaqati_RC107.zip'
+          matches = [
+              p for p in Path('source-repo').rglob(expected_name)
+              if '.git' not in p.parts
+              and hashlib.sha256(p.read_bytes()).hexdigest() == os.environ['ARCHIVE_SHA256']
+          ]
+          if len(matches) != 1:
+              raise SystemExit(f'Upload exactly one {expected_name} with the expected SHA-256 to the selected repository/ref.')
+          dest = Path('extracted').resolve()
+          dest.mkdir(exist_ok=False)
+          with zipfile.ZipFile(matches[0]) as z:
+              bad = z.testzip()
+              if bad:
+                  raise SystemExit(f'Corrupt source ZIP member: {bad}')
+              for info in z.infolist():
+                  target = (dest / info.filename).resolve()
+                  if not target.is_relative_to(dest):
+                      raise SystemExit(f'Unsafe archive member: {info.filename}')
+                  if (info.external_attr >> 16) & 0o170000 == 0o120000:
+                      raise SystemExit(f'Symlinks are not allowed: {info.filename}')
+              z.extractall(dest)
+          project = Path(os.environ['PROJECT_DIR'])
+          if not project.is_dir():
+              raise SystemExit(f'Expected Halaqati project directory missing: {project}')
+          print('Verified RC107 source SHA-256:', os.environ['ARCHIVE_SHA256'])
+          print('Project:', project)
+          PY
+
+
+      - name: Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Gradle 8.13 with dependency cache
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+          cache-provider: basic
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+          log-accepted-android-sdk-licenses: false
+
+      - name: Ensure SDK 36 is available
+        timeout-minutes: 8
+        run: |
+          set -euo pipefail
+          sdkmanager --version
+          sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Fetch verified Cairo font for Compose and local documents
+        timeout-minutes: 2
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          set -euo pipefail
+          python3 scripts/fetch-cairo-font.py
+          test -s app/src/main/res/font/cairo.ttf
+          test -s app/src/main/assets/documents/cairo.ttf
+
+      - name: Restore Firebase and optional release signing
+        timeout-minutes: 2
+        working-directory: ${{ env.PROJECT_DIR }}
+        env:
+          FIREBASE_JSON_B64: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64 }}
+          FIREBASE_JSON: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON }}
+          KEYSTORE_B64: ${{ secrets.HALAQATI_KEYSTORE_BASE64 }}
+          HALAQATI_STORE_PASSWORD: ${{ secrets.HALAQATI_STORE_PASSWORD }}
+          HALAQATI_KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
+          HALAQATI_KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
+          GOOGLE_WEB_CLIENT_ID_SECRET: ${{ secrets.HALAQATI_GOOGLE_WEB_CLIENT_ID }}
+          VARIANT: ${{ inputs.variant }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, json, os
+          from pathlib import Path
+          b64 = os.environ.get('FIREBASE_JSON_B64', '')
+          raw = base64.b64decode(b64).decode() if b64 else os.environ.get('FIREBASE_JSON', '')
+          if not raw:
+              raise SystemExit('Missing HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64 or HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON')
+          data = json.loads(raw)
+          packages = [c.get('client_info', {}).get('android_client_info', {}).get('package_name') for c in data.get('client', [])]
+          if 'com.mohammedsamir.halaqati' not in packages:
+              raise SystemExit('Firebase package mismatch')
+          Path('app/google-services.json').write_text(raw)
+          web_client = ''
+          for client in data.get('client', []):
+              for oauth in client.get('oauth_client', []):
+                  if oauth.get('client_type') == 3 and oauth.get('client_id'):
+                      web_client = oauth['client_id']; break
+              if web_client: break
+          web_client = web_client or os.environ.get('GOOGLE_WEB_CLIENT_ID_SECRET', '').strip()
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write('GOOGLE_WEB_CLIENT_ID=' + web_client + '\n')
+          if not web_client:
+              print('NOTICE: Native Google Web Client ID is not configured; the app will use the existing Supabase Google OAuth fallback.')
+          if os.environ['VARIANT'] == 'release':
+              for name in ['KEYSTORE_B64','HALAQATI_STORE_PASSWORD','HALAQATI_KEY_ALIAS','HALAQATI_KEY_PASSWORD']:
+                  if not os.environ.get(name): raise SystemExit('Missing release signing secret: ' + name)
+              keystore = Path(os.environ['RUNNER_TEMP']) / 'halaqati-release.jks'
+              keystore.write_bytes(base64.b64decode(os.environ['KEYSTORE_B64']))
+              with open(os.environ['GITHUB_ENV'], 'a') as f:
+                  f.write('HALAQATI_KEYSTORE_PATH=' + str(keystore) + '\n')
+          print('Firebase / Google auth / legacy release signing inputs validated.')
+          PY
+          if [ "$VARIANT" = release ]; then
+            KEYSTORE="$RUNNER_TEMP/halaqati-release.jks"
+            test -s "$KEYSTORE"
+            CERT_SHA256="$(keytool -list -v \
+              -keystore "$KEYSTORE" \
+              -alias "$HALAQATI_KEY_ALIAS" \
+              -storepass "$HALAQATI_STORE_PASSWORD" 2>/dev/null \
+              | awk -F': ' '/SHA256:/{print $2; exit}')"
+            test -n "$CERT_SHA256" || { echo 'Unable to derive SHA-256 signing certificate from the legacy keystore'; exit 1; }
+            echo "HALAQATI_SIGNING_CERT_SHA256=$CERT_SHA256" >> "$GITHUB_ENV"
+            echo 'Legacy 2.44 signing keystore validated and certificate fingerprint derived.'
+          fi
+
+
+      - name: Robolectric android-all jar (cached; Maven Central answers 429 to shared runners)
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-android-all-15-robolectric-12650502-i7
+
+      - name: Fetch the Robolectric jar with retries when it is not cached
+        timeout-minutes: 6
+        run: |
+          set -uo pipefail
+          V=15-robolectric-12650502-i7
+          D="$HOME/.m2/repository/org/robolectric/android-all-instrumented/$V"
+          F="$D/android-all-instrumented-$V.jar"
+          mkdir -p "$D"
+          if [ -s "$F" ]; then echo "cached: $F"; exit 0; fi
+          for i in 1 2 3 4 5 6; do
+            if curl -fsSL --retry 2 -o "$F.part" "https://repo1.maven.org/maven2/org/robolectric/android-all-instrumented/$V/android-all-instrumented-$V.jar"; then mv "$F.part" "$F"; echo "downloaded on try $i"; exit 0; fi
+            echo "try $i failed; waiting"; sleep $((i*20))
+          done
+          echo "::warning::could not pre-fetch the Robolectric jar; the tests will try themselves"
+
       - name: Targeted RC24 Gradle unit tests
-        id: targeted_tests
-        continue-on-error: true
         timeout-minutes: 10
         working-directory: ${{ env.PROJECT_DIR }}
         env:
@@ -485,9 +667,8 @@ jobs:
           if [ "$VARIANT" = release ]; then testTask=testReleaseUnitTest; fi
           python3 scripts/ci-build.py "$testTask" 540 --tests com.mohammedsamir.halaqati.plans.SmartPlanHealthRulesTest --tests com.mohammedsamir.halaqati.plans.SmartPlanTagRulesTest --tests com.mohammedsamir.halaqati.plans.SmartPlanEngineTest --tests com.mohammedsamir.halaqati.plans.SmartPlanPhaseEngineTest --tests com.mohammedsamir.halaqati.quran.QuranRangeEngineTest --tests com.mohammedsamir.halaqati.ui.sessions.SessionWorkflowRulesTest
 
+
       - name: Compile chosen Kotlin variant
-        id: compile_kotlin
-        continue-on-error: true
         timeout-minutes: 10
         working-directory: ${{ env.PROJECT_DIR }}
         env:
@@ -501,9 +682,8 @@ jobs:
           if [ "$VARIANT" = release ]; then task=compileReleaseKotlin; fi
           python3 scripts/ci-build.py "$task" 540
 
+
       - name: Compile RC24 instrumentation regression test
-        id: compile_android_test
-        continue-on-error: true
         timeout-minutes: 8
         working-directory: ${{ env.PROJECT_DIR }}
         env:
@@ -514,9 +694,8 @@ jobs:
           set -euo pipefail
           python3 scripts/ci-build.py compileDebugAndroidTestKotlin 420
 
+
       - name: Full Gradle unit tests
-        id: full_tests
-        continue-on-error: true
         timeout-minutes: 10
         working-directory: ${{ env.PROJECT_DIR }}
         env:
@@ -530,9 +709,8 @@ jobs:
           if [ "$VARIANT" = release ]; then testTask=testReleaseUnitTest; fi
           python3 scripts/ci-build.py "$testTask" 540
 
+
       - name: Visual preview (Robolectric native graphics, PNG)
-        id: visual_preview
-        continue-on-error: true
         timeout-minutes: 12
         working-directory: ${{ env.PROJECT_DIR }}
         env:
@@ -559,6 +737,7 @@ jobs:
           assert bad == 0, f'{bad} preview tests failed'
           PY3
 
+
       - name: Upload visual previews
         if: always()
         uses: actions/upload-artifact@v6
@@ -567,6 +746,7 @@ jobs:
           path: ${{ env.PROJECT_DIR }}/app/build/preview/
           if-no-files-found: warn
           retention-days: 14
+
 
       - name: Publish preview PNGs as assets of the visual-preview prerelease (not a product release)
         if: always()
@@ -583,9 +763,168 @@ jobs:
           fi
           find app/build/preview -name '*.png' -size +2k -print0 | xargs -0 gh release upload visual-preview --clobber --repo "$GITHUB_REPOSITORY"
 
+
+      - name: Upload RC19 diagnostics and rendered fixtures even on failure
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: Halaqati-v2.91.7-RC107-tests-diagnostics-${{ github.run_id }}
+          path: |
+            ${{ env.PROJECT_DIR }}/ci-logs/
+            ${{ env.PROJECT_DIR }}/app/build/reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  package:
+    name: Lint, APK and signature check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.source_repository || github.repository }}
+          ref: ${{ inputs.source_ref }}
+          token: ${{ secrets.SOURCE_REPO_TOKEN || secrets.HALAQATI_SOURCE_TOKEN || secrets.SOURCE_PAT || secrets.GH_PAT || github.token }}
+          path: source-repo
+          persist-credentials: false
+
+
+      - name: Verify exact RC107 v2.91.7 archive and extract
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, os, zipfile
+          from pathlib import Path
+          expected_name = 'Halaqati_RC107.zip'
+          matches = [
+              p for p in Path('source-repo').rglob(expected_name)
+              if '.git' not in p.parts
+              and hashlib.sha256(p.read_bytes()).hexdigest() == os.environ['ARCHIVE_SHA256']
+          ]
+          if len(matches) != 1:
+              raise SystemExit(f'Upload exactly one {expected_name} with the expected SHA-256 to the selected repository/ref.')
+          dest = Path('extracted').resolve()
+          dest.mkdir(exist_ok=False)
+          with zipfile.ZipFile(matches[0]) as z:
+              bad = z.testzip()
+              if bad:
+                  raise SystemExit(f'Corrupt source ZIP member: {bad}')
+              for info in z.infolist():
+                  target = (dest / info.filename).resolve()
+                  if not target.is_relative_to(dest):
+                      raise SystemExit(f'Unsafe archive member: {info.filename}')
+                  if (info.external_attr >> 16) & 0o170000 == 0o120000:
+                      raise SystemExit(f'Symlinks are not allowed: {info.filename}')
+              z.extractall(dest)
+          project = Path(os.environ['PROJECT_DIR'])
+          if not project.is_dir():
+              raise SystemExit(f'Expected Halaqati project directory missing: {project}')
+          print('Verified RC107 source SHA-256:', os.environ['ARCHIVE_SHA256'])
+          print('Project:', project)
+          PY
+
+
+      - name: Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Gradle 8.13 with dependency cache
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+          cache-provider: basic
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+          log-accepted-android-sdk-licenses: false
+
+      - name: Ensure SDK 36 is available
+        timeout-minutes: 8
+        run: |
+          set -euo pipefail
+          sdkmanager --version
+          sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Fetch verified Cairo font for Compose and local documents
+        timeout-minutes: 2
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          set -euo pipefail
+          python3 scripts/fetch-cairo-font.py
+          test -s app/src/main/res/font/cairo.ttf
+          test -s app/src/main/assets/documents/cairo.ttf
+
+      - name: Restore Firebase and optional release signing
+        timeout-minutes: 2
+        working-directory: ${{ env.PROJECT_DIR }}
+        env:
+          FIREBASE_JSON_B64: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64 }}
+          FIREBASE_JSON: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON }}
+          KEYSTORE_B64: ${{ secrets.HALAQATI_KEYSTORE_BASE64 }}
+          HALAQATI_STORE_PASSWORD: ${{ secrets.HALAQATI_STORE_PASSWORD }}
+          HALAQATI_KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
+          HALAQATI_KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
+          GOOGLE_WEB_CLIENT_ID_SECRET: ${{ secrets.HALAQATI_GOOGLE_WEB_CLIENT_ID }}
+          VARIANT: ${{ inputs.variant }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, json, os
+          from pathlib import Path
+          b64 = os.environ.get('FIREBASE_JSON_B64', '')
+          raw = base64.b64decode(b64).decode() if b64 else os.environ.get('FIREBASE_JSON', '')
+          if not raw:
+              raise SystemExit('Missing HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64 or HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON')
+          data = json.loads(raw)
+          packages = [c.get('client_info', {}).get('android_client_info', {}).get('package_name') for c in data.get('client', [])]
+          if 'com.mohammedsamir.halaqati' not in packages:
+              raise SystemExit('Firebase package mismatch')
+          Path('app/google-services.json').write_text(raw)
+          web_client = ''
+          for client in data.get('client', []):
+              for oauth in client.get('oauth_client', []):
+                  if oauth.get('client_type') == 3 and oauth.get('client_id'):
+                      web_client = oauth['client_id']; break
+              if web_client: break
+          web_client = web_client or os.environ.get('GOOGLE_WEB_CLIENT_ID_SECRET', '').strip()
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write('GOOGLE_WEB_CLIENT_ID=' + web_client + '\n')
+          if not web_client:
+              print('NOTICE: Native Google Web Client ID is not configured; the app will use the existing Supabase Google OAuth fallback.')
+          if os.environ['VARIANT'] == 'release':
+              for name in ['KEYSTORE_B64','HALAQATI_STORE_PASSWORD','HALAQATI_KEY_ALIAS','HALAQATI_KEY_PASSWORD']:
+                  if not os.environ.get(name): raise SystemExit('Missing release signing secret: ' + name)
+              keystore = Path(os.environ['RUNNER_TEMP']) / 'halaqati-release.jks'
+              keystore.write_bytes(base64.b64decode(os.environ['KEYSTORE_B64']))
+              with open(os.environ['GITHUB_ENV'], 'a') as f:
+                  f.write('HALAQATI_KEYSTORE_PATH=' + str(keystore) + '\n')
+          print('Firebase / Google auth / legacy release signing inputs validated.')
+          PY
+          if [ "$VARIANT" = release ]; then
+            KEYSTORE="$RUNNER_TEMP/halaqati-release.jks"
+            test -s "$KEYSTORE"
+            CERT_SHA256="$(keytool -list -v \
+              -keystore "$KEYSTORE" \
+              -alias "$HALAQATI_KEY_ALIAS" \
+              -storepass "$HALAQATI_STORE_PASSWORD" 2>/dev/null \
+              | awk -F': ' '/SHA256:/{print $2; exit}')"
+            test -n "$CERT_SHA256" || { echo 'Unable to derive SHA-256 signing certificate from the legacy keystore'; exit 1; }
+            echo "HALAQATI_SIGNING_CERT_SHA256=$CERT_SHA256" >> "$GITHUB_ENV"
+            echo 'Legacy 2.44 signing keystore validated and certificate fingerprint derived.'
+          fi
+
+
       - name: Lint chosen variant
-        id: lint
-        continue-on-error: true
         timeout-minutes: 10
         working-directory: ${{ env.PROJECT_DIR }}
         env:
@@ -599,9 +938,8 @@ jobs:
           if [ "$VARIANT" = release ]; then lintTask=lintRelease; fi
           python3 scripts/ci-build.py "$lintTask" 540
 
+
       - name: Assemble chosen APK
-        id: assemble
-        continue-on-error: true
         timeout-minutes: 10
         working-directory: ${{ env.PROJECT_DIR }}
         env:
@@ -615,9 +953,8 @@ jobs:
           if [ "$VARIANT" = release ]; then assembleTask=assembleRelease; fi
           python3 scripts/ci-build.py "$assembleTask" 540
 
+
       - name: Verify APK identity and signing
-        id: apk_verify
-        continue-on-error: true
         timeout-minutes: 3
         working-directory: ${{ env.PROJECT_DIR }}
         env:
@@ -665,43 +1002,95 @@ jobs:
           cp migration/20261010_v2601_rc24_1_fix_digest_search_path.sql verified/RC24_1_REQUIRED_SUPABASE_MIGRATION.sql
           (cd verified && sha256sum *.apk RC18_REQUIRED_SUPABASE_MIGRATION.sql RC18_2_REQUIRED_SUPABASE_MIGRATION.sql RC19_REQUIRED_SUPABASE_MIGRATION.sql RC19_1_REQUIRED_SUPABASE_MIGRATION.sql RC20_REQUIRED_SUPABASE_MIGRATION.sql RC21_REQUIRED_SUPABASE_MIGRATION.sql RC22_REQUIRED_SUPABASE_MIGRATION.sql RC23_REQUIRED_SUPABASE_MIGRATION.sql RC24_REQUIRED_SUPABASE_MIGRATION.sql RC24_1_REQUIRED_SUPABASE_MIGRATION.sql > SHA256SUMS.txt)
 
-      - name: Final RC24 gate aggregation
+
+      - name: Upload verified APK folder for the release job
+        uses: actions/upload-artifact@v6
+        with:
+          name: verified-${{ github.run_id }}
+          path: ${{ env.PROJECT_DIR }}/verified/
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Upload RC19 diagnostics and rendered fixtures even on failure
         if: always()
-        env:
-          SOURCE_GATES: ${{ steps.source_gates.outcome }}
-          VISUAL_GATE: ${{ steps.visual_gate.outcome }}
-          TARGETED_TESTS: ${{ steps.targeted_tests.outcome }}
-          COMPILE_KOTLIN: ${{ steps.compile_kotlin.outcome }}
-          COMPILE_ANDROID_TEST: ${{ steps.compile_android_test.outcome }}
-          FULL_TESTS: ${{ steps.full_tests.outcome }}
-          LINT: ${{ steps.lint.outcome }}
-          ASSEMBLE: ${{ steps.assemble.outcome }}
-          APK_VERIFY: ${{ steps.apk_verify.outcome }}
-          VISUAL_PREVIEW: ${{ steps.visual_preview.outcome }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: Halaqati-v2.91.7-RC107-package-diagnostics-${{ github.run_id }}
+          path: |
+            ${{ env.PROJECT_DIR }}/ci-logs/
+            ${{ env.PROJECT_DIR }}/app/build/reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  release:
+    name: Update package, release gate and GitHub Release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    needs: [gates, tests, package]
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.source_repository || github.repository }}
+          ref: ${{ inputs.source_ref }}
+          token: ${{ secrets.SOURCE_REPO_TOKEN || secrets.HALAQATI_SOURCE_TOKEN || secrets.SOURCE_PAT || secrets.GH_PAT || github.token }}
+          path: source-repo
+          persist-credentials: false
+
+
+      - name: Verify exact RC107 v2.91.7 archive and extract
+        timeout-minutes: 2
         run: |
           set -euo pipefail
-          failed=0
-          for item in \
-            "source-gates=$SOURCE_GATES" \
-            "visual-gate=$VISUAL_GATE" \
-            "targeted-tests=$TARGETED_TESTS" \
-            "compile-kotlin=$COMPILE_KOTLIN" \
-            "compile-android-test=$COMPILE_ANDROID_TEST" \
-            "full-tests=$FULL_TESTS" \
-            "lint=$LINT" \
-            "assemble=$ASSEMBLE" \
-            "apk-verify=$APK_VERIFY" \
-            "visual-preview=$VISUAL_PREVIEW"; do
-            name="${item%%=*}"
-            state="${item#*=}"
-            printf '%-24s %s\n' "$name" "$state"
-            if [ "$state" != success ]; then failed=1; fi
-          done
-          if [ "$failed" -ne 0 ]; then
-            echo '::error::One or more RC24 gates failed. This workflow intentionally continued so a single run exposes all independent build problems. Review diagnostics/artifacts above.'
-            exit 1
-          fi
-          echo 'All RC24.1 certificate layout/archive, RC23 student/session, RC22 import/program, RC21 multi-halaqa, UI/document, privacy, visual, Gradle, lint, assemble, and APK verification gates passed.'
+          python3 - <<'PY'
+          import hashlib, os, zipfile
+          from pathlib import Path
+          expected_name = 'Halaqati_RC107.zip'
+          matches = [
+              p for p in Path('source-repo').rglob(expected_name)
+              if '.git' not in p.parts
+              and hashlib.sha256(p.read_bytes()).hexdigest() == os.environ['ARCHIVE_SHA256']
+          ]
+          if len(matches) != 1:
+              raise SystemExit(f'Upload exactly one {expected_name} with the expected SHA-256 to the selected repository/ref.')
+          dest = Path('extracted').resolve()
+          dest.mkdir(exist_ok=False)
+          with zipfile.ZipFile(matches[0]) as z:
+              bad = z.testzip()
+              if bad:
+                  raise SystemExit(f'Corrupt source ZIP member: {bad}')
+              for info in z.infolist():
+                  target = (dest / info.filename).resolve()
+                  if not target.is_relative_to(dest):
+                      raise SystemExit(f'Unsafe archive member: {info.filename}')
+                  if (info.external_attr >> 16) & 0o170000 == 0o120000:
+                      raise SystemExit(f'Symlinks are not allowed: {info.filename}')
+              z.extractall(dest)
+          project = Path(os.environ['PROJECT_DIR'])
+          if not project.is_dir():
+              raise SystemExit(f'Expected Halaqati project directory missing: {project}')
+          print('Verified RC107 source SHA-256:', os.environ['ARCHIVE_SHA256'])
+          print('Project:', project)
+          PY
+
+
+      - name: Download the verified APK folder
+        uses: actions/download-artifact@v6
+        with:
+          name: verified-${{ github.run_id }}
+          path: ${{ env.PROJECT_DIR }}/verified/
+
+      - name: Put the verified signed APK where the update package script reads it
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          set -euo pipefail
+          test -s verified/Halaqati-v2.91.7-release.apk
+          mkdir -p app/build/outputs/apk/release
+          cp verified/Halaqati-v2.91.7-release.apk app/build/outputs/apk/release/app-release.apk
 
       - name: Prepare direct in-app update package
         if: ${{ inputs.variant == 'release' }}
@@ -726,10 +1115,12 @@ jobs:
           (cd update-publish && zip -q -X ../verified/Halaqati-v2.91.7-publish-update.zip Halaqati-latest.apk version.json)
           sha256sum verified/Halaqati-v2.91.7-publish-update.zip >> verified/SHA256SUMS.txt
 
+
       - name: Release gate (verified APK, version.json, SHA-256, update zip)
         if: ${{ inputs.variant == 'release' }}
         working-directory: ${{ env.PROJECT_DIR }}
         run: python3 "${{ github.workspace }}/source-repo/.github/scripts/release_gate.py" app verified update-publish 2.91.7 29107
+
 
       - name: Create or refresh GitHub Release v2.91.7 RC107
         if: ${{ inputs.variant == 'release' }}
@@ -751,21 +1142,11 @@ jobs:
               --notes "RC107 (2.91.7): المصحف التفاعلي، معادلة V7 (صفحة فوق الحد = إعادة)، بطاقة الخطة في مرحلة السرد، رسالة عربية لتداخل المراحل. تحديث إجباري. بناء تحقق فقط؛ لا نشر للمستخدمين."
           fi
 
-      - name: Upload APK only after every gate passes
+
+      - name: Upload the release folder
         uses: actions/upload-artifact@v6
         with:
           name: Halaqati-v2.91.7-RC107-${{ inputs.variant }}
           path: ${{ env.PROJECT_DIR }}/verified/
           if-no-files-found: error
-          retention-days: 14
-
-      - name: Upload RC19 diagnostics and rendered fixtures even on failure
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: Halaqati-v2.91.7-RC107-diagnostics-${{ github.run_id }}
-          path: |
-            ${{ env.PROJECT_DIR }}/ci-logs/
-            ${{ env.PROJECT_DIR }}/app/build/reports/
-          if-no-files-found: ignore
           retention-days: 14
