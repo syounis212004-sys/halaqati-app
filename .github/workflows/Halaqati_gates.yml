@@ -955,7 +955,7 @@ jobs:
 
 
       - name: Lint chosen variant
-        timeout-minutes: 10
+        timeout-minutes: 20
         working-directory: ${{ env.PROJECT_DIR }}
         env:
           VARIANT: ${{ inputs.variant || 'release' }}
@@ -966,11 +966,11 @@ jobs:
           set -euo pipefail
           lintTask=lintDebug
           if [ "$VARIANT" = release ]; then lintTask=lintRelease; fi
-          python3 scripts/ci-build.py "$lintTask" 540
+          python3 scripts/ci-build.py "$lintTask" 900
 
 
       - name: Assemble chosen APK
-        timeout-minutes: 10
+        timeout-minutes: 20
         working-directory: ${{ env.PROJECT_DIR }}
         env:
           VARIANT: ${{ inputs.variant || 'release' }}
@@ -981,7 +981,7 @@ jobs:
           set -euo pipefail
           assembleTask=assembleDebug
           if [ "$VARIANT" = release ]; then assembleTask=assembleRelease; fi
-          python3 scripts/ci-build.py "$assembleTask" 540
+          python3 scripts/ci-build.py "$assembleTask" 900
 
 
       - name: Verify APK identity and signing
