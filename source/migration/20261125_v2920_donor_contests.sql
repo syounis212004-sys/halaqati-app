@@ -53,7 +53,8 @@ language sql stable security definer set search_path = public, pg_temp as $$
   union select s.halaqa_id from public.student_guardians sg join public.students s on s.id = sg.student_id
         where sg.guardian_id = auth.uid() and s.halaqa_id is not null
   union select m.halaqa_id from public.student_halaqa_memberships m join public.students s on s.id = m.student_id
-        where s.user_id = auth.uid() or exists(select 1 from public.student_guardians sg where sg.student_id = s.id and sg.guardian_id = auth.uid())
+        where m.status = 'active' and m.ended_at is null
+          and (s.user_id = auth.uid() or exists(select 1 from public.student_guardians sg where sg.student_id = s.id and sg.guardian_id = auth.uid()))
 $$;
 
 -- 3) RLS -----------------------------------------------------------------------------------------------------------------------
