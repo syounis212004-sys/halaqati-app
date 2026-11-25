@@ -95,18 +95,20 @@ class RoleNavigationPolicyTest {
         org.junit.Assert.assertEquals(AppDestination.Mushaf, AppDestination.fromRoute("mushaf"))
     }
 
-    @Test fun contestsStayHiddenUntilTheMigrationIsApproved() {
+    @Test fun contestsCanBeSwitchedOffEverywhereWithOneFlag() {
         com.mohammedsamir.halaqati.data.ContestsFeature.enabled = false
-        for (role in UserRole.values()) {
-            assertFalse("$role cannot open contests while the flag is off", RoleNavigationPolicy.canOpen(role, AppDestination.Contests))
-            assertFalse(RoleNavigationPolicy.drawerItems(role).any { it.destination == AppDestination.Contests })
-            assertFalse(RoleNavigationPolicy.moreSections(role).any { AppDestination.Contests in it.items })
-        }
+        try {
+            for (role in UserRole.values()) {
+                assertFalse("$role cannot open contests while the flag is off", RoleNavigationPolicy.canOpen(role, AppDestination.Contests))
+                assertFalse(RoleNavigationPolicy.drawerItems(role).any { it.destination == AppDestination.Contests })
+                assertFalse(RoleNavigationPolicy.moreSections(role).any { AppDestination.Contests in it.items })
+            }
+        } finally { com.mohammedsamir.halaqati.data.ContestsFeature.enabled = true }
     }
 
     @Test fun contestsAreOpenToDonorAdminAndEveryHalaqaRelatedRole() {
-        com.mohammedsamir.halaqati.data.ContestsFeature.enabled = true
-        try { contestsOpenBody() } finally { com.mohammedsamir.halaqati.data.ContestsFeature.enabled = false }
+        assertTrue(com.mohammedsamir.halaqati.data.ContestsFeature.enabled)
+        contestsOpenBody()
     }
 
     private fun contestsOpenBody() {
