@@ -3089,6 +3089,37 @@ class HalaqatiRepository(
         return jsonRpc("rc48_set_donor_halaqas", JSONObject().put("p_donor", donorId).put("p_halaqas", JSONArray(halaqaIds))).trim() == "true"
     }
 
+    // ---- Donor contests (migration 20261125_v2920): lists are read through the stored-RPC cache so they open offline. ----
+    fun contestsMine(force: Boolean = false): List<Contest> = storedRpcList("contest_my", force).map(Contest::fromJson)
+    fun contestsAdmin(force: Boolean = false): List<Contest> = storedRpcList("contest_admin_list", force).map(Contest::fromJson)
+    fun contestsVisible(force: Boolean = false): List<Contest> = storedRpcList("contest_visible", force).map(Contest::fromJson)
+    /** Halaqat the caller may attach a contest to: the donor's linked halaqat, or every active halaqa for the admin. */
+    fun contestHalaqas(force: Boolean = false): List<JSONObject> = storedRpcList("contest_donor_halaqas", force)
+
+    fun contestSubmit(draft: ContestDraft, halaqaId: String?): String {
+        require(online()) { "إرسال المسابقة يحتاج اتصالاً بالإنترنت" }
+        val errors = ContestRules.validate(draft)
+        require(errors.isEmpty()) { errors.values.first() }
+        val args = JSONObject().put("p_name", draft.name.trim()).put("p_title", draft.title.trim())
+            .put("p_conditions", draft.conditions.trim()).put("p_reward", draft.reward.trim())
+            .put("p_halaqa", halaqaId ?: JSONObject.NULL)
+            .put("p_starts_on", draft.startsOn?.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
+            .put("p_ends_on", draft.endsOn?.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
+        return jsonRpc("contest_submit", args).trim().trim('"')
+    }
+
+    /** Admin decision. Returns false when the contest was already decided by someone else. */
+    fun contestDecide(contest: Contest, approve: Boolean, reason: String, halaqaId: String?, linkDonor: Boolean): Boolean {
+        require(online()) { "القرار يحتاج اتصالاً بالإنترنت" }
+        val to = if (approve) ContestStatus.APPROVED else ContestStatus.REJECTED
+        val err = ContestRules.decisionError(contest.status, to, reason, halaqaId)
+        require(err == null) { when (err) { "reason" -> "اكتب سبب الرفض (3 أحرف على الأقل)"; "halaqa" -> "اختر الحلقة قبل الاعتماد"; else -> "تم البت في المسابقة سابقًا" } }
+        val args = JSONObject().put("p_id", contest.id).put("p_status", to.wire)
+            .put("p_reason", reason.trim().ifBlank { JSONObject.NULL })
+            .put("p_halaqa", halaqaId ?: JSONObject.NULL).put("p_link_donor", linkDonor)
+        return jsonRpc("contest_decide", args).trim() == "true"
+    }
+
     fun supportCards(force: Boolean = false): List<JSONObject> = storedRpcList("rc49_support_cards", force)
 
     fun supportSaveCard(card: JSONObject): String {

@@ -15,7 +15,13 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.printToString
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.unit.dp
@@ -134,6 +140,53 @@ class MushafReaderPolishTest {
         rule.onNodeWithText("القياسات").performClick()
         rule.onNodeWithText("planSnapshots 2840").assertDoesNotExist()
     }
-}
 
-private fun androidx.compose.ui.test.SemanticsNodeInteraction.assertDoesNotExist() = this.assertDoesNotExist()
+    @Test fun bookmarksTogglePersistSortedAndNeverTouchMarks() {
+        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        ctx.getSharedPreferences("halaqati_mushaf_reader", 0).edit().clear().commit()
+        assertEquals(emptyList<Int>(), com.mohammedsamir.halaqati.ui.screens.MushafBookmarks.all(ctx))
+        com.mohammedsamir.halaqati.ui.screens.MushafBookmarks.toggle(ctx, 300); com.mohammedsamir.halaqati.ui.screens.MushafBookmarks.toggle(ctx, 12)
+        assertEquals(listOf(12, 300), com.mohammedsamir.halaqati.ui.screens.MushafBookmarks.all(ctx))
+        assertEquals(listOf(12), com.mohammedsamir.halaqati.ui.screens.MushafBookmarks.toggle(ctx, 300))
+    }
+
+    @Test fun theBookmarkButtonTogglesAndTheJumpDialogListsBookmarkedPages() {
+        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        ctx.getSharedPreferences("halaqati_mushaf_reader", 0).edit().clear().commit()
+        reader(readOnly = true, start = 7)
+        rule.waitForIdle()
+        rule.onNodeWithContentDescription("إضافة علامة مرجعية").performClick()
+        rule.onNodeWithContentDescription("إزالة العلامة المرجعية").assertIsDisplayed()
+        assertEquals(listOf(7), com.mohammedsamir.halaqati.ui.screens.MushafBookmarks.all(ctx))
+        rule.onNodeWithContentDescription("إزالة العلامة المرجعية").performClick()
+        assertEquals(emptyList<Int>(), com.mohammedsamir.halaqati.ui.screens.MushafBookmarks.all(ctx))
+    }
+
+    @Test fun jumpBodyShowsBookmarksAndGoesToAnAyahsPage() {
+        var went = -1
+        rule.setContent { MaterialTheme(lightColorScheme()) { MushafJumpBody(page = 3, rangeStart = null, rangeEnd = null, input = "3", onInput = {}, onGo = { went = it }, bookmarks = listOf(42, 300)) } }
+        rule.onNodeWithText("العلامات المرجعية").assertIsDisplayed()
+        rule.onNodeWithText("ص ٣٠٠").performClick()
+        assertEquals(300, went)
+        rule.onNodeWithText("السورة…").performScrollTo().performClick()
+        rule.waitForIdle()
+        if (rule.onAllNodesWithText("٢. " + com.mohammedsamir.halaqati.quran.QuranMetadata.surahName(2)).fetchSemanticsNodes().isEmpty()) throw AssertionError(rule.onRoot().printToString(Int.MAX_VALUE).lines().filter { "Text =" in it || "ContentDescription" in it }.joinToString("|").take(3000))
+        rule.onNodeWithText("٢. " + com.mohammedsamir.halaqati.quran.QuranMetadata.surahName(2)).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        rule.waitForIdle()
+        if (rule.onAllNodesWithText("رقم الآية", substring = true).fetchSemanticsNodes().isEmpty()) throw AssertionError(rule.onRoot().printToString(Int.MAX_VALUE).lines().filter { "Text =" in it }.joinToString("|").takeLast(1500))
+        rule.onNodeWithText("رقم الآية", substring = true).performScrollTo().performTextInput("255")
+        rule.onNodeWithText("اذهب إلى الآية").performScrollTo().performClick()
+        assertEquals(com.mohammedsamir.halaqati.quran.QuranMetadata.pageFor(2, 255), went)
+    }
+
+    @Test fun anAyahNumberBeyondTheSurahIsRejected() {
+        rule.setContent { MaterialTheme(lightColorScheme()) { MushafJumpBody(page = 3, rangeStart = null, rangeEnd = null, input = "3", onInput = {}, onGo = {}) } }
+        rule.onNodeWithText("السورة…").performScrollTo().performClick()
+        rule.onNodeWithText("١٠٣. " + com.mohammedsamir.halaqati.quran.QuranMetadata.surahName(103)).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        rule.waitForIdle()
+        if (rule.onAllNodesWithText("رقم الآية", substring = true).fetchSemanticsNodes().isEmpty()) throw AssertionError(rule.onRoot().printToString(Int.MAX_VALUE).lines().filter { "Text =" in it }.joinToString("|").takeLast(1200))
+        rule.waitForIdle()
+        rule.onNodeWithText("رقم الآية", substring = true).performScrollTo().performTextInput("9")
+        rule.onNodeWithText("اذهب إلى الآية").assertIsNotEnabled()
+    }
+}

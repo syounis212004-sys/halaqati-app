@@ -24,7 +24,15 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -75,6 +83,7 @@ internal fun DkReadyPage(
     p: DkPrepared, page: Int, pal: MushafPalette, tick: Int, tool: Tool, session: MushafEngine.Session, preview: Set<String>, inRange: (Int, Int, Int) -> Boolean,
     onTapWord: (String) -> Unit, onLongWord: (String, Offset) -> Unit, onPreview: (Set<String>) -> Unit, onSpan: (List<String>) -> Unit,
     kindMenuFor: Pair<String, Offset>?, onKind: (String, MarkKind) -> Unit, onDismissKind: () -> Unit,
+    isCurrent: Boolean = true, onZoomChanged: (Boolean) -> Unit = {},
 ) {
     val density = LocalDensity.current
     val first = p.wordIds.firstOrNull()?.let { MushafEngine.parseWordId(it) }
@@ -107,18 +116,19 @@ internal fun DkReadyPage(
             val rects = remember(p, wPx, pitch) { DkRender.rectsById(p.ids, DkRender.wordRects(p.dk, wPx.toInt().toFloat(), pitch)).mapValues { Rect(it.value.left, it.value.top, it.value.right, it.value.bottom) } }
             val wDp = with(density) { wPx.toInt().toDp() }; val hDp = with(density) { pageHpx.toInt().toDp() }
 
+            var zoom by remember(p) { androidx.compose.runtime.mutableFloatStateOf(1f) }
+            var pan by remember(p) { mutableStateOf(Offset.Zero) }
+            val zoomedNow = zoom > 1.02f
+            androidx.compose.runtime.LaunchedEffect(zoomedNow) { onZoomChanged(zoomedNow) }
+            androidx.compose.runtime.LaunchedEffect(isCurrent) { if (!isCurrent) { zoom = 1f; pan = Offset.Zero } }
+            Box(Modifier.fillMaxSize().clipToBounds().zoomPinch(enabled = isCurrent, tapToolOnly = tool == Tool.Tap, zoom = { zoom }, pan = { pan }) { z, pn -> zoom = z; pan = pn }, contentAlignment = Alignment.Center) {
             Box(
                 Modifier.size(wDp, hDp)
+                    .graphicsLayer { scaleX = zoom; scaleY = zoom; translationX = pan.x; translationY = pan.y }
                     .semantics { contentDescription = "صفحة ${digits(page)}" }
                     .drawBehind {
-                        // the printed sura-name frame behind the sura-name line (DigitalKhatm draws the name only)
-                        p.dk.lines.forEachIndexed { i, line ->
-                            if (line.type == 1) {
-                                val tl = Offset(size.width * 0.02f, i * pitch + pitch * 0.07f); val sz = Size(size.width * 0.96f, pitch * 0.86f); val cr = CornerRadius(pitch * 0.26f)
-                                drawRoundRect(pal.rangeBg, tl, sz, cr)
-                                drawRoundRect(pal.rule, tl, sz, cr, style = Stroke(max(2f, pitch * 0.045f)))
-                            }
-                        }
+                        // the sura-name cartouche behind the sura-name line (DigitalKhatm draws the name only)
+                        p.dk.lines.forEachIndexed { i, line -> if (line.type == 1) drawSuraOrnament(i * pitch + pitch * 0.06f, pitch * 0.88f, pal) }
                         for ((id, r) in rects) {
                             val mark = session.getMark(id)
                             val prev = id in preview
@@ -179,6 +189,45 @@ internal fun DkReadyPage(
                     }
                 }
             }
+            if (zoomedNow) androidx.compose.material3.FilledTonalButton(
+                onClick = { zoom = 1f; pan = Offset.Zero }, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp),
+            ) { Text("إعادة الحجم") }
+            }
         }
+    }
+}
+
+/**
+ * Two-finger pinch zoom (1x to 4x) with pan. A single finger pans only while zoomed and only in the tap tool, after it has clearly moved, so taps,
+ * long presses and highlighting keep working. Runs in the Initial pass so a pinch never reaches the marking gestures underneath.
+ */
+internal fun Modifier.zoomPinch(
+    enabled: Boolean, tapToolOnly: Boolean, zoom: () -> Float, pan: () -> Offset, onChange: (Float, Offset) -> Unit,
+): Modifier = if (!enabled) this else pointerInput(tapToolOnly) {
+    val slop = viewConfiguration.touchSlop
+    awaitEachGesture {
+        awaitFirstDown(requireUnconsumed = false, pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+        var travelled = 0f
+        do {
+            val ev = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+            val multi = ev.changes.count { it.pressed } >= 2
+            val z0 = zoom()
+            if (multi || (z0 > 1.02f && tapToolOnly)) {
+                val zc = if (multi) ev.calculateZoom() else 1f
+                val pc = ev.calculatePan()
+                travelled += hypot(pc.x, pc.y)
+                if (multi || travelled > slop) {
+                    val z1 = (z0 * zc).coerceIn(1f, 4f)
+                    val centre = Offset(size.width / 2f, size.height / 2f)
+                    val c = if (multi) ev.calculateCentroid(useCurrent = false) else centre
+                    var p1 = (c - centre) * (1f - z1 / z0) + pan() * (z1 / z0) + pc
+                    val maxX = (z1 - 1f) * size.width / 2f; val maxY = (z1 - 1f) * size.height / 2f
+                    p1 = Offset(p1.x.coerceIn(-maxX, maxX), p1.y.coerceIn(-maxY, maxY))
+                    if (z1 <= 1.001f) p1 = Offset.Zero
+                    onChange(z1, p1)
+                    ev.changes.forEach { if (it.positionChanged()) it.consume() }
+                }
+            }
+        } while (ev.changes.any { it.pressed })
     }
 }

@@ -49,6 +49,10 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.FilledTonalIconToggleButton
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Badge
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -355,54 +359,39 @@ private fun ActionCell(label: String, icon: ImageVector, enabled: Boolean, pal: 
  * The selected plate takes the tool's semantic colour with a ring; pressing shrinks it with a spring. The cell is at least 48dp wide
  * and tall, whatever the plate size, so the touch target never gets smaller than the guideline.
  */
+/**
+ * One dock control built from Material 3 parts: a tonal icon toggle whose corner morphs from round (off) to a softer rounded square (on), and a standard
+ * Badge for counts. The label sits under it. Name kept for the callers; it is no longer a custom squircle with a hand-made badge.
+ */
 @Composable
 private fun SquircleCell(
     label: String, selected: Boolean, enabled: Boolean, accent: Color, pal: MushafPalette, btn: Dp, cellW: Dp,
     description: String, selectable: Boolean, badge: Int?, onClick: () -> Unit, icon: @Composable (Color) -> Unit,
 ) {
     val reduced = LocalReducedMotion.current
-    val source = remember { MutableInteractionSource() }
-    val pressed by source.collectIsPressedAsState()
-    val colorSpec = if (reduced) tween<Color>(0) else tween(180)
-    val plate by animateColorAsState(if (selected) accent.copy(alpha = if (pal.dark) 0.30f else 0.20f) else pal.chromeLine.copy(alpha = 0.32f), colorSpec, label = "plate")
-    val ring by animateColorAsState(if (selected) accent else Color.Transparent, colorSpec, label = "ring")
-    val tint by animateColorAsState(if (selected) accent else pal.chromeInk, colorSpec, label = "tint")
-    val ringW by animateDpAsState(if (selected) 2.dp else 0.dp, if (reduced) tween(0) else tween(160), label = "ring-width")
-    val scale by animateFloatAsState(
-        if (pressed) 0.90f else if (selected) 1.05f else 1f,
-        if (reduced) tween(0) else spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMedium), label = "plate-scale",
-    )
-    val radius = btn * DockSpec.ButtonRadiusFraction
+    val tint = if (selected) accent else pal.chromeInk
+    val corner by animateDpAsState(if (selected) btn * 0.30f else btn / 2, if (reduced) tween(0) else tween(160), label = "dock-corner")
     Column(
-        Modifier.width(cellW).heightIn(min = DockSpec.Touch).padding(vertical = 2.dp)
-            .alpha(if (enabled) 1f else 0.38f)
-            .clickable(interactionSource = source, indication = null, enabled = enabled, role = if (selectable) Role.RadioButton else Role.Button, onClick = onClick)
-            .semantics(mergeDescendants = true) { contentDescription = description; if (selectable) this.selected = selected },
+        Modifier.width(cellW).heightIn(min = DockSpec.Touch).padding(vertical = 2.dp).alpha(if (enabled) 1f else 0.38f),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Box(
-            Modifier.size(btn).graphicsLayer { scaleX = scale; scaleY = scale }
-                .drawBehind {
-                    val r = CornerRadius(radius.toPx())
-                    drawRoundRect(plate, cornerRadius = r)
-                    if (ringW > 0.dp) {
-                        val s = ringW.toPx()
-                        drawRoundRect(ring, topLeft = androidx.compose.ui.geometry.Offset(s / 2, s / 2), size = androidx.compose.ui.geometry.Size(size.width - s, size.height - s), cornerRadius = r, style = androidx.compose.ui.graphics.drawscope.Stroke(s))
-                    }
+        BadgedBox(badge = {
+            if (badge != null) Badge(containerColor = accent, contentColor = Color.White) { Text(digits(badge), fontWeight = FontWeight.ExtraBold) }
+        }) {
+            FilledTonalIconToggleButton(
+                checked = selected, onCheckedChange = { onClick() }, enabled = enabled, shape = RoundedCornerShape(corner),
+                colors = IconButtonDefaults.filledTonalIconToggleButtonColors(
+                    containerColor = pal.chromeLine.copy(alpha = 0.32f), contentColor = pal.chromeInk,
+                    checkedContainerColor = accent.copy(alpha = if (pal.dark) 0.30f else 0.20f), checkedContentColor = accent,
+                ),
+                modifier = Modifier.size(btn).semantics(mergeDescendants = true) {
+                    contentDescription = description
+                    role = if (selectable) Role.RadioButton else Role.Button
+                    if (selectable) this.selected = selected
                 },
-            contentAlignment = Alignment.Center,
-        ) {
-            icon(tint)
-            if (badge != null) CountBadge(badge, accent, Modifier.align(Alignment.TopEnd).offset(x = (-1).dp, y = 1.dp))
+            ) { icon(tint) }
         }
         Text(label, color = tint, fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1, softWrap = false)
-    }
-}
-
-@Composable
-private fun CountBadge(n: Int, color: Color, modifier: Modifier) {
-    Box(modifier.heightIn(min = 18.dp).widthIn(min = 18.dp).background(color, RoundedCornerShape(9.dp)).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
-        Text(digits(n), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false)
     }
 }
 
