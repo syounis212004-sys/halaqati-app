@@ -18,3 +18,13 @@ Triples V2 | V4 | DigitalKhatt for pages 1, 2, 50, 77, 255, 355, 589, 604 (sent 
 
 ## 4 Size [MEASURED]
 Asset pack built by `labs/mushaf-dk-lab/tools/make_assets.py`: 603 gzip page files + `glyphs.json.gz` (227,386 B) = **2,998,155 B**.
+
+## 5 Waqf differences vs the official V4 (1441H) [MEASURED visually, 2 cases]
+Rendering the same line from V2, V4 and DigitalKhatm (Chromium): page 9 line 14: **V2 shows the qaf-lam-alef waqf sign; V4 and DigitalKhatm both show jeem**. So at least part of DK's 350 differences versus the API text/V2 is the 1441H edition that V4 also carries, not a DK error. Page 5 line 3: V4 shows an extra boxed sign that neither V2 nor DK show, so DK also lacks at least one sign that the newer official edition (and the API text) has. The residual list therefore mixes edition updates and DK omissions; **it needs a qualified reviewer, case by case** (`dk_text_residual.json` from the verifier lists the 350 words by page, line, verse and position). Not run: a systematic V4-vs-DK comparison for all 350 words.
+
+## 6 Lab app (labs/mushaf-dk-lab) [MEASURED]
+- Standalone app, `com.halaqati.lab.dkmushaf`, own Gradle project outside `source/` (does not enter the release chain or the RC zips).
+- Renderer (`DkData.kt`, `DkRender.kt`): reads the gzip assets, interpolates tatweel masters, draws one Canvas per page; word rectangles for tapping; pager over 604 pages, pinch/double-tap zoom, night mode, on-screen render/load timings.
+- Two defects found by the Robolectric render test, both would have crashed the app on a device: AGP renames `.gz` assets inside the APK (assets are now `.bin`), and tatweel/x-scale values are fractional in the data (parsed as floats now).
+- Test result (Robolectric native graphics, SDK 35): 3 tests pass. Page 300 rendered by the Kotlin code vs the Chromium reference: ink 153,156 vs 153,118 px, **IoU 0.9948**, each covered 100% by the other within 1 px.
+- Debug APK 14.86 MB (of which the whole mushaf pack is 3.0 MB). **Not run on a device or emulator.**
