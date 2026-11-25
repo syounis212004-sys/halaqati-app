@@ -1,0 +1,7 @@
+# Agent A: Lite mode (one Unicode font) condensed report
+Verdict: viable only if the product owner accepts "same words on the same lines, uneven word gaps, slightly smaller type".
+- mushaf-text technique (file `mushaf/src/main/java/io/github/sherifshabans/mushaf/MushafPage.kt`, `placeTokens()`): `slack = lineWidth - natural; extraPerGap = slack/gaps`; base gap 0.62 x font space; one font size per page so the widest line fits; centred lines flagged `c`; lines from `layout.txt` (word count per line). Font bundled unmodified; README: about 1.7 MB (1.4 text + 0.24 font).
+- DigitalKhatt: `madina.otf` 2.6 MB, CFF2 variable (axes LTAT/RTAT), kashida lookups; the justification lookup needs the DigitalKhatt HarfBuzz fork (branch `justification`); engine `just.service.ts` (1131 lines, MIT); stock Android shaping cannot run it. Font OFL 1.1.
+- Measurement (20 pages, 256 non-special lines, uharfbuzz 0.57, Hafs v0.18): target = widest line: 77.3% of lines need more than 5% stretch, 55.9% more than 10%, 16.8% more than 20%; median needed word-space multiplier 2.01, p90 3.16, max 4.24. With page-median target 46.9% of lines are wider than target (need shrink). Cap table: spaces capped at 3.0x still leave 4.4% of lines short by more than 5%.
+- Licences: KFGQPC Hafs EULA (embedded name table): use/copy/distribute free, no modify; mushaf-text MIT (code only); madina.otf OFL 1.1.
+- Not verified: rendering visually (author did it, see 09), quran-madina-html repo, QUL layouts, Android performance.
