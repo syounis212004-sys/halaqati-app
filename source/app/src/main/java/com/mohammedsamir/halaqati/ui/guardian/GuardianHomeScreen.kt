@@ -67,6 +67,7 @@ fun GuardianHomeScreen(
             ) {
                 if (overview == null) item(key = "role-welcome", contentType = "welcome") { com.mohammedsamir.halaqati.ui.components.RoleWelcomeCard(com.mohammedsamir.halaqati.model.UserRole.GUARDIAN) }
                 item(key = "add-child", contentType = "add-child") { com.mohammedsamir.halaqati.ui.screens.AddChildCard() }
+                item(key = "contests-card", contentType = "contests") { com.mohammedsamir.halaqati.ui.screens.ContestsHomeCard(navigate) }
                 if (state.children.size > 1) {
                     item(key = "switcher", contentType = "switcher") {
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

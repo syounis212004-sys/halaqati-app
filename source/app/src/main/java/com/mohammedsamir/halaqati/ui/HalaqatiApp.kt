@@ -457,6 +457,7 @@ private fun FeatureRouter(destination:AppDestination,profile:Profile,sync:SyncSt
     when(destination.route){
         "home"->if (profile.role == com.mohammedsamir.halaqati.model.UserRole.SUPERVISOR) SupervisorHomeScreen(profile,sync.pending,onSync,navigate) else if (profile.role == com.mohammedsamir.halaqati.model.UserRole.OBSERVER) com.mohammedsamir.halaqati.ui.screens.DonorHomeScreen(profile,sync.pending,onSync,navigate) else if (profile.role == com.mohammedsamir.halaqati.model.UserRole.GUARDIAN) com.mohammedsamir.halaqati.ui.guardian.GuardianHomeScreen(navigate) else DashboardScreen(profile,sync,navigate,onSync)
         "observer_requests"->ObserverRequestsAdminScreen(profile)
+        "contests"->com.mohammedsamir.halaqati.ui.screens.ContestsScreen(profile,sync.pending,onSync)
         "students"->StudentsScreen(sync.pending,onSync,initialStudentId=deepLinkedStudentId,onInitialStudentConsumed=onStudentFocusConsumed,openStudentProfile={ navigate("student:$it") },role=profile.role.name.lowercase())
         "sessions"->if (profile.role == com.mohammedsamir.halaqati.model.UserRole.SUPERVISOR) SupervisorSessionsScreen(profile,sync.pending,onSync) else SessionsScreen(sync.pending,onSync,role=profile.role.name.lowercase())
         "session_today"->SessionsScreen(sync.pending,onSync,openTodayOnLaunch=true,role=profile.role.name.lowercase())
