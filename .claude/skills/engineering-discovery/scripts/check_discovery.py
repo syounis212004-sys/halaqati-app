@@ -15,8 +15,8 @@ def main(argv):
     d = Path(argv[1]); problems = []
     if not d.is_dir():
         print(f"not a directory: {d}"); return 2
-    tier_light = "tier" in (d / "REPORT.md").read_text(encoding="utf-8").lower() and \
-        re.search(r"tier[^\n]*light", (d / "REPORT.md").read_text(encoding="utf-8"), re.I) is not None if (d / "REPORT.md").exists() else False
+    rep_text = (d / "REPORT.md").read_text(encoding="utf-8") if (d / "REPORT.md").exists() else ""
+    tier_light = re.search(r"tier[^\n]*\blight\b", rep_text, re.I) is not None
     need = LIGHT if tier_light else set(REQUIRED)
     for f in sorted(need):
         p = d / f

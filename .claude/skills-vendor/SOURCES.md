@@ -1,6 +1,6 @@
 # Third-party skills vendored in `.claude/skills/`
 
-Unmodified copies of the author's skill directories. Integrity: `manifest.json` stores a sha256 per skill directory (relative paths + bytes) taken from the source commit; recompute and compare to detect drift. Licences are in `licenses/`.
+Copies of the author's skill directories, unmodified except that non-runtime `tests/` and `evals/` directories are omitted (independent review of PR #103 flagged them as dead weight). Integrity: `manifest.json` stores a sha256 per skill directory; run `python3 .claude/skills-vendor/verify.py` to recompute and compare (49/49 match; the hashes were also checked equal to the source commits with the same exclusions). Licences are in `licenses/`.
 
 | Source | Commit | Licence | Skills installed |
 |---|---|---|---|
@@ -18,6 +18,7 @@ Unmodified copies of the author's skill directories. Integrity: `manifest.json` 
 - BMAD name stays unmodified and is used only to describe the vendored software; we do not present anything as an official BMad product.
 
 ## Policies
+- Overlapping descriptions (`research`, `prototype`, `bmad-brainstorming`, `grilling`) can trigger alongside project and superpowers skills; if that happens, the user can set them to `name-only` or `user-invocable-only` via `skillOverrides` in settings (the repo's settings file is protected, so this needs the owner).
 - Do not edit vendored files. To change behaviour, write a wrapper or a new skill. To update, replace the directory from a newer commit and refresh `manifest.json`.
 - 33 skills carry the author's `disable-model-invocation: true` (all `thinking-*`, several others). They add no description tokens to the skill listing; the model cannot call them with the Skill tool. `engineering-discovery` reads them with the Read tool, which is our workaround and not an officially documented invocation path. You can always run one with `/<name>`.
 - Overlap is managed in `.claude/skills/engineering-discovery/references/skill-map.md`.
