@@ -16,6 +16,7 @@ sealed interface AppDestination {
     data object Plans : AppDestination { override val route="plans"; override val label="الخطط"; override val iconKey="plans" }
     data object Certificates : AppDestination { override val route="certificates"; override val label="الشهادات"; override val iconKey="award" }
     data object Reports : AppDestination { override val route="reports"; override val label="التقارير"; override val iconKey="reports" }
+    data object Mushaf : AppDestination { override val route="mushaf"; override val label="المصحف"; override val iconKey="book" }
     data object Quran : AppDestination { override val route="quran"; override val label="حاسبة القرآن"; override val iconKey="book" }
     data object Rankings : AppDestination { override val route="rankings"; override val label="الترتيب والإحصائيات"; override val iconKey="leaderboard" }
     data object ImportExport : AppDestination { override val route="importexport"; override val label="الاستيراد والتصدير"; override val iconKey="importexport" }
@@ -44,7 +45,7 @@ sealed interface AppDestination {
     data object More : AppDestination { override val route="more"; override val label="المزيد"; override val iconKey="more" }
 
     companion object {
-        val navigable: List<AppDestination> = listOf(Home,Notifications,Halaqas,Community,Sessions,SessionToday,QuickMemorization,Students,Plans,Certificates,Exams,Org,Team,Awards,Support,DonorChats,DonorAwards,DonorSupport,DonorImpact,DonorStats,Reports,Quran,Rankings,Insights,ImportExport,SyncCenter,Supervision,Visits,Users,Approvals,ObserverRequests,GuardianProfile,GuardianCompetition,GuardianAchievements,Settings)
+        val navigable: List<AppDestination> = listOf(Mushaf,Home,Notifications,Halaqas,Community,Sessions,SessionToday,QuickMemorization,Students,Plans,Certificates,Exams,Org,Team,Awards,Support,DonorChats,DonorAwards,DonorSupport,DonorImpact,DonorStats,Reports,Quran,Rankings,Insights,ImportExport,SyncCenter,Supervision,Visits,Users,Approvals,ObserverRequests,GuardianProfile,GuardianCompetition,GuardianAchievements,Settings)
         fun fromRoute(route: String?): AppDestination? = when(route?.trim()) {
             "profile" -> GuardianProfile
             else -> navigable.firstOrNull { it.route == route }

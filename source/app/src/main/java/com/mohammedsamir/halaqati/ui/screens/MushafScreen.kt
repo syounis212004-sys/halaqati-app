@@ -176,9 +176,44 @@ fun MushafMarkingDialog(
     inRange: (surah: Int, ayah: Int, page: Int) -> Boolean,
     onMark: (mist: Int, prompt: Int) -> Unit,
     onDismiss: () -> Unit,
+    rangeEndPage: Int? = null,
 ) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        MushafScreenContent(session, rangeStartPage, counters, score, inRange, onMark, onDismiss)
+        MushafScreenContent(session, rangeStartPage, counters, score, inRange, onMark, onDismiss, rangeEndPage = rangeEndPage)
+    }
+}
+
+/** Last page read in the stand-alone reader (kept on this device only). */
+object MushafReaderPrefs {
+    private const val PREFS = "halaqati_mushaf_reader"
+    fun lastPage(ctx: android.content.Context): Int = ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).getInt("last_page", 1).coerceIn(1, 604)
+    fun save(ctx: android.content.Context, page: Int) = ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit().putInt("last_page", page.coerceIn(1, 604)).apply()
+}
+
+/** The mushaf for reading only (no marking tools, no score), opened from the main menu; remembers the last page. */
+@Composable
+fun MushafReaderDialog(startPage: Int, onDismiss: () -> Unit) {
+    val session = remember { MushafEngine.Session(startPage) }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        MushafScreenContent(session, null, { 0 to 0 }, { null }, { _, _, _ -> false }, { _, _ -> }, onDismiss, readOnly = true)
+    }
+}
+
+/** Swipe to turn the page in the direction of an Arabic book: the finger moving right goes forward. Only fires for a clearly horizontal, quick swipe. */
+private fun Modifier.pageSwipe(enabled: Boolean, onForward: () -> Unit, onBack: () -> Unit): Modifier = if (!enabled) this else pointerInput(Unit) {
+    val minDx = 72.dp.toPx()
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false)
+        var last = down.position; var consumed = false
+        while (true) {
+            val ev = awaitPointerEvent(); val ch = ev.changes.firstOrNull() ?: return@awaitEachGesture
+            if (ch.isConsumed) consumed = true
+            last = ch.position
+            if (!ch.pressed) break
+        }
+        if (consumed) return@awaitEachGesture
+        val dx = last.x - down.position.x; val dy = last.y - down.position.y
+        if (abs(dx) >= minDx && abs(dx) >= 1.8f * abs(dy)) { if (dx > 0) onForward() else onBack() }
     }
 }
 
@@ -191,6 +226,8 @@ internal fun MushafScreenContent(
     inRange: (surah: Int, ayah: Int, page: Int) -> Boolean,
     onMark: (mist: Int, prompt: Int) -> Unit,
     onDismiss: () -> Unit,
+    rangeEndPage: Int? = null,
+    readOnly: Boolean = false,
 ) {
     val context = LocalContext.current
     val store = remember { MushafStore.get(context) }
@@ -209,11 +246,11 @@ internal fun MushafScreenContent(
     var jumpDialog by remember { mutableStateOf(false) }
     var offlineDialog by remember { mutableStateOf(false) }
     var announce by remember { mutableStateOf("") }
-    val dkAvailable = remember { com.mohammedsamir.halaqati.quran.dk.DkPack.available(context) }
-    var dkOn by remember { mutableStateOf(com.mohammedsamir.halaqati.quran.dk.DkPack.enabled(context)) }
+    val dkOn = remember { com.mohammedsamir.halaqati.quran.dk.DkPack.enabled(context) }
 
     LaunchedEffect(page, dkOn) {
         session.setPage(page)
+        if (readOnly) MushafReaderPrefs.save(context, page)
         state = PageState.Loading
         kindMenu = null
         val dkPage = if (dkOn && com.mohammedsamir.halaqati.quran.dk.DkPack.supports(context, page)) runCatching {
@@ -238,6 +275,7 @@ internal fun MushafScreenContent(
         }
     }
     fun actOnWord(id: String) {
+        if (readOnly) return
         val name = if (type == MarkType.Mistake) "خطأ" else "تلقين"
         when (tool) {
             Tool.Erase -> report(session.eraseWords(listOf(id)), "مُسحت العلامة")
@@ -265,25 +303,28 @@ internal fun MushafScreenContent(
                         }
                         TextButton(onClick = { page = MushafEngine.clampPage(page + 1) }, enabled = page < MushafEngine.TOTAL_PAGES, modifier = Modifier.heightIn(min = 48.dp)) { Text("التالية", color = pal.chromeAccent) }
                         Spacer(Modifier.weight(1f))
-                        if (rangeStartPage != null && rangeStartPage != page) {
+                        if (!readOnly && rangeStartPage != null && rangeStartPage != page) {
                             TextButton(onClick = { page = rangeStartPage }, modifier = Modifier.heightIn(min = 48.dp)) { Text("إلى المقرر", color = pal.chromeAccent, fontWeight = FontWeight.Bold) }
                         } else Spacer(Modifier.width(48.dp))
                     }
                     // ---- the official V7 estimate on one line (more only when a page is over its limit)
-                    ScoreStrip(session, tick, counters(), score(), pal)
+                    if (!readOnly) ScoreStrip(session, tick, counters(), score(), pal)
 
                     BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                         val landscape = maxWidth > maxHeight
                         val pageArea: @Composable (Modifier) -> Unit = { m ->
                             // the page keeps its printed 14:20 shape; spare height (tall screens) is shared above and below it
-                            BoxWithConstraints(m, contentAlignment = Alignment.Center) {
+                            BoxWithConstraints(
+                                m.pageSwipe(enabled = readOnly || tool == Tool.Tap, onForward = { page = MushafEngine.clampPage(page + 1) }, onBack = { page = MushafEngine.clampPage(page - 1) }),
+                                contentAlignment = Alignment.Center,
+                            ) {
                                 val pageW = min(maxWidth.value, maxHeight.value * MUSHAF_ASPECT_W / MUSHAF_ASPECT_H).dp
                                 val pageH = (pageW.value * MUSHAF_ASPECT_H / MUSHAF_ASPECT_W).dp
                                 MushafPage(
                                     state = state, page = page, pageW = pageW, pageH = pageH, pal = pal, tick = tick, tool = tool,
                                     session = session, preview = preview, inRange = inRange,
                                     onTapWord = { actOnWord(it) },
-                                    onLongWord = { id, at -> kindMenu = id to at },
+                                    onLongWord = { id, at -> if (!readOnly) kindMenu = id to at },
                                     onPreview = { preview = it },
                                     onSpan = { ids ->
                                         preview = emptySet()
@@ -310,13 +351,13 @@ internal fun MushafScreenContent(
                         if (landscape) {
                             // landscape: a vertical rail on the start edge, the page takes the rest of the width
                             Row(Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                dock(true, Modifier)
+                                if (!readOnly) dock(true, Modifier)
                                 pageArea(Modifier.weight(1f).fillMaxHeight())
                             }
                         } else {
                             Column(Modifier.fillMaxSize().padding(horizontal = 4.dp).padding(bottom = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 pageArea(Modifier.weight(1f).fillMaxWidth())
-                                dock(false, Modifier)
+                                if (!readOnly) dock(false, Modifier)
                             }
                         }
                     }
@@ -328,28 +369,60 @@ internal fun MushafScreenContent(
 
     if (offlineDialog) MushafOfflineDialog(currentPage = page, onDismiss = { offlineDialog = false })
 
-    if (jumpDialog) {
-        var input by remember { mutableStateOf(page.toString()) }
-        AlertDialog(
-            onDismissRequest = { jumpDialog = false },
-            title = { Text("الانتقال إلى صفحة") },
-            text = {
-                OutlinedTextField(
-                    value = input, onValueChange = { input = it.filter(Char::isDigit).take(3) }, singleLine = true,
-                    label = { Text("رقم الصفحة (١–٦٠٤)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                )
-            },
-            confirmButton = { TextButton(onClick = { input.toIntOrNull()?.let { page = MushafEngine.clampPage(it) }; jumpDialog = false }) { Text("انتقال") } },
-            dismissButton = {
-                Row {
-                    if (dkAvailable) TextButton(onClick = { dkOn = !dkOn; com.mohammedsamir.halaqati.quran.dk.DkPack.setEnabled(context, dkOn); jumpDialog = false }) {
-                        Text(if (dkOn) "إيقاف عارض DigitalKhatm" else "عارض DigitalKhatm (تجريبي)")
-                    }
-                    TextButton(onClick = { jumpDialog = false; offlineDialog = true }) { Text("بدون إنترنت") }
-                    TextButton(onClick = { jumpDialog = false }) { Text("إلغاء") }
-                }
-            },
+    if (jumpDialog) MushafJumpDialog(
+        page = page, rangeStart = if (readOnly) null else rangeStartPage, rangeEnd = rangeEndPage,
+        onGo = { page = MushafEngine.clampPage(it); jumpDialog = false }, onOffline = { jumpDialog = false; offlineDialog = true }, onDismiss = { jumpDialog = false },
+    )
+}
+
+/** Go to a page, to the pages of the assigned range ("ضمن المقرر"), to a juz or to a surah. */
+@Composable
+internal fun MushafJumpDialog(page: Int, rangeStart: Int?, rangeEnd: Int?, onGo: (Int) -> Unit, onOffline: () -> Unit, onDismiss: () -> Unit) {
+    var input by remember { mutableStateOf(page.toString()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("الانتقال") },
+        text = { MushafJumpBody(page, rangeStart, rangeEnd, input, { input = it }, onGo) },
+        confirmButton = { TextButton(onClick = { input.toIntOrNull()?.let(onGo) ?: onDismiss() }) { Text("انتقال") } },
+        dismissButton = { Row { TextButton(onClick = onOffline) { Text("بدون إنترنت") }; TextButton(onClick = onDismiss) { Text("إلغاء") } } },
+    )
+}
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+internal fun MushafJumpBody(page: Int, rangeStart: Int?, rangeEnd: Int?, input: String, onInput: (String) -> Unit, onGo: (Int) -> Unit) {
+    var surahMenu by remember { mutableStateOf(false) }
+    val rangePages = remember(rangeStart, rangeEnd) {
+        if (rangeStart == null) emptyList() else (min(rangeStart, rangeEnd ?: rangeStart)..max(rangeStart, rangeEnd ?: rangeStart)).toList()
+    }
+    val curJuz = (1..30).firstOrNull { page in com.mohammedsamir.halaqati.quran.MushafOfflinePlan.juzPages(it) } ?: 1
+    Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        OutlinedTextField(
+            value = input, onValueChange = { onInput(it.filter(Char::isDigit).take(3)) }, singleLine = true,
+            label = { Text("رقم الصفحة (١–٦٠٤)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth(),
         )
+        if (rangePages.isNotEmpty()) {
+            Text("ضمن المقرر", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                val shown = if (rangePages.size > 24) listOf(rangePages.first(), rangePages.last()) else rangePages
+                shown.forEach { p -> com.mohammedsamir.halaqati.ui.components.ProFilterChip(selected = p == page, onClick = { onGo(p) }, label = digits(p), showCheckIcon = false) }
+            }
+            if (rangePages.size > 24) Text("من صفحة ${digits(rangePages.first())} إلى ${digits(rangePages.last())} (${digits(rangePages.size)} صفحة)", style = MaterialTheme.typography.bodySmall)
+        }
+        Text("الجزء", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (j in 1..30) com.mohammedsamir.halaqati.ui.components.ProFilterChip(selected = j == curJuz, onClick = { onGo(com.mohammedsamir.halaqati.quran.MushafOfflinePlan.juzPages(j).first) }, label = digits(j), showCheckIcon = false)
+        }
+        Box {
+            TextButton(onClick = { surahMenu = true }) { Text("السورة…") }
+            DropdownMenu(expanded = surahMenu, onDismissRequest = { surahMenu = false }, modifier = Modifier.heightIn(max = 360.dp)) {
+                for (sn in 1..114) DropdownMenuItem(
+                    text = { Text("${digits(sn)}. ${com.mohammedsamir.halaqati.quran.QuranMetadata.surahName(sn)}") },
+                    onClick = { surahMenu = false; onGo(com.mohammedsamir.halaqati.quran.QuranMetadata.pageFor(sn, 1)) },
+                )
+            }
+        }
     }
 }
 

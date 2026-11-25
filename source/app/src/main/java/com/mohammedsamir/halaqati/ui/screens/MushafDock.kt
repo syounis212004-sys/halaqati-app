@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -392,7 +393,7 @@ private fun SquircleCell(
             contentAlignment = Alignment.Center,
         ) {
             icon(tint)
-            if (badge != null) CountBadge(badge, accent, Modifier.align(Alignment.TopEnd).graphicsLayer { translationX = 6.dp.toPx(); translationY = (-6).dp.toPx() })
+            if (badge != null) CountBadge(badge, accent, Modifier.align(Alignment.TopEnd).offset(x = (-1).dp, y = 1.dp))
         }
         Text(label, color = tint, fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1, softWrap = false)
     }

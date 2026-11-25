@@ -10,7 +10,7 @@ object RoleNavigationPolicy {
         AppDestination.Home, AppDestination.Notifications, AppDestination.Halaqas,
         AppDestination.Community, AppDestination.Sessions, AppDestination.SessionToday, AppDestination.QuickMemorization,
         AppDestination.Students, AppDestination.Plans, AppDestination.Certificates, AppDestination.Exams, AppDestination.Awards, AppDestination.Support, AppDestination.DonorChats,
-        AppDestination.Reports, AppDestination.Quran, AppDestination.Rankings, AppDestination.Insights,
+        AppDestination.Reports, AppDestination.Mushaf, AppDestination.Quran, AppDestination.Rankings, AppDestination.Insights,
         AppDestination.ImportExport, AppDestination.SyncCenter, AppDestination.Supervision, AppDestination.Visits,
         AppDestination.Users, AppDestination.Approvals, AppDestination.ObserverRequests, AppDestination.Org, AppDestination.Team, AppDestination.Settings,
     )
@@ -18,7 +18,7 @@ object RoleNavigationPolicy {
     // quick memorization or data import. Reports stay (he needs them).
     private val supervisor = listOf(
         AppDestination.Home, AppDestination.Notifications, AppDestination.Halaqas, AppDestination.Community,
-        AppDestination.Sessions, AppDestination.Students, AppDestination.Exams, AppDestination.Reports, AppDestination.Rankings,
+        AppDestination.Sessions, AppDestination.Students, AppDestination.Exams, AppDestination.Reports, AppDestination.Mushaf, AppDestination.Rankings,
         AppDestination.Insights, AppDestination.Supervision, AppDestination.Visits, AppDestination.Approvals, AppDestination.Org, AppDestination.Team,
         AppDestination.SyncCenter, AppDestination.Settings,
     )
@@ -28,7 +28,7 @@ object RoleNavigationPolicy {
     }
     private val guardian = listOf(
         AppDestination.Home, AppDestination.Notifications, AppDestination.Community,
-        AppDestination.Plans, AppDestination.Exams, AppDestination.Reports, AppDestination.GuardianCompetition,
+        AppDestination.Plans, AppDestination.Exams, AppDestination.Reports, AppDestination.Mushaf, AppDestination.GuardianCompetition,
         AppDestination.GuardianAchievements, AppDestination.GuardianProfile,
         AppDestination.SyncCenter, AppDestination.Settings,
     )
@@ -85,6 +85,7 @@ object RoleNavigationPolicy {
             item(AppDestination.DonorChats, "محادثات المانحين"),
             item(AppDestination.ObserverRequests, "طلبات المانحين"),
             item(AppDestination.Reports, "التقارير"),
+            item(AppDestination.Mushaf, "المصحف"),
             item(AppDestination.Quran, "حاسبة القرآن"),
             item(AppDestination.Rankings, "الترتيب والإحصائيات"),
             item(AppDestination.Insights, "المتابعة والمقارنة"),
@@ -126,6 +127,7 @@ object RoleNavigationPolicy {
             item(AppDestination.Certificates, "الشهادات"),
             item(AppDestination.Exams, "الاختبارات"),
             item(AppDestination.Reports, "التقارير"),
+            item(AppDestination.Mushaf, "المصحف"),
             item(AppDestination.Quran, "حاسبة القرآن"),
             item(AppDestination.Rankings, "الترتيب والإحصائيات"),
             item(AppDestination.Insights, "المتابعة والمقارنة"),
@@ -172,7 +174,7 @@ object RoleNavigationPolicy {
             sec("المانح", AppDestination.DonorStats),
             sec("المتابعة والإنجاز", AppDestination.Insights, AppDestination.GuardianCompetition, AppDestination.GuardianAchievements, AppDestination.Rankings, AppDestination.Supervision, AppDestination.Visits, AppDestination.Certificates, AppDestination.Exams, AppDestination.Awards),
             sec("الدعم والمانحون", AppDestination.Support, AppDestination.DonorChats, AppDestination.ObserverRequests),
-            sec("التقارير والأدوات", AppDestination.Reports, AppDestination.Quran, AppDestination.ImportExport),
+            sec("التقارير والأدوات", AppDestination.Reports, AppDestination.Mushaf, AppDestination.Quran, AppDestination.ImportExport),
             sec("التواصل", AppDestination.Notifications, AppDestination.Community),
             sec("الإدارة والصلاحيات", AppDestination.Approvals, AppDestination.Org, AppDestination.Team, AppDestination.Users),
             sec("النظام", AppDestination.SyncCenter, AppDestination.Settings),

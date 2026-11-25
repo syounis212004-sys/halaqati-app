@@ -227,7 +227,7 @@ private fun drawerGroupOf(destination: AppDestination): Int = when (destination)
     AppDestination.Plans, AppDestination.Halaqas -> 0
     AppDestination.Rankings, AppDestination.Insights, AppDestination.GuardianCompetition, AppDestination.GuardianAchievements,
     AppDestination.Certificates, AppDestination.Awards, AppDestination.Support, AppDestination.DonorAwards, AppDestination.DonorSupport, AppDestination.DonorImpact, AppDestination.DonorStats, AppDestination.Reports, AppDestination.Supervision, AppDestination.Visits, AppDestination.GuardianProfile -> 1
-    AppDestination.Community, AppDestination.Quran, AppDestination.ImportExport -> 2
+    AppDestination.Community, AppDestination.Mushaf, AppDestination.Quran, AppDestination.ImportExport -> 2
     AppDestination.Notifications, AppDestination.SyncCenter, AppDestination.Settings -> 4
     else -> 3
 }
