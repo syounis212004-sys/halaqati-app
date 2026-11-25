@@ -1,0 +1,154 @@
+{
+ "words_compared": 77433,
+ "text_difference_words": 3232,
+ "layout_rows": 6,
+ "classes": {
+  "hamza_encoding": 612,
+  "tanween": 2189,
+  "waqf_only": 340,
+  "multiple_known:hamza+tanween": 76,
+  "multiple_known:tanween+waqf": 9,
+  "OTHER:letter+other_mark": 1,
+  "multiple_known:hamza+waqf": 3,
+  "OTHER:other_mark": 2
+ },
+ "pages_with_text_diff": 591,
+ "pages_without": 13,
+ "totals": {
+  "api_letters": 325386,
+  "dk_letters": 325386,
+  "api_marks": 338070,
+  "dk_marks": 337986,
+  "api_waqf": 4359,
+  "dk_waqf": 4272,
+  "api_words": 77633,
+  "dk_words": 77632,
+  "api_end": 6236,
+  "dk_end": 6236
+ },
+ "pages_letter_count_differ": [],
+ "pages_wordcount_differ": [
+  117
+ ],
+ "order_only_equal_sorted": 12,
+ "waqf_pairs": [
+  [
+   [
+    "U+06D7",
+    "U+06DA"
+   ],
+   85
+  ],
+  [
+   [
+    "U+06D9",
+    ""
+   ],
+   61
+  ],
+  [
+   [
+    "U+06D6",
+    ""
+   ],
+   54
+  ],
+  [
+   [
+    "U+06D6",
+    "U+06DA"
+   ],
+   41
+  ],
+  [
+   [
+    "",
+    "U+06D6"
+   ],
+   34
+  ],
+  [
+   [
+    "U+06DA",
+    "U+06D6"
+   ],
+   26
+  ],
+  [
+   [
+    "",
+    "U+06DA"
+   ],
+   16
+  ],
+  [
+   [
+    "U+06DA",
+    ""
+   ],
+   12
+  ],
+  [
+   [
+    "U+06DB",
+    ""
+   ],
+   4
+  ],
+  [
+   [
+    "U+06D7",
+    "U+06D6"
+   ],
+   4
+  ],
+  [
+   [
+    "U+06DB",
+    "U+06DA"
+   ],
+   2
+  ],
+  [
+   [
+    "U+06D8",
+    "U+06DA"
+   ],
+   1
+  ]
+ ],
+ "subtypes": [
+  [
+   "API U+06E2 (iqlab meem) vs DK open-tanween/idgham U+06ED",
+   1870
+  ],
+  [
+   "hamza above (API) vs hamza below (DK glyph)",
+   613
+  ],
+  [
+   "",
+   341
+  ],
+  [
+   "tanween vowel (API) vs plain vowel (DK) with meem sign x1",
+   328
+  ],
+  [
+   "API U+06E2 (iqlab meem) vs DK open-tanween/idgham U+06ED; hamza above (API) vs hamza below (DK glyph)",
+   65
+  ],
+  [
+   "tanween vowel (API) vs plain vowel (DK) with meem sign x1; hamza above (API) vs hamza below (DK glyph)",
+   11
+  ],
+  [
+   "REQUIRES SPECIALIST: not waqf/madda/hamza/tanween",
+   3
+  ],
+  [
+   "hamza above (API) vs hamza below (DK glyph); API has this word split in two tokens (V2 words), DK has one word",
+   1
+  ]
+ ]
+}
