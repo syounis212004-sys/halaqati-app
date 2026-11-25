@@ -45,6 +45,7 @@ import com.mohammedsamir.halaqati.quran.MushafEngine
 import com.mohammedsamir.halaqati.quran.MushafEngine.MarkKind
 import com.mohammedsamir.halaqati.quran.MushafEngine.MarkType
 import com.mohammedsamir.halaqati.quran.QuranMetadata
+import com.mohammedsamir.halaqati.quran.dk.DkColors
 import com.mohammedsamir.halaqati.quran.dk.DkData
 import com.mohammedsamir.halaqati.quran.dk.DkPage
 import com.mohammedsamir.halaqati.quran.dk.DkRender
@@ -83,21 +84,23 @@ internal fun DkReadyPage(
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(first?.let { "سورة " + QuranMetadata.surahName(it.first) } ?: "", color = pal.frame, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-            Text(if (p.wordIds.isEmpty() || inside == 0) "تجريبي" else if (inside == p.wordIds.size) "ضمن المقرر · تجريبي" else "جزء من المقرر · تجريبي", color = pal.accent, fontSize = 12.sp)
+            Text(if (p.wordIds.isEmpty() || inside == 0) "" else if (inside == p.wordIds.size) "ضمن المقرر" else "جزء من المقرر", color = pal.accent, fontSize = 12.sp)
             Text(juz?.let { "الجزء ${digits(it)}" } ?: "", color = pal.frame, fontWeight = FontWeight.Bold, fontSize = 13.sp)
         }
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-            val areaW = constraints.maxWidth.toFloat(); val areaH = constraints.maxHeight.toFloat()
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            // equal breathing room inside the page frame on every side (the printed text block never touches the border)
+            val areaW = constraints.maxWidth * 0.965f; val areaH = constraints.maxHeight * 0.955f
             val rowsPitch = areaH / 15f
             val wPx = min(areaW, rowsPitch / 0.11f)
             val pitch = min(rowsPitch, DkRender.lineHeight(wPx))
             val pageHpx = pitch * p.dk.lines.size
             val ink = pal.pageInk.toArgb()
-            val bitmap by produceState<Bitmap?>(null, p, wPx.toInt(), pitch.toInt(), ink) {
+            val colors = remember(pal) { DkColors(ink = ink, header = pal.frame.toArgb(), ayah = pal.frame.toArgb(), sign = pal.rule.toArgb()) }
+            val bitmap by produceState<Bitmap?>(null, p, wPx.toInt(), pitch.toInt(), colors) {
                 value = withContext(Dispatchers.Default) {
                     val bmp = Bitmap.createBitmap(wPx.toInt().coerceAtLeast(1), pageHpx.toInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888)
                     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ink; style = Paint.Style.FILL }
-                    DkRender.draw(android.graphics.Canvas(bmp), p.data, p.dk, wPx.toInt().toFloat(), pitch, paint)
+                    DkRender.draw(android.graphics.Canvas(bmp), p.data, p.dk, wPx.toInt().toFloat(), pitch, paint, colors)
                     bmp
                 }
             }
@@ -106,8 +109,16 @@ internal fun DkReadyPage(
 
             Box(
                 Modifier.size(wDp, hDp)
-                    .semantics { contentDescription = "صفحة ${digits(page)} بعارض DigitalKhatm التجريبي" }
+                    .semantics { contentDescription = "صفحة ${digits(page)}" }
                     .drawBehind {
+                        // the printed sura-name frame behind the sura-name line (DigitalKhatm draws the name only)
+                        p.dk.lines.forEachIndexed { i, line ->
+                            if (line.type == 1) {
+                                val tl = Offset(size.width * 0.02f, i * pitch + pitch * 0.07f); val sz = Size(size.width * 0.96f, pitch * 0.86f); val cr = CornerRadius(pitch * 0.26f)
+                                drawRoundRect(pal.rangeBg, tl, sz, cr)
+                                drawRoundRect(pal.rule, tl, sz, cr, style = Stroke(max(2f, pitch * 0.045f)))
+                            }
+                        }
                         for ((id, r) in rects) {
                             val mark = session.getMark(id)
                             val prev = id in preview

@@ -1,6 +1,7 @@
 package com.mohammedsamir.halaqati.navigation
 
 import com.mohammedsamir.halaqati.model.UserRole
+import com.mohammedsamir.halaqati.ui.navigation.AppDestination
 import com.mohammedsamir.halaqati.ui.navigation.RoleNavigationPolicy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -84,5 +85,13 @@ class RoleNavigationPolicyTest {
         assertFalse("supervision" in teacher)
         assertTrue("plans" in teacher)
         assertTrue("visits" in RoleNavigationPolicy.destinations(UserRole.ADMIN).map { it.route })
+    }
+
+    @Test fun mushafIsReachableFromTheMenuForEveryReadingRole() {
+        for (role in listOf(UserRole.ADMIN, UserRole.TEACHER, UserRole.SUPERVISOR, UserRole.GUARDIAN)) {
+            org.junit.Assert.assertTrue("$role can open the mushaf", RoleNavigationPolicy.canOpen(role, AppDestination.Mushaf))
+            org.junit.Assert.assertTrue("$role sees it in the more menu", RoleNavigationPolicy.moreSections(role).any { AppDestination.Mushaf in it.items })
+        }
+        org.junit.Assert.assertEquals(AppDestination.Mushaf, AppDestination.fromRoute("mushaf"))
     }
 }

@@ -19,7 +19,7 @@ object DkPack {
     fun supports(ctx: Context, page: Int): Boolean = page in 1..604 && page !in PAGES_NEEDING_REVIEW && available(ctx)
 
     private const val PREFS = "halaqati_dk_experimental"
-    fun enabled(ctx: Context): Boolean = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("enabled", false) && available(ctx)
+    fun enabled(ctx: Context): Boolean = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("enabled", true) && available(ctx)
     fun setEnabled(ctx: Context, on: Boolean) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("enabled", on).apply()
 
     @Volatile private var shared: DkData? = null
@@ -36,12 +36,19 @@ object DkPack {
     }
 }
 
+/** Ink colours (ARGB) by role: running text, the sura-name line, ayah-number markers and pause/sajdah/hizb signs. */
+class DkColors(val ink: Int, val header: Int, val ayah: Int, val sign: Int)
+
 /** Pure geometry and drawing for one precomputed page. [pitch] is the line pitch in pixels (the layout's own is lineHeight(w)). */
 object DkRender {
+    const val AYAH_FIRST = 58193; const val AYAH_LAST = 58478
+    /** Unicode pause signs U+06D6..U+06DC, rub el hizb U+06DE and sajdah U+06E9 as they appear in the stream. */
+    fun isSign(cp: Int) = cp in 1750..1756 || cp == 1758 || cp == 1769
+
     fun lineHeight(wPx: Float) = wPx * 232f / 1440f
     fun scaleFor(p: DkPage, wPx: Float) = wPx / p.lines.maxOf { it.width }
 
-    fun draw(nc: Canvas, data: DkData, p: DkPage, wPx: Float, pitch: Float, paint: Paint) {
+    fun draw(nc: Canvas, data: DkData, p: DkPage, wPx: Float, pitch: Float, paint: Paint, colors: DkColors? = null) {
         val s = scaleFor(p, wPx)
         for ((li, line) in p.lines.withIndex()) {
             nc.save(); nc.translate(wPx, li * pitch + pitch * 0.72f); nc.scale(s * line.xscale, -s)
@@ -49,6 +56,12 @@ object DkRender {
             for (g in line.glyphs) {
                 pos -= g.adv
                 val path = data.path(g.cp, g.lt, g.rt) ?: continue
+                if (colors != null) paint.color = when {
+                    line.type == 1 -> colors.header
+                    line.type == 0 && g.cp in AYAH_FIRST..AYAH_LAST -> colors.ayah
+                    line.type == 0 && isSign(g.cp) -> colors.sign
+                    else -> colors.ink
+                }
                 nc.save(); nc.translate(pos + g.xo, g.yo); nc.drawPath(path, paint); nc.restore()
             }
             nc.restore()

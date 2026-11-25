@@ -4763,6 +4763,18 @@ private fun SettingsRow(
     }
 }
 
+/** One tappable row that opens or folds its content (folded by default), so the settings page stays short. */
+@Composable
+internal fun SettingsCollapsible(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String?, content: @Composable ColumnScope.() -> Unit) {
+    var open by androidx.compose.runtime.saveable.rememberSaveable(title) { mutableStateOf(false) }
+    SettingsGroup {
+        SettingsRow(icon, title, subtitle, onClick = { open = !open }, trailing = {
+            Icon(if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = if (open) "طيّ $title" else "فتح $title", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        })
+    }
+    if (open) Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
+}
+
 @Composable
 private fun SettingsChipsRow(label: String, chips: @Composable RowScope.() -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -4900,18 +4912,23 @@ fun SettingsScreen(profile: Profile, onLogout: () -> Unit) {
 
             val isAdminRole = profile.role == com.mohammedsamir.halaqati.model.UserRole.ADMIN
 
-            item { SettingsGroupTitle("الحساب") }
-            item { MyPhotoSettingsCard(profile) }
-            item { AccountNameSettingsCard(profile) }
             item {
-                SettingsGroup {
-                    SettingsRow(Icons.Default.LockReset, "كلمة المرور", "تحديث كلمة مرور الحساب", onClick = { showPasswordDialog = true })
-                    passwordMessage?.let { StateNotice(it, if (it.startsWith("تم")) "success" else "warning", Modifier.padding(12.dp)) }
+                SettingsCollapsible(Icons.Default.SystemUpdate, "تحديث التطبيق", "الإصدار ${BuildConfig.VERSION_NAME}") {
+                    AppUpdateSettingsCard()
+                }
+            }
+            item {
+                SettingsCollapsible(Icons.Default.Person, "الحساب", "الصورة والاسم وكلمة المرور") {
+                    MyPhotoSettingsCard(profile)
+                    AccountNameSettingsCard(profile)
+                    SettingsGroup {
+                        SettingsRow(Icons.Default.LockReset, "كلمة المرور", "تحديث كلمة مرور الحساب", onClick = { showPasswordDialog = true })
+                        passwordMessage?.let { StateNotice(it, if (it.startsWith("تم")) "success" else "warning", Modifier.padding(12.dp)) }
+                    }
                 }
             }
 
-            item { SettingsGroupTitle("المظهر") }
-            item {
+            item { SettingsCollapsible(Icons.Default.Palette, "المظهر", "الوضع واللون والكثافة") {
                 SettingsGroup {
                     SettingsRow(Icons.Default.DarkMode, "الوضع الداكن", "اتبع النظام أو اختر الوضع", trailing = {
                         Switch(
@@ -4996,7 +5013,7 @@ fun SettingsScreen(profile: Profile, onLogout: () -> Unit) {
                     }
                     SettingsRow(Icons.Default.RestartAlt, "إعادة ضبط المظهر", null, onClick = { AppGraph.uiPreferences.reset() })
                 }
-            }
+            } }
 
             item { SettingsGroupTitle("الإشعارات والمزامنة") }
             item {
@@ -5042,10 +5059,10 @@ fun SettingsScreen(profile: Profile, onLogout: () -> Unit) {
             item { SupportSettingsCard() }
             if (isAdminRole) {
                 item { SettingsGroupTitle("الإدارة والتشخيص") }
-                item { AppSupportInfoCard(profile) }
-                item { BackupSettingsCard() }
-                item { V6ScoringSettingsCard() }
-                item {
+                item { SettingsCollapsible(Icons.Default.Info, "معلومات الدعم", "بيانات الحساب والجهاز لمسؤول النظام") { AppSupportInfoCard(profile) } }
+                item { SettingsCollapsible(Icons.Default.Backup, "النسخ الاحتياطي", null) { BackupSettingsCard() } }
+                item { SettingsCollapsible(Icons.Default.Tune, "إعدادات الاحتساب", null) { V6ScoringSettingsCard() } }
+                item { SettingsCollapsible(Icons.Default.Speed, "القياسات", "أزمنة التحميل الأخيرة") {
                     // RC27.10: timings of the heavy reads, so a slow screen can be pinned down by number instead of guessed.
                     var timings by remember { mutableStateOf(com.mohammedsamir.halaqati.data.PerfLog.snapshot()) }
                     SettingsGroup {
@@ -5067,16 +5084,10 @@ fun SettingsScreen(profile: Profile, onLogout: () -> Unit) {
                         }
                         SettingsRow(Icons.Default.Refresh, "تحديث القياسات", null, onClick = { timings = com.mohammedsamir.halaqati.data.PerfLog.snapshot() })
                     }
-                }
+                } }
             }
 
-            item { SettingsGroupTitle("عن التطبيق") }
-            item { AppUpdateSettingsCard() }
-            item {
-                SettingsGroup {
-                    SettingsRow(Icons.Default.Android, "الإصدار", "Native Kotlin / Jetpack Compose ${BuildConfig.VERSION_NAME}")
-                }
-            }
+            item { Text("الإصدار ${BuildConfig.VERSION_NAME} · Native Kotlin / Jetpack Compose", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp)) }
             item {
                 Button(
                     onClick = { if (pendingWrites + blockedWrites > 0) showLogoutConfirm = true else onLogout() },

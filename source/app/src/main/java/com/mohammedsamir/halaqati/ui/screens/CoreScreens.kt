@@ -3974,6 +3974,7 @@ private fun RecitationDialog(
         com.mohammedsamir.halaqati.ui.screens.MushafMarkingDialog(
             session = mushafSession,
             rangeStartPage = mushafRangeStartPage,
+            rangeEndPage = selectedQuranRange?.endPage ?: end.toIntOrNull(),
             counters = { mistakeValue to promptValue },
             score = { MushafScore(safety, recitationEvaluationAr(evaluation), pageValue) },
             inRange = { s, a, pg ->

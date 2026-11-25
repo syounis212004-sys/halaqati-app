@@ -479,6 +479,7 @@ private fun FeatureRouter(destination:AppDestination,profile:Profile,sync:SyncSt
         "visits"->SupervisorVisitsScreen(profile,sync.pending,onSync)
         "users"->UsersScreen(sync.pending,onSync)
         "approvals"->ApprovalsScreen(profile)
+        "mushaf"->com.mohammedsamir.halaqati.ui.screens.MushafHomeScreen()
         "quran"->QuranCalculatorScreen()
         "awards"->com.mohammedsamir.halaqati.ui.screens.AwardsScreen(profile,sync.pending,onSync,navigate)
         "donor_awards"->com.mohammedsamir.halaqati.ui.screens.DonorAwardsPage(profile,sync.pending,onSync)
