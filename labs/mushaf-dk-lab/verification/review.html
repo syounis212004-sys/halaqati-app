@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DK vs V2 Text Review</title>
+<style>
+:root{--bg:#f6f5f1;--fg:#1d1d1b;--mut:#666;--card:#fff;--bd:#d6d3c9;--acc:#0b5d4b;--warn:#a33;--ok:#1a7f37;--sp:#8a5a00}
+@media (prefers-color-scheme:dark){:root{--bg:#161614;--fg:#eceae2;--mut:#9a978c;--card:#211f1c;--bd:#3a372f;--acc:#4ec3a6;--warn:#ff8a80;--ok:#6fd48a;--sp:#e9b44c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,sans-serif}
+.banner{background:#7a1f1f;color:#fff;padding:8px 16px;font-weight:600}
+header{padding:10px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;border-bottom:1px solid var(--bd)}
+header input,header select,header button{font:inherit;padding:5px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--card);color:var(--fg)}
+button{cursor:pointer}button.on{outline:2px solid var(--acc)}
+main{display:grid;grid-template-columns:minmax(300px,420px) 1fr;height:calc(100vh - 150px)}
+@media(max-width:800px){main{grid-template-columns:1fr;height:auto}#list{max-height:40vh}}
+#list{overflow:auto;border-right:1px solid var(--bd)}
+.it{padding:6px 12px;border-bottom:1px solid var(--bd);cursor:pointer;display:flex;gap:8px;align-items:baseline}
+.it:hover,.it.sel{background:var(--card)}.it.sel{border-left:4px solid var(--acc)}
+.tag{font-size:11px;padding:1px 6px;border-radius:9px;border:1px solid var(--bd);color:var(--mut);white-space:nowrap}
+.d-accept{color:var(--ok)}.d-reject{color:var(--warn)}.d-specialist{color:var(--sp)}
+#detail{overflow:auto;padding:14px 18px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;margin-bottom:12px}
+.ar{font-family:"Amiri","Scheherazade New","Noto Naskh Arabic","Traditional Arabic",serif;font-size:30px;direction:rtl;unicode-bidi:isolate}
+code{font-family:ui-monospace,monospace;font-size:12px;word-break:break-word}
+img{max-width:100%;background:#fff;border:1px solid var(--bd);display:block}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:800px){.cols{grid-template-columns:1fr}}
+textarea{width:100%;min-height:60px;font:inherit;background:var(--card);color:var(--fg);border:1px solid var(--bd);border-radius:6px}
+.btns button{margin-right:6px;padding:7px 12px}
+.k{color:var(--mut);font-size:12px}
+</style></head><body>
+<div class="banner">PROVISIONAL machine comparison. Classification labels are NOT scholarly judgements. Only a qualified specialist (Quran text / rasm / waqf scholar) may decide whether any difference is acceptable. This tool never edits Quran text.</div>
+<header>
+ <label>Page <input id="fp" size="9" placeholder="e.g. 9 or 5-20"></label>
+ <label>Class <select id="fc"></select></label>
+ <label>Decision <select id="fd"><option value="">any</option><option value="none">undecided</option><option>accept</option><option>reject</option><option>specialist</option></select></label>
+ <label>Search <input id="fs" placeholder="sura:ayah, U+06DA, glyph..."></label>
+ <span id="count" class="k"></span>
+ <button id="exj">Export decisions JSON</button><button id="exc">Export decisions CSV</button>
+ <label class="k">Import <input type="file" id="imp" accept=".json"></label>
+ <button id="sumbtn">Summary</button>
+</header>
+<main><div id="list"></div><div id="detail"><div class="k">Select a row. Keys: j/k next/prev, a accept, r reject, s needs-specialist.</div></div></main>
+<script src="review_data.js"></script>
+<script>
+const D=window.REVIEW_DATA, rows=D.rows; const KEY='dk_review_decisions_v1';
+let dec={}; try{dec=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){dec={}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(dec))}catch(e){}}
+const $=id=>document.getElementById(id); let cur=null, view=[];
+const cls=[...new Set(rows.map(r=>r.classification))].sort();
+$('fc').innerHTML='<option value="">all classes</option>'+cls.map(c=>`<option>${c}</option>`).join('');
+function parsePage(s){s=s.trim();if(!s)return null;const m=s.match(/^(\d+)(?:\s*-\s*(\d+))?$/);return m?[+m[1],+(m[2]||m[1])]:null}
+function filt(){const pr=parsePage($('fp').value),c=$('fc').value,d=$('fd').value,q=$('fs').value.trim().toLowerCase();
+ view=rows.filter(r=>(!pr||(r.page>=pr[0]&&r.page<=pr[1]))&&(!c||r.classification===c)&&
+  (!d||(d==='none'?!dec[r.id]:(dec[r.id]&&dec[r.id].d===d)))&&
+  (!q||(`${r.sura}:${r.ayah} ${r.api_only_codepoints} ${r.dk_only_codepoints} ${r.dk_glyph_names} ${r.subtype}`).toLowerCase().includes(q)));
+ $('count').textContent=view.length+' / '+rows.length+' rows, decided '+Object.keys(dec).length;
+ $('list').innerHTML=view.map(r=>{const x=dec[r.id];return `<div class="it${cur===r.id?' sel':''}" data-id="${r.id}"><b>p${r.page}</b> l${r.line} <span>${r.sura}:${r.ayah}#${r.word_position}</span><span class="tag">${r.classification.replace('OTHER:','OTHER ')}</span>${x?`<span class="d-${x.d}">&#9679;${x.d}</span>`:''}</div>`}).join('')}
+function esc(s){return String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+function show(id){cur=id;const r=rows[id],x=dec[id]||{};
+ $('detail').innerHTML=`<div class="card"><b>Page ${r.page}</b>, API line ${r.line}${r.dk_line!==''&&r.dk_line!==r.line?' / DK line '+r.dk_line:''}, sura ${r.sura} ayah ${r.ayah} word ${r.word_position}<br>
+ <span class="tag">${esc(r.classification)}</span> <span class="k">${esc(r.subtype)}</span><br><span class="k">machine label only (provisional)</span></div>
+ <div class="cols"><div class="card"><div class="k">Reference (QF API text_uthmani, V2/1421H layout)</div><div class="ar">${esc(r.reference_text)}</div><code>${esc(r.reference_codepoints)}</code></div>
+ <div class="card"><div class="k">DigitalKhatt (reconstructed from glyph names; glyph order)</div><div class="ar">${esc(r.dk_text)}</div><code>${esc(r.dk_codepoints)}</code></div></div>
+ <div class="card"><div class="k">Differing code points</div>Reference only: <code>${esc(r.api_only_codepoints)||'-'}</code><br>DK only: <code>${esc(r.dk_only_codepoints)||'-'}</code><br><div class="k">DK glyph names: <code>${esc(r.dk_glyph_names)}</code></div></div>
+ <div class="cols"><div class="card"><div class="k">V2 render of the line</div>${r.image_v2?`<img src="${r.image_v2}" alt="V2 line">`:'(no image)'}</div>
+ <div class="card"><div class="k">DigitalKhatt render of the line</div>${r.image_dk?`<img src="${r.image_dk}" alt="DK line">`:'(no image)'}</div></div>
+ <div class="card btns"><button data-d="accept" class="${x.d==='accept'?'on':''}">Accept</button><button data-d="reject" class="${x.d==='reject'?'on':''}">Reject</button><button data-d="specialist" class="${x.d==='specialist'?'on':''}">Needs specialist</button><button data-d="">Clear</button><br><br>
+ <textarea id="note" placeholder="Notes (reviewer, source, reasoning)">${esc(x.n||'')}</textarea>
+ <div class="k">Accept = difference tolerated as encoding/edition variance; Reject = DK text is wrong; both are the reviewer's decision, not the tool's.</div></div>`;
+ document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>setDec(id,b.dataset.d));
+ $('note').oninput=e=>{dec[id]=Object.assign(dec[id]||{d:''},{n:e.target.value,t:Date.now()});save()};
+ document.querySelectorAll('.it').forEach(e=>e.classList.toggle('sel',+e.dataset.id===id))}
+function setDec(id,d){if(!d){delete dec[id]}else{dec[id]=Object.assign(dec[id]||{},{d,t:Date.now()})}save();const keep=cur;filt();show(keep)}
+$('list').onclick=e=>{const t=e.target.closest('.it');if(t)show(+t.dataset.id)};
+['fp','fc','fd','fs'].forEach(i=>$(i).oninput=filt);
+document.onkeydown=e=>{if(/TEXTAREA|INPUT|SELECT/.test(e.target.tagName))return;const i=view.findIndex(r=>r.id===cur);
+ if(e.key==='j'&&view[i+1])show(view[i+1].id);else if(e.key==='k'&&view[i-1])show(view[i-1].id);
+ else if(cur!==null&&'ars'.includes(e.key))setDec(cur,{a:'accept',r:'reject',s:'specialist'}[e.key])};
+function dl(name,text,mime){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:mime}));a.download=name;a.click()}
+function exportRows(){return rows.filter(r=>dec[r.id]).map(r=>({id:r.id,page:r.page,line:r.line,sura:r.sura,ayah:r.ayah,word_position:r.word_position,classification:r.classification,decision:dec[r.id].d,note:dec[r.id].n||'',decided_at:new Date(dec[r.id].t||0).toISOString()}))}
+$('exj').onclick=()=>dl('decisions.json',JSON.stringify({edition:D.meta.reference,tool_note:'machine classification is provisional',decisions:exportRows()},null,1),'application/json');
+$('exc').onclick=()=>{const a=exportRows();const h=Object.keys(a[0]||{id:0});const q=v=>'"'+String(v).replace(/"/g,'""')+'"';dl('decisions.csv','﻿'+[h.join(',')].concat(a.map(o=>h.map(k=>q(o[k])).join(','))).join('\n'),'text/csv')};
+$('imp').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{const j=JSON.parse(t);(j.decisions||[]).forEach(o=>{dec[o.id]={d:o.decision,n:o.note,t:Date.parse(o.decided_at)||0}});save();filt()})};
+$('sumbtn').onclick=()=>{const c={};rows.forEach(r=>{c[r.classification]=(c[r.classification]||0)+1});$('detail').innerHTML='<div class="card"><b>Edition / method</b><br>'+esc(D.meta.reference)+'<br><br>'+esc(D.meta.method)+'</div><div class="card"><b>Counts per machine label</b><pre>'+esc(JSON.stringify(c,null,1))+'</pre></div><div class="card"><b>Not proven</b><br>'+D.meta.limits.map(esc).join('<br>')+'</div>'};
+filt();
+</script></body></html>
