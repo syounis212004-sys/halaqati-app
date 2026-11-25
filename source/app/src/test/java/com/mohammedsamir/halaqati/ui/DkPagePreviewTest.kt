@@ -13,6 +13,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -36,6 +37,11 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.pinch
 import com.mohammedsamir.halaqati.quran.dk.DkPack
 import com.mohammedsamir.halaqati.ui.screens.MushafScreenContent
 import org.junit.Assume.assumeTrue
@@ -104,4 +110,23 @@ class DkPagePreviewTest {
     @Test fun page511Dark() = render("dk_ui_p511_dark", 511, dark = true)
     @Test fun page511Reader() = render("dk_ui_p511_reader", 511, readOnly = true)
     @Test fun page1Fatiha() = render("dk_ui_p1", 1)
+
+    @Test fun pinchZoomShowsTheResetButtonAndFreezesPageSwipeUntilReset() {
+        assumeTrue(File("src/main/assets/dk/ids.bin").exists())
+        rule.setContent {
+            MaterialTheme(lightColorScheme()) { MushafScreenContent(MushafEngine.Session(300), null, { 0 to 0 }, { null }, { _, _, _ -> false }, { _, _ -> }, {}, readOnly = true) }
+        }
+        repeat(200) { rule.waitForIdle(); Thread.sleep(50); if (rule.onAllNodesWithContentDescription("صفحة ٣٠٠").fetchSemanticsNodes().isNotEmpty()) return@repeat }
+        rule.waitForIdle(); Thread.sleep(800); rule.waitForIdle()
+        rule.onRoot().performTouchInput { pinch(androidx.compose.ui.geometry.Offset(centerX - 40f, centerY), androidx.compose.ui.geometry.Offset(centerX - 160f, centerY), androidx.compose.ui.geometry.Offset(centerX + 40f, centerY), androidx.compose.ui.geometry.Offset(centerX + 160f, centerY)) }
+        rule.waitForIdle()
+        if (rule.onAllNodesWithText("إعادة الحجم").fetchSemanticsNodes().isEmpty()) throw AssertionError(rule.onRoot().printToString(Int.MAX_VALUE).lines().filter { "Text =" in it || "ContentDescription" in it }.joinToString("|").take(3000))
+        rule.onNodeWithText("إعادة الحجم").assertExists()
+        rule.onRoot().performTouchInput { swipe(androidx.compose.ui.geometry.Offset(width * 0.2f, centerY), androidx.compose.ui.geometry.Offset(width * 0.8f, centerY)) }
+        rule.waitForIdle()
+        rule.onNodeWithText("٣٠٠ / ٦٠٤").assertExists()      // zoomed: a drag pans, it does not turn the page
+        rule.onNodeWithText("إعادة الحجم").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText("إعادة الحجم").assertDoesNotExist()
+    }
 }

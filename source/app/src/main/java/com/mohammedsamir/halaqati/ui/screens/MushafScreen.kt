@@ -24,6 +24,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.graphics.graphicsLayer
+import com.mohammedsamir.halaqati.ui.theme.LocalReducedMotion
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -31,6 +35,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.AutoFixNormal
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.BorderColor
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.TouchApp
@@ -190,30 +196,26 @@ object MushafReaderPrefs {
     fun save(ctx: android.content.Context, page: Int) = ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit().putInt("last_page", page.coerceIn(1, 604)).apply()
 }
 
+/** Bookmarked pages (kept on this device only); the same list serves the reader and the marking mushaf. */
+object MushafBookmarks {
+    private const val PREFS = "halaqati_mushaf_reader"
+    private const val KEY = "bookmarks"
+    fun all(ctx: android.content.Context): List<Int> =
+        ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).getString(KEY, "").orEmpty().split(',').mapNotNull { it.toIntOrNull() }.filter { it in 1..604 }.distinct().sorted()
+    /** Adds the page when absent, removes it when present; returns the new list. */
+    fun toggle(ctx: android.content.Context, page: Int): List<Int> {
+        val next = if (page in all(ctx)) all(ctx) - page else (all(ctx) + page).sorted()
+        ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit().putString(KEY, next.joinToString(",")).apply()
+        return next
+    }
+}
+
 /** The mushaf for reading only (no marking tools, no score), opened from the main menu; remembers the last page. */
 @Composable
 fun MushafReaderDialog(startPage: Int, onDismiss: () -> Unit) {
     val session = remember { MushafEngine.Session(startPage) }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         MushafScreenContent(session, null, { 0 to 0 }, { null }, { _, _, _ -> false }, { _, _ -> }, onDismiss, readOnly = true)
-    }
-}
-
-/** Swipe to turn the page in the direction of an Arabic book: the finger moving right goes forward. Only fires for a clearly horizontal, quick swipe. */
-private fun Modifier.pageSwipe(enabled: Boolean, onForward: () -> Unit, onBack: () -> Unit): Modifier = if (!enabled) this else pointerInput(Unit) {
-    val minDx = 72.dp.toPx()
-    awaitEachGesture {
-        val down = awaitFirstDown(requireUnconsumed = false)
-        var last = down.position; var consumed = false
-        while (true) {
-            val ev = awaitPointerEvent(); val ch = ev.changes.firstOrNull() ?: return@awaitEachGesture
-            if (ch.isConsumed) consumed = true
-            last = ch.position
-            if (!ch.pressed) break
-        }
-        if (consumed) return@awaitEachGesture
-        val dx = last.x - down.position.x; val dy = last.y - down.position.y
-        if (abs(dx) >= minDx && abs(dx) >= 1.8f * abs(dy)) { if (dx > 0) onForward() else onBack() }
     }
 }
 
@@ -236,7 +238,8 @@ internal fun MushafScreenContent(
     val haptics = LocalHapticFeedback.current
 
     var page by remember { mutableIntStateOf(session.page) }
-    var state by remember { mutableStateOf<PageState>(PageState.Loading) }
+    var zoomed by remember { mutableStateOf(false) }
+    var bookmarks by remember { mutableStateOf(MushafBookmarks.all(context)) }
     var tool by rememberSaveable { mutableStateOf(Tool.Tap) }
     var type by rememberSaveable { mutableStateOf(MarkType.Mistake) }
     var dockOpen by rememberSaveable { mutableStateOf(true) }
@@ -248,22 +251,18 @@ internal fun MushafScreenContent(
     var announce by remember { mutableStateOf("") }
     val dkOn = remember { com.mohammedsamir.halaqati.quran.dk.DkPack.enabled(context) }
 
-    LaunchedEffect(page, dkOn) {
+    val pagerState = rememberPagerState(initialPage = page - 1) { MushafEngine.TOTAL_PAGES }
+    val reducedMotion = LocalReducedMotion.current
+    LaunchedEffect(page) {
         session.setPage(page)
         if (readOnly) MushafReaderPrefs.save(context, page)
-        state = PageState.Loading
-        kindMenu = null
-        val dkPage = if (dkOn && com.mohammedsamir.halaqati.quran.dk.DkPack.supports(context, page)) runCatching {
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                val data = com.mohammedsamir.halaqati.quran.dk.DkPack.data(context)
-                DkPrepared(page, data, data.loadPage(page), com.mohammedsamir.halaqati.quran.dk.DkPack.idsOf(context, page))
-            }
-        }.getOrNull() else null
-        state = if (dkPage != null) PageState.Dk(dkPage) else store.preparePage(page).fold(
-            onSuccess = { PageState.Ready(it) },
-            onFailure = { PageState.Error(it.message ?: "تعذر تحميل بيانات الصفحة") },
-        )
+        kindMenu = null; zoomed = false
+        // buttons and jumps move the pager: a neighbour animates (the book direction), a far jump swaps at once
+        if (pagerState.settledPage != page - 1) {
+            if (!reducedMotion && abs(pagerState.settledPage - (page - 1)) == 1) pagerState.animateScrollToPage(page - 1) else pagerState.scrollToPage(page - 1)
+        }
     }
+    LaunchedEffect(pagerState) { androidx.compose.runtime.snapshotFlow { pagerState.settledPage }.collect { if (it + 1 != page) page = it + 1 } }
 
     fun report(applied: MushafEngine.Applied, what: String) {
         if (applied.delta.mist != 0 || applied.delta.prompt != 0) onMark(applied.delta.mist, applied.delta.prompt)
@@ -274,13 +273,13 @@ internal fun MushafScreenContent(
             announce = "$what. أخطاء ${c.first}، تلقين ${c.second}"
         }
     }
-    fun actOnWord(id: String) {
+    fun actOnWord(id: String, pg: Int) {
         if (readOnly) return
         val name = if (type == MarkType.Mistake) "خطأ" else "تلقين"
         when (tool) {
             Tool.Erase -> report(session.eraseWords(listOf(id)), "مُسحت العلامة")
-            Tool.Highlight -> report(session.markSpan(listOf(id), type, pageNo = page), "تم وضع علامة $name")
-            Tool.Tap -> report(session.markWord(id, type, pageNo = page), "تم تبديل علامة $name")
+            Tool.Highlight -> report(session.markSpan(listOf(id), type, pageNo = pg), "تم وضع علامة $name")
+            Tool.Tap -> report(session.markWord(id, type, pageNo = pg), "تم تبديل علامة $name")
         }
     }
     fun undoRedo(undo: Boolean) {
@@ -296,6 +295,13 @@ internal fun MushafScreenContent(
                     // ---- one slim bar: close, previous / page / next, jump to the assigned range
                     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp)) { Icon(Icons.Default.Close, contentDescription = "إغلاق المصحف") }
+                        val marked = page in bookmarks
+                        IconButton(onClick = { bookmarks = MushafBookmarks.toggle(context, page) }, modifier = Modifier.size(48.dp)) {
+                            Icon(
+                                if (marked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                                contentDescription = if (marked) "إزالة العلامة المرجعية" else "إضافة علامة مرجعية", tint = if (marked) pal.chromeAccent else pal.chromeInk,
+                            )
+                        }
                         Spacer(Modifier.weight(1f))
                         TextButton(onClick = { page = MushafEngine.clampPage(page - 1) }, enabled = page > 1, modifier = Modifier.heightIn(min = 48.dp)) { Text("السابقة", color = pal.chromeAccent) }
                         TextButton(onClick = { jumpDialog = true }, modifier = Modifier.heightIn(min = 48.dp)) {
@@ -314,31 +320,50 @@ internal fun MushafScreenContent(
                         val landscape = maxWidth > maxHeight
                         val pageArea: @Composable (Modifier) -> Unit = { m ->
                             // the page keeps its printed 14:20 shape; spare height (tall screens) is shared above and below it
-                            BoxWithConstraints(
-                                m.pageSwipe(enabled = readOnly || tool == Tool.Tap, onForward = { page = MushafEngine.clampPage(page + 1) }, onBack = { page = MushafEngine.clampPage(page - 1) }),
-                                contentAlignment = Alignment.Center,
-                            ) {
+                            BoxWithConstraints(m, contentAlignment = Alignment.Center) {
                                 val pageW = min(maxWidth.value, maxHeight.value * MUSHAF_ASPECT_W / MUSHAF_ASPECT_H).dp
                                 val pageH = (pageW.value * MUSHAF_ASPECT_H / MUSHAF_ASPECT_W).dp
-                                MushafPage(
-                                    state = state, page = page, pageW = pageW, pageH = pageH, pal = pal, tick = tick, tool = tool,
-                                    session = session, preview = preview, inRange = inRange,
-                                    onTapWord = { actOnWord(it) },
-                                    onLongWord = { id, at -> if (!readOnly) kindMenu = id to at },
-                                    onPreview = { preview = it },
-                                    onSpan = { ids ->
-                                        preview = emptySet()
-                                        if (ids.isNotEmpty()) {
-                                            if (tool == Tool.Erase) report(session.eraseWords(ids), "مُسحت العلامات")
-                                            else report(session.markSpan(ids, type, pageNo = page), "تم تظليل ${ids.size} كلمة")
-                                        }
-                                    },
-                                    kindMenuFor = kindMenu,
-                                    onKind = { id, kind -> kindMenu = null; report(session.markWord(id, type, kind, page), "تم وضع علامة ${if (type == MarkType.Mistake) "خطأ" else "تلقين"}") },
-                                    onDismissKind = { kindMenu = null },
-                                    onRetry = { val p = page; page = 0; page = p },
-                                    onOffline = { offlineDialog = true },
-                                )
+                                val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+                                // turning a page: the incoming page fades in while the outgoing one fades out and both travel only part of the swipe,
+                                // so two pages are never seen side by side. Reduced motion swaps the page at the half way point.
+                                HorizontalPager(
+                                    state = pagerState, modifier = Modifier.fillMaxSize(), beyondViewportPageCount = 1, key = { it },
+                                    userScrollEnabled = (readOnly || tool == Tool.Tap) && !zoomed,
+                                ) { idx ->
+                                    Box(
+                                        Modifier.fillMaxSize().graphicsLayer {
+                                            val off = pagerState.getOffsetDistanceInPages(idx)
+                                            val a = abs(off).coerceIn(0f, 1f)
+                                            val travel = (if (rtl) -1f else 1f) * off * size.width        // where the pager puts this page
+                                            // a page that is a whole page away stays where the pager put it (off screen): pulling it back would let an invisible
+                                            // neighbour sit on top of the current page and steal its touches
+                                            val moving = a < 0.999f
+                                            if (reducedMotion) { alpha = if (a < 0.5f) 1f else 0f; translationX = if (moving) -travel else 0f }
+                                            else { alpha = (1.4f - 1.8f * a).coerceIn(0f, 1f); translationX = if (moving) -travel * 0.6f else 0f; val sc = 0.96f + 0.04f * (1f - a); scaleX = sc; scaleY = sc }
+                                        },
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        MushafPageSlot(
+                                            p = idx + 1, current = idx + 1 == page, dkOn = dkOn, store = store, pageW = pageW, pageH = pageH, pal = pal, tick = tick, tool = tool,
+                                            session = session, preview = preview, inRange = inRange,
+                                            onTapWord = { id, pg -> actOnWord(id, pg) },
+                                            onLongWord = { id, at -> if (!readOnly) kindMenu = id to at },
+                                            onPreview = { preview = it },
+                                            onSpan = { ids, pg ->
+                                                preview = emptySet()
+                                                if (ids.isNotEmpty()) {
+                                                    if (tool == Tool.Erase) report(session.eraseWords(ids), "مُسحت العلامات")
+                                                    else report(session.markSpan(ids, type, pageNo = pg), "تم تظليل ${ids.size} كلمة")
+                                                }
+                                            },
+                                            kindMenuFor = kindMenu,
+                                            onKind = { id, kind, pg -> kindMenu = null; report(session.markWord(id, type, kind, pg), "تم وضع علامة ${if (type == MarkType.Mistake) "خطأ" else "تلقين"}") },
+                                            onDismissKind = { kindMenu = null },
+                                            onOffline = { offlineDialog = true },
+                                            onZoomChanged = { z -> if (idx + 1 == page) zoomed = z },
+                                        )
+                                    }
+                                }
                             }
                         }
                         val dock: @Composable (Boolean, Modifier) -> Unit = { side, m ->
@@ -370,19 +395,19 @@ internal fun MushafScreenContent(
     if (offlineDialog) MushafOfflineDialog(currentPage = page, onDismiss = { offlineDialog = false })
 
     if (jumpDialog) MushafJumpDialog(
-        page = page, rangeStart = if (readOnly) null else rangeStartPage, rangeEnd = rangeEndPage,
+        bookmarks = bookmarks, page = page, rangeStart = if (readOnly) null else rangeStartPage, rangeEnd = rangeEndPage,
         onGo = { page = MushafEngine.clampPage(it); jumpDialog = false }, onOffline = { jumpDialog = false; offlineDialog = true }, onDismiss = { jumpDialog = false },
     )
 }
 
 /** Go to a page, to the pages of the assigned range ("ضمن المقرر"), to a juz or to a surah. */
 @Composable
-internal fun MushafJumpDialog(page: Int, rangeStart: Int?, rangeEnd: Int?, onGo: (Int) -> Unit, onOffline: () -> Unit, onDismiss: () -> Unit) {
+internal fun MushafJumpDialog(page: Int, rangeStart: Int?, rangeEnd: Int?, onGo: (Int) -> Unit, onOffline: () -> Unit, onDismiss: () -> Unit, bookmarks: List<Int> = emptyList()) {
     var input by remember { mutableStateOf(page.toString()) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("الانتقال") },
-        text = { MushafJumpBody(page, rangeStart, rangeEnd, input, { input = it }, onGo) },
+        text = { MushafJumpBody(page, rangeStart, rangeEnd, input, { input = it }, onGo, bookmarks) },
         confirmButton = { TextButton(onClick = { input.toIntOrNull()?.let(onGo) ?: onDismiss() }) { Text("انتقال") } },
         dismissButton = { Row { TextButton(onClick = onOffline) { Text("بدون إنترنت") }; TextButton(onClick = onDismiss) { Text("إلغاء") } } },
     )
@@ -390,8 +415,10 @@ internal fun MushafJumpDialog(page: Int, rangeStart: Int?, rangeEnd: Int?, onGo:
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-internal fun MushafJumpBody(page: Int, rangeStart: Int?, rangeEnd: Int?, input: String, onInput: (String) -> Unit, onGo: (Int) -> Unit) {
+internal fun MushafJumpBody(page: Int, rangeStart: Int?, rangeEnd: Int?, input: String, onInput: (String) -> Unit, onGo: (Int) -> Unit, bookmarks: List<Int> = emptyList()) {
     var surahMenu by remember { mutableStateOf(false) }
+    var surah by remember { mutableStateOf<Int?>(null) }
+    var ayahInput by remember { mutableStateOf("") }
     val rangePages = remember(rangeStart, rangeEnd) {
         if (rangeStart == null) emptyList() else (min(rangeStart, rangeEnd ?: rangeStart)..max(rangeStart, rangeEnd ?: rangeStart)).toList()
     }
@@ -410,18 +437,37 @@ internal fun MushafJumpBody(page: Int, rangeStart: Int?, rangeEnd: Int?, input: 
             }
             if (rangePages.size > 24) Text("من صفحة ${digits(rangePages.first())} إلى ${digits(rangePages.last())} (${digits(rangePages.size)} صفحة)", style = MaterialTheme.typography.bodySmall)
         }
+        if (bookmarks.isNotEmpty()) {
+            Text("العلامات المرجعية", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                bookmarks.forEach { b -> com.mohammedsamir.halaqati.ui.components.ProFilterChip(selected = b == page, onClick = { onGo(b) }, label = "ص ${digits(b)}", showCheckIcon = false) }
+            }
+        }
         Text("الجزء", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             for (j in 1..30) com.mohammedsamir.halaqati.ui.components.ProFilterChip(selected = j == curJuz, onClick = { onGo(com.mohammedsamir.halaqati.quran.MushafOfflinePlan.juzPages(j).first) }, label = digits(j), showCheckIcon = false)
         }
-        Box {
-            TextButton(onClick = { surahMenu = true }) { Text("السورة…") }
-            DropdownMenu(expanded = surahMenu, onDismissRequest = { surahMenu = false }, modifier = Modifier.heightIn(max = 360.dp)) {
-                for (sn in 1..114) DropdownMenuItem(
-                    text = { Text("${digits(sn)}. ${com.mohammedsamir.halaqati.quran.QuranMetadata.surahName(sn)}") },
-                    onClick = { surahMenu = false; onGo(com.mohammedsamir.halaqati.quran.QuranMetadata.pageFor(sn, 1)) },
+        TextButton(onClick = { surahMenu = !surahMenu }) { Text(surah?.let { "سورة " + com.mohammedsamir.halaqati.quran.QuranMetadata.surahName(it) } ?: "السورة…") }
+        if (surahMenu) androidx.compose.material3.Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
+                for (sn in 1..114) Text(
+                    "${digits(sn)}. ${com.mohammedsamir.halaqati.quran.QuranMetadata.surahName(sn)}",
+                    modifier = Modifier.fillMaxWidth().clickable { surahMenu = false; surah = sn; ayahInput = "" }.padding(horizontal = 14.dp, vertical = 12.dp),
                 )
             }
+        }
+        surah?.let { sn ->
+            val max = com.mohammedsamir.halaqati.quran.QuranMetadata.maxAyah(sn)
+            val ayah = ayahInput.toIntOrNull()
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = ayahInput, onValueChange = { ayahInput = it.filter(Char::isDigit).take(3) }, singleLine = true, modifier = Modifier.weight(1f),
+                    label = { Text("رقم الآية (١–${digits(max)})") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = ayahInput.isNotEmpty() && (ayah == null || ayah !in 1..max),
+                )
+                TextButton(enabled = ayah != null && ayah in 1..max, onClick = { onGo(com.mohammedsamir.halaqati.quran.QuranMetadata.pageFor(sn, ayah!!)) }) { Text("اذهب إلى الآية") }
+            }
+            TextButton(onClick = { onGo(com.mohammedsamir.halaqati.quran.QuranMetadata.pageFor(sn, 1)) }) { Text("بداية السورة") }
         }
     }
 }
@@ -477,12 +523,44 @@ internal fun MarkBadge(mistake: Boolean, color: Color, size: androidx.compose.ui
     }
 }
 
+/** One page of the pager: loads its own data (new viewer when the pack is present, else the classic one) and draws it in the page frame. */
+@Composable
+private fun MushafPageSlot(
+    p: Int, current: Boolean, dkOn: Boolean, store: MushafStore, pageW: androidx.compose.ui.unit.Dp, pageH: androidx.compose.ui.unit.Dp, pal: MushafPalette, tick: Int, tool: Tool,
+    session: MushafEngine.Session, preview: Set<String>, inRange: (Int, Int, Int) -> Boolean,
+    onTapWord: (String, Int) -> Unit, onLongWord: (String, Offset) -> Unit, onPreview: (Set<String>) -> Unit, onSpan: (List<String>, Int) -> Unit,
+    kindMenuFor: Pair<String, Offset>?, onKind: (String, MarkKind, Int) -> Unit, onDismissKind: () -> Unit, onOffline: () -> Unit, onZoomChanged: (Boolean) -> Unit,
+) {
+    val context = LocalContext.current
+    var attempt by remember { mutableIntStateOf(0) }
+    var state by remember(p) { mutableStateOf<PageState>(PageState.Loading) }
+    LaunchedEffect(p, dkOn, attempt) {
+        val dkPage = if (dkOn && com.mohammedsamir.halaqati.quran.dk.DkPack.supports(context, p)) runCatching {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val data = com.mohammedsamir.halaqati.quran.dk.DkPack.data(context)
+                DkPrepared(p, data, data.loadPage(p), com.mohammedsamir.halaqati.quran.dk.DkPack.idsOf(context, p))
+            }
+        }.getOrNull() else null
+        state = if (dkPage != null) PageState.Dk(dkPage) else store.preparePage(p).fold(
+            onSuccess = { PageState.Ready(it) },
+            onFailure = { PageState.Error(it.message ?: "تعذر تحميل بيانات الصفحة") },
+        )
+    }
+    MushafPage(
+        state, p, pageW, pageH, pal, tick, tool, session, preview, inRange,
+        onTapWord = { onTapWord(it, p) }, onLongWord = onLongWord, onPreview = onPreview, onSpan = { onSpan(it, p) },
+        kindMenuFor = if (current) kindMenuFor else null, onKind = { id, k -> onKind(id, k, p) }, onDismissKind = onDismissKind,
+        onRetry = { attempt++ }, onOffline = onOffline, isCurrent = current, onZoomChanged = onZoomChanged,
+    )
+}
+
 @Composable
 private fun MushafPage(
     state: PageState, page: Int, pageW: androidx.compose.ui.unit.Dp, pageH: androidx.compose.ui.unit.Dp, pal: MushafPalette, tick: Int, tool: Tool,
     session: MushafEngine.Session, preview: Set<String>, inRange: (Int, Int, Int) -> Boolean,
     onTapWord: (String) -> Unit, onLongWord: (String, Offset) -> Unit, onPreview: (Set<String>) -> Unit, onSpan: (List<String>) -> Unit,
     kindMenuFor: Pair<String, Offset>?, onKind: (String, MarkKind) -> Unit, onDismissKind: () -> Unit, onRetry: () -> Unit, onOffline: () -> Unit,
+    isCurrent: Boolean = true, onZoomChanged: (Boolean) -> Unit = {},
 ) {
     Box(
         Modifier.width(pageW).height(pageH).background(pal.pageBg, RoundedCornerShape(6.dp))
@@ -496,7 +574,7 @@ private fun MushafPage(
                 TextButton(onClick = onRetry) { Text("إعادة المحاولة") }
                 TextButton(onClick = onOffline) { Text("تنزيل المصحف للاستخدام بدون إنترنت", color = pal.chromeAccent) }
             }
-            is PageState.Dk -> DkReadyPage(state.page, page, pal, tick, tool, session, preview, inRange, onTapWord, onLongWord, onPreview, onSpan, kindMenuFor, onKind, onDismissKind)
+            is PageState.Dk -> DkReadyPage(state.page, page, pal, tick, tool, session, preview, inRange, onTapWord, onLongWord, onPreview, onSpan, kindMenuFor, onKind, onDismissKind, isCurrent, onZoomChanged)
             is PageState.Ready -> ReadyPage(state.page, page, pageW, pageH, pal, tick, tool, session, preview, inRange, onTapWord, onLongWord, onPreview, onSpan, kindMenuFor, onKind, onDismissKind)
         }
     }

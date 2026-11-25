@@ -4763,6 +4763,38 @@ private fun SettingsRow(
     }
 }
 
+/** The two appearance choices used most, always visible at the top: dark mode and the app colour. The full appearance settings stay in the folded row below. */
+@Composable
+internal fun QuickAppearanceRow(prefs: com.mohammedsamir.halaqati.data.UiPreferences) {
+    val presets = listOf(
+        Triple(com.mohammedsamir.halaqati.ui.theme.HalaqatiPalette.DEFAULT_PRIMARY, com.mohammedsamir.halaqati.ui.theme.HalaqatiPalette.DEFAULT_ACCENT, "أخضر حلقاتي"),
+        Triple(0xFF3B4929.toInt(), 0xFF5B7A3A.toInt(), "زيتوني الشعار"),
+        Triple(0xFF12345B.toInt(), 0xFF2D6CDF.toInt(), "الأزرق"),
+        Triple(0xFF5A3825.toInt(), 0xFFAD744F.toInt(), "البني"),
+        Triple(0xFF342B5F.toInt(), 0xFF765BC4.toInt(), "البنفسجي"),
+    )
+    SettingsGroup {
+        SettingsRow(Icons.Default.DarkMode, "الوضع الداكن", null, trailing = {
+            Switch(
+                checked = prefs.themeMode == ThemeMode.DARK,
+                onCheckedChange = { on -> AppGraph.uiPreferences.update { it.copy(themeMode = if (on) ThemeMode.DARK else ThemeMode.LIGHT) } },
+            )
+        })
+        SettingsRow(Icons.Default.Palette, "لون التطبيق", null, trailing = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                presets.forEach { (primary, accent, label) ->
+                    val selected = prefs.primaryArgb == primary && prefs.accentArgb == accent
+                    Box(
+                        Modifier.size(28.dp).clip(androidx.compose.foundation.shape.CircleShape).background(androidx.compose.ui.graphics.Color(primary))
+                            .border(if (selected) 3.dp else 1.dp, if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outlineVariant, androidx.compose.foundation.shape.CircleShape)
+                            .clickable(onClickLabel = label) { AppGraph.uiPreferences.update { it.copy(primaryArgb = primary, accentArgb = accent) } },
+                    )
+                }
+            }
+        })
+    }
+}
+
 /** One tappable row that opens or folds its content (folded by default), so the settings page stays short. */
 @Composable
 internal fun SettingsCollapsible(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String?, content: @Composable ColumnScope.() -> Unit) {
@@ -4917,6 +4949,7 @@ fun SettingsScreen(profile: Profile, onLogout: () -> Unit) {
                     AppUpdateSettingsCard()
                 }
             }
+            item { QuickAppearanceRow(uiPreferences) }
             item {
                 SettingsCollapsible(Icons.Default.Person, "الحساب", "الصورة والاسم وكلمة المرور") {
                     MyPhotoSettingsCard(profile)
