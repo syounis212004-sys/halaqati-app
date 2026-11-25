@@ -376,51 +376,54 @@ internal fun MushafScreenContent(
 }
 
 /** Go to a page, to the pages of the assigned range ("ضمن المقرر"), to a juz or to a surah. */
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 internal fun MushafJumpDialog(page: Int, rangeStart: Int?, rangeEnd: Int?, onGo: (Int) -> Unit, onOffline: () -> Unit, onDismiss: () -> Unit) {
     var input by remember { mutableStateOf(page.toString()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("الانتقال") },
+        text = { MushafJumpBody(page, rangeStart, rangeEnd, input, { input = it }, onGo) },
+        confirmButton = { TextButton(onClick = { input.toIntOrNull()?.let(onGo) ?: onDismiss() }) { Text("انتقال") } },
+        dismissButton = { Row { TextButton(onClick = onOffline) { Text("بدون إنترنت") }; TextButton(onClick = onDismiss) { Text("إلغاء") } } },
+    )
+}
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+internal fun MushafJumpBody(page: Int, rangeStart: Int?, rangeEnd: Int?, input: String, onInput: (String) -> Unit, onGo: (Int) -> Unit) {
     var surahMenu by remember { mutableStateOf(false) }
     val rangePages = remember(rangeStart, rangeEnd) {
         if (rangeStart == null) emptyList() else (min(rangeStart, rangeEnd ?: rangeStart)..max(rangeStart, rangeEnd ?: rangeStart)).toList()
     }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("الانتقال") },
-        text = {
-            Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = input, onValueChange = { input = it.filter(Char::isDigit).take(3) }, singleLine = true,
-                    label = { Text("رقم الصفحة (١–٦٠٤)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                if (rangePages.isNotEmpty()) {
-                    Text("ضمن المقرر", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        val shown = if (rangePages.size > 24) listOf(rangePages.first(), rangePages.last()) else rangePages
-                        shown.forEach { p -> com.mohammedsamir.halaqati.ui.components.ProFilterChip(selected = p == page, onClick = { onGo(p) }, label = digits(p), showCheckIcon = false) }
-                    }
-                    if (rangePages.size > 24) Text("من صفحة ${digits(rangePages.first())} إلى ${digits(rangePages.last())} (${digits(rangePages.size)} صفحة)", style = MaterialTheme.typography.bodySmall)
-                }
-                val curJuz = (1..30).firstOrNull { page in com.mohammedsamir.halaqati.quran.MushafOfflinePlan.juzPages(it) } ?: 1
-                Text("الجزء", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    for (j in 1..30) com.mohammedsamir.halaqati.ui.components.ProFilterChip(selected = j == curJuz, onClick = { onGo(com.mohammedsamir.halaqati.quran.MushafOfflinePlan.juzPages(j).first) }, label = digits(j), showCheckIcon = false)
-                }
-                Box {
-                    TextButton(onClick = { surahMenu = true }) { Text("السورة…") }
-                    DropdownMenu(expanded = surahMenu, onDismissRequest = { surahMenu = false }, modifier = Modifier.heightIn(max = 360.dp)) {
-                        for (sn in 1..114) DropdownMenuItem(
-                            text = { Text("${digits(sn)}. ${com.mohammedsamir.halaqati.quran.QuranMetadata.surahName(sn)}") },
-                            onClick = { surahMenu = false; onGo(com.mohammedsamir.halaqati.quran.QuranMetadata.pageFor(sn, 1)) },
-                        )
-                    }
-                }
+    val curJuz = (1..30).firstOrNull { page in com.mohammedsamir.halaqati.quran.MushafOfflinePlan.juzPages(it) } ?: 1
+    Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        OutlinedTextField(
+            value = input, onValueChange = { onInput(it.filter(Char::isDigit).take(3)) }, singleLine = true,
+            label = { Text("رقم الصفحة (١–٦٠٤)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (rangePages.isNotEmpty()) {
+            Text("ضمن المقرر", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                val shown = if (rangePages.size > 24) listOf(rangePages.first(), rangePages.last()) else rangePages
+                shown.forEach { p -> com.mohammedsamir.halaqati.ui.components.ProFilterChip(selected = p == page, onClick = { onGo(p) }, label = digits(p), showCheckIcon = false) }
             }
-        },
-        confirmButton = { TextButton(onClick = { input.toIntOrNull()?.let(onGo) ?: onDismiss() }) { Text("انتقال") } },
-        dismissButton = { Row { TextButton(onClick = onOffline) { Text("بدون إنترنت") }; TextButton(onClick = onDismiss) { Text("إلغاء") } } },
-    )
+            if (rangePages.size > 24) Text("من صفحة ${digits(rangePages.first())} إلى ${digits(rangePages.last())} (${digits(rangePages.size)} صفحة)", style = MaterialTheme.typography.bodySmall)
+        }
+        Text("الجزء", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (j in 1..30) com.mohammedsamir.halaqati.ui.components.ProFilterChip(selected = j == curJuz, onClick = { onGo(com.mohammedsamir.halaqati.quran.MushafOfflinePlan.juzPages(j).first) }, label = digits(j), showCheckIcon = false)
+        }
+        Box {
+            TextButton(onClick = { surahMenu = true }) { Text("السورة…") }
+            DropdownMenu(expanded = surahMenu, onDismissRequest = { surahMenu = false }, modifier = Modifier.heightIn(max = 360.dp)) {
+                for (sn in 1..114) DropdownMenuItem(
+                    text = { Text("${digits(sn)}. ${com.mohammedsamir.halaqati.quran.QuranMetadata.surahName(sn)}") },
+                    onClick = { surahMenu = false; onGo(com.mohammedsamir.halaqati.quran.QuranMetadata.pageFor(sn, 1)) },
+                )
+            }
+        }
+    }
 }
 
 @Composable

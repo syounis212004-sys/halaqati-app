@@ -4,8 +4,13 @@ import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /** A guardian keeps seeing his child's mistakes and prompts for the latest recitation day. */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35], application = android.app.Application::class)
 class GuardianMistakesTest {
     private fun json(mistakes: Int, prompts: Int) = JSONObject(
         """{"student":{"full_name":"طالب","track":"hifz"},"today":{},"month":{},

@@ -10,21 +10,20 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.swipeLeft
-import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.test.swipe
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.mohammedsamir.halaqati.quran.MushafEngine
 import com.mohammedsamir.halaqati.quran.MushafEngine.MarkType
 import com.mohammedsamir.halaqati.ui.screens.MushafDock
-import com.mohammedsamir.halaqati.ui.screens.MushafJumpDialog
+import com.mohammedsamir.halaqati.ui.screens.MushafJumpBody
 import com.mohammedsamir.halaqati.ui.screens.MushafPalette
 import com.mohammedsamir.halaqati.ui.screens.MushafScreenContent
 import com.mohammedsamir.halaqati.ui.screens.SettingsCollapsible
@@ -71,11 +70,12 @@ class MushafReaderPolishTest {
         reader(readOnly = true)
         rule.waitForIdle()
         rule.onNodeWithText("٥ / ٦٠٤").assertIsDisplayed()
-        rule.onRoot().performTouchInput { swipeRight() }
+        rule.onRoot().performTouchInput { swipe(androidx.compose.ui.geometry.Offset(width * 0.2f, centerY), androidx.compose.ui.geometry.Offset(width * 0.8f, centerY)) }
         rule.waitForIdle()
-        rule.onNodeWithText("٦ / ٦٠٤").assertIsDisplayed()
-        rule.onRoot().performTouchInput { swipeLeft() }
-        rule.onRoot().performTouchInput { swipeLeft() }
+        val labels = rule.onAllNodesWithText("/ ٦٠٤", substring = true).fetchSemanticsNodes().map { n -> n.config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString() }
+        assertEquals(listOf("٦ / ٦٠٤"), labels)
+        rule.onRoot().performTouchInput { swipe(androidx.compose.ui.geometry.Offset(width * 0.8f, centerY), androidx.compose.ui.geometry.Offset(width * 0.2f, centerY)) }
+        rule.onRoot().performTouchInput { swipe(androidx.compose.ui.geometry.Offset(width * 0.8f, centerY), androidx.compose.ui.geometry.Offset(width * 0.2f, centerY)) }
         rule.waitForIdle()
         rule.onNodeWithText("٤ / ٦٠٤").assertIsDisplayed()
     }
@@ -83,7 +83,7 @@ class MushafReaderPolishTest {
     @Test fun swipingAlsoWorksInTheMarkingMushafWhileTheTapToolIsActive() {
         reader(readOnly = false)
         rule.waitForIdle()
-        rule.onRoot().performTouchInput { swipeRight() }
+        rule.onRoot().performTouchInput { swipe(androidx.compose.ui.geometry.Offset(width * 0.2f, centerY), androidx.compose.ui.geometry.Offset(width * 0.8f, centerY)) }
         rule.waitForIdle()
         rule.onNodeWithText("٦ / ٦٠٤").assertIsDisplayed()
     }
@@ -91,12 +91,12 @@ class MushafReaderPolishTest {
     @Test fun theReadingMushafHasNoMarkingDockOrScore() {
         reader(readOnly = true)
         rule.waitForIdle()
-        rule.onNodeWithText("خطأ").assertDoesNotExistCompat()
+        rule.onNodeWithText("خطأ").assertDoesNotExist()
     }
 
     @Test fun jumpDialogListsThePagesOfTheAssignedRangeUnderItsOwnHeading() {
         var went = -1
-        rule.setContent { MaterialTheme(lightColorScheme()) { MushafJumpDialog(page = 3, rangeStart = 510, rangeEnd = 512, onGo = { went = it }, onOffline = {}, onDismiss = {}) } }
+                rule.setContent { MaterialTheme(lightColorScheme()) { MushafJumpBody(page = 3, rangeStart = 510, rangeEnd = 512, input = "3", onInput = {}, onGo = { went = it }) } }
         rule.onNodeWithText("ضمن المقرر").assertIsDisplayed()
         rule.onNodeWithText("٥١١").assertIsDisplayed()
         rule.onNodeWithText("٥١١").performClick()
@@ -104,8 +104,8 @@ class MushafReaderPolishTest {
     }
 
     @Test fun jumpDialogWithoutARangeHasNoRangeHeadingAndLongRangesAreSummarised() {
-        rule.setContent { MaterialTheme(lightColorScheme()) { MushafJumpDialog(page = 3, rangeStart = null, rangeEnd = null, onGo = {}, onOffline = {}, onDismiss = {}) } }
-        rule.onNodeWithText("ضمن المقرر").assertDoesNotExistCompat()
+                rule.setContent { MaterialTheme(lightColorScheme()) { MushafJumpBody(page = 3, rangeStart = null, rangeEnd = null, input = "3", onInput = {}, onGo = {}) } }
+        rule.onNodeWithText("ضمن المقرر").assertDoesNotExist()
     }
 
     @Test fun theCountBadgesStayInsideTheDock() {
@@ -127,13 +127,13 @@ class MushafReaderPolishTest {
     }
 
     @Test fun foldedSettingsRowsHideTheirContentUntilTapped() {
-        rule.setContent { MaterialTheme(lightColorScheme()) { SettingsCollapsible(androidx.compose.material.icons.Icons.Default.Speed, "القياسات", "أزمنة") { Text("planSnapshots 2840") } } }
-        rule.onNodeWithText("planSnapshots 2840").assertDoesNotExistCompat()
+        rule.setContent { MaterialTheme(lightColorScheme()) { SettingsCollapsible(androidx.compose.ui.graphics.vector.ImageVector.Builder("t", 24.dp, 24.dp, 24f, 24f).build(), "القياسات", "أزمنة") { Text("planSnapshots 2840") } } }
+        rule.onNodeWithText("planSnapshots 2840").assertDoesNotExist()
         rule.onNodeWithText("القياسات").performClick()
         rule.onNodeWithText("planSnapshots 2840").assertIsDisplayed()
         rule.onNodeWithText("القياسات").performClick()
-        rule.onNodeWithText("planSnapshots 2840").assertDoesNotExistCompat()
+        rule.onNodeWithText("planSnapshots 2840").assertDoesNotExist()
     }
 }
 
-private fun androidx.compose.ui.test.SemanticsNodeInteraction.assertDoesNotExistCompat() = this.assertDoesNotExist()
+private fun androidx.compose.ui.test.SemanticsNodeInteraction.assertDoesNotExist() = this.assertDoesNotExist()
