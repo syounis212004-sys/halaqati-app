@@ -159,6 +159,8 @@ internal sealed interface PageState {
     data object Loading : PageState
     data class Error(val message: String) : PageState
     data class Ready(val page: MushafStore.PreparedPage) : PageState
+    /** Experimental DigitalKhatm viewer (opt-in, only in builds that carry the pack). */
+    data class Dk(val page: DkPrepared) : PageState
 }
 
 /**
@@ -207,12 +209,20 @@ internal fun MushafScreenContent(
     var jumpDialog by remember { mutableStateOf(false) }
     var offlineDialog by remember { mutableStateOf(false) }
     var announce by remember { mutableStateOf("") }
+    val dkAvailable = remember { com.mohammedsamir.halaqati.quran.dk.DkPack.available(context) }
+    var dkOn by remember { mutableStateOf(com.mohammedsamir.halaqati.quran.dk.DkPack.enabled(context)) }
 
-    LaunchedEffect(page) {
+    LaunchedEffect(page, dkOn) {
         session.setPage(page)
         state = PageState.Loading
         kindMenu = null
-        state = store.preparePage(page).fold(
+        val dkPage = if (dkOn && com.mohammedsamir.halaqati.quran.dk.DkPack.supports(context, page)) runCatching {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val data = com.mohammedsamir.halaqati.quran.dk.DkPack.data(context)
+                DkPrepared(page, data, data.loadPage(page), com.mohammedsamir.halaqati.quran.dk.DkPack.idsOf(context, page))
+            }
+        }.getOrNull() else null
+        state = if (dkPage != null) PageState.Dk(dkPage) else store.preparePage(page).fold(
             onSuccess = { PageState.Ready(it) },
             onFailure = { PageState.Error(it.message ?: "تعذر تحميل بيانات الصفحة") },
         )
@@ -332,6 +342,9 @@ internal fun MushafScreenContent(
             confirmButton = { TextButton(onClick = { input.toIntOrNull()?.let { page = MushafEngine.clampPage(it) }; jumpDialog = false }) { Text("انتقال") } },
             dismissButton = {
                 Row {
+                    if (dkAvailable) TextButton(onClick = { dkOn = !dkOn; com.mohammedsamir.halaqati.quran.dk.DkPack.setEnabled(context, dkOn); jumpDialog = false }) {
+                        Text(if (dkOn) "إيقاف عارض DigitalKhatm" else "عارض DigitalKhatm (تجريبي)")
+                    }
                     TextButton(onClick = { jumpDialog = false; offlineDialog = true }) { Text("بدون إنترنت") }
                     TextButton(onClick = { jumpDialog = false }) { Text("إلغاء") }
                 }
@@ -410,6 +423,7 @@ private fun MushafPage(
                 TextButton(onClick = onRetry) { Text("إعادة المحاولة") }
                 TextButton(onClick = onOffline) { Text("تنزيل المصحف للاستخدام بدون إنترنت", color = pal.chromeAccent) }
             }
+            is PageState.Dk -> DkReadyPage(state.page, page, pal, tick, tool, session, preview, inRange, onTapWord, onLongWord, onPreview, onSpan, kindMenuFor, onKind, onDismissKind)
             is PageState.Ready -> ReadyPage(state.page, page, pageW, pageH, pal, tick, tool, session, preview, inRange, onTapWord, onLongWord, onPreview, onSpan, kindMenuFor, onKind, onDismissKind)
         }
     }
