@@ -1,0 +1,240 @@
+name: "Halaqati DK performance harness (emulator, workflow artifact only, never published)"
+
+# Measures the experimental DigitalKhatm viewer's data/render path with an instrumented test on an Android emulator (API 34, x86_64, google_apis, KVM).
+# Results (JSON + Markdown summary + raw logs) are uploaded as a Workflow Artifact. There is NO release job: nothing goes to Releases, no update is published.
+# The DigitalKhatm pack is generated at build time and never committed. An emulator is not a phone: read the "limits" section of the result.
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: 'Source branch, tag or commit'
+        default: 'feat/mushaf-benchmark'
+        type: string
+      measure_release:
+        description: 'Also build the signed release APK to measure its APK size and installed size (needs the signing secrets)'
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: halaqati-dk-perf-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PROJECT_DIR: ${{ github.workspace }}/extracted/Halaqati_Native_Kotlin_v2.50.0_RC15
+  GRADLE_VERSION: '8.13'
+
+jobs:
+  perf:
+    name: Build, run DkPerfTest on emulator, upload results
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.source_repository || github.repository }}
+          ref: ${{ inputs.source_ref }}
+          token: ${{ secrets.SOURCE_REPO_TOKEN || secrets.HALAQATI_SOURCE_TOKEN || secrets.SOURCE_PAT || secrets.GH_PAT || github.token }}
+          path: source-repo
+          persist-credentials: false
+
+      - name: Use the branch source directly and generate the experimental DigitalKhatm pack
+        timeout-minutes: 6
+        run: |
+          set -euo pipefail
+          mkdir -p extracted
+          cp -r source-repo/source "$PROJECT_DIR"
+          # the pack encodes the Quran text, so it is generated here and never committed
+          curl -fsSL --retry 4 -o madina.json https://digitalkhatt.org/assets/layouts/madina.json
+          python3 -I "$PROJECT_DIR/scripts/dk/make_dk_assets.py" madina.json "$PROJECT_DIR/app/src/main/assets/dk"
+          ls "$PROJECT_DIR/app/src/main/assets/dk" | wc -l
+          # same private experimental identity as Halaqati_DK_experimental.yml, so the sizes match that build
+          sed -i 's/versionCode = 29111/versionCode = 29112/; s/versionName = "2.91.11"/versionName = "2.91.11-dk"/' "$PROJECT_DIR/app/build.gradle.kts"
+          grep -n 'versionCode\|versionName' "$PROJECT_DIR/app/build.gradle.kts"
+
+      - name: Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Gradle 8.13 with dependency cache
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+          cache-provider: basic
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+          log-accepted-android-sdk-licenses: false
+
+      - name: Ensure SDK 36 is available
+        timeout-minutes: 8
+        run: |
+          set -euo pipefail
+          sdkmanager --version
+          sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Warm the Gradle dependency cache (Maven Central answers 429 to shared runners; retry with a growing pause)
+        timeout-minutes: 20
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          set -uo pipefail
+          cat > "$RUNNER_TEMP/warm.init.gradle" <<'GRADLE'
+          gradle.projectsEvaluated {
+            gradle.rootProject.allprojects { p ->
+              p.tasks.register('warmResolve') {
+                doLast {
+                  ['debugCompileClasspath', 'debugRuntimeClasspath', 'debugAndroidTestCompileClasspath', 'debugAndroidTestRuntimeClasspath', 'releaseRuntimeClasspath'].each { n ->
+                    def c = p.configurations.findByName(n)
+                    if (c != null && c.canBeResolved) { c.files }
+                  }
+                }
+              }
+            }
+          }
+          GRADLE
+          for i in 1 2 3 4 5 6; do
+            if gradle --no-daemon --console=plain --init-script "$RUNNER_TEMP/warm.init.gradle" :app:warmResolve; then echo "dependencies cached on try $i"; exit 0; fi
+            echo "try $i failed (probably HTTP 429); pausing $((i*30))s"; sleep $((i*30))
+          done
+          echo "::error::dependencies could not be downloaded after 6 tries"; exit 1
+
+      - name: Fetch verified Cairo font for Compose and local documents
+        timeout-minutes: 2
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          set -euo pipefail
+          python3 scripts/fetch-cairo-font.py
+          test -s app/src/main/res/font/cairo.ttf
+          test -s app/src/main/assets/documents/cairo.ttf
+
+      - name: Restore Firebase and optional release signing
+        timeout-minutes: 2
+        working-directory: ${{ env.PROJECT_DIR }}
+        env:
+          FIREBASE_JSON_B64: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64 }}
+          FIREBASE_JSON: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON }}
+          KEYSTORE_B64: ${{ secrets.HALAQATI_KEYSTORE_BASE64 }}
+          HALAQATI_STORE_PASSWORD: ${{ secrets.HALAQATI_STORE_PASSWORD }}
+          HALAQATI_KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
+          HALAQATI_KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
+          GOOGLE_WEB_CLIENT_ID_SECRET: ${{ secrets.HALAQATI_GOOGLE_WEB_CLIENT_ID }}
+          MEASURE_RELEASE: ${{ inputs.measure_release }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, json, os
+          from pathlib import Path
+          b64 = os.environ.get('FIREBASE_JSON_B64', '')
+          raw = base64.b64decode(b64).decode() if b64 else os.environ.get('FIREBASE_JSON', '')
+          if not raw:
+              raise SystemExit('Missing HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64 or HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON')
+          data = json.loads(raw)
+          packages = [c.get('client_info', {}).get('android_client_info', {}).get('package_name') for c in data.get('client', [])]
+          if 'com.mohammedsamir.halaqati' not in packages:
+              raise SystemExit('Firebase package mismatch')
+          Path('app/google-services.json').write_text(raw)
+          web_client = ''
+          for client in data.get('client', []):
+              for oauth in client.get('oauth_client', []):
+                  if oauth.get('client_type') == 3 and oauth.get('client_id'):
+                      web_client = oauth['client_id']; break
+              if web_client: break
+          web_client = web_client or os.environ.get('GOOGLE_WEB_CLIENT_ID_SECRET', '').strip()
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write('GOOGLE_WEB_CLIENT_ID=' + web_client + '\n')
+          if os.environ.get('MEASURE_RELEASE') == 'true':
+              for name in ['KEYSTORE_B64','HALAQATI_STORE_PASSWORD','HALAQATI_KEY_ALIAS','HALAQATI_KEY_PASSWORD']:
+                  if not os.environ.get(name): raise SystemExit('Missing release signing secret: ' + name)
+              keystore = Path(os.environ['RUNNER_TEMP']) / 'halaqati-release.jks'
+              keystore.write_bytes(base64.b64decode(os.environ['KEYSTORE_B64']))
+              with open(os.environ['GITHUB_ENV'], 'a') as f:
+                  f.write('HALAQATI_KEYSTORE_PATH=' + str(keystore) + '\n')
+          print('Firebase inputs validated.')
+          PY
+
+      - name: Assemble debug APK and the instrumentation test APK
+        timeout-minutes: 25
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ci-build.py assembleDebug,assembleDebugAndroidTest 1200
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+
+      - name: Assemble release APK (size and installed-size measurement only)
+        if: ${{ inputs.measure_release }}
+        timeout-minutes: 25
+        working-directory: ${{ env.PROJECT_DIR }}
+        env:
+          HALAQATI_STORE_PASSWORD: ${{ secrets.HALAQATI_STORE_PASSWORD }}
+          HALAQATI_KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
+          HALAQATI_KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ci-build.py assembleRelease 1200
+          test -s app/build/outputs/apk/release/app-release.apk
+
+      - name: Enable KVM for the emulator
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+
+      # Pinned to the full commit SHA of the annotated tag v2.37.0 of ReactiveCircus/android-emulator-runner (the commit the tag points to, resolved with
+      # `git ls-remote --tags`), not to a movable tag: a third-party action runs with this job's token and the signing secrets in its environment, so an
+      # upstream tag that is re-pointed must not change what runs here. To upgrade, review the new release's diff, then replace the SHA and this comment.
+      - name: Run DkPerfTest on an API 34 x86_64 google_apis emulator
+        uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a
+        timeout-minutes: 45
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 4
+          ram-size: 4096M
+          heap-size: 576M
+          disable-animations: true
+          force-avd-creation: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          working-directory: ${{ env.PROJECT_DIR }}
+          script: bash scripts/dk/perf-on-emulator.sh perf-results
+
+      - name: Summarise results
+        if: always()
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          set +e
+          mkdir -p perf-results
+          python3 -I scripts/dk/perf_summary.py perf-results app/src/main/assets/dk | tee -a "$GITHUB_STEP_SUMMARY" > /dev/null
+          if [ -f app/build/outputs/apk/release/app-release.apk ]; then
+            (cd app/build/outputs/apk/release && sha256sum app-release.apk) >> perf-results/apk-sha256.txt
+          fi
+          unzip -l app/build/outputs/apk/debug/app-debug.apk 'assets/dk/*' > perf-results/debug-apk-pack-entries.txt 2>&1
+          if [ -f app/build/outputs/apk/release/app-release.apk ]; then unzip -l app/build/outputs/apk/release/app-release.apk 'assets/dk/*' > perf-results/release-apk-pack-entries.txt 2>&1; fi
+          du -sb app/src/main/assets/dk > perf-results/pack-on-disk-bytes.txt
+          exit 0
+
+      - name: Upload perf results (workflow artifact only)
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: Halaqati-DK-perf-${{ github.run_id }}
+          path: |
+            ${{ env.PROJECT_DIR }}/perf-results/
+            ${{ env.PROJECT_DIR }}/ci-logs/
+          if-no-files-found: warn
+          retention-days: 14
