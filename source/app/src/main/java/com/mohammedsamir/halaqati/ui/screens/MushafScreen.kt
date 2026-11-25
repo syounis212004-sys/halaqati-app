@@ -103,7 +103,6 @@ import androidx.compose.ui.window.DialogProperties
 import com.mohammedsamir.halaqati.quran.MushafEngine
 import com.mohammedsamir.halaqati.quran.MushafEngine.MarkKind
 import com.mohammedsamir.halaqati.quran.MushafEngine.MarkType
-import com.mohammedsamir.halaqati.quran.MushafStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -164,8 +163,6 @@ internal fun digits(n: Any?): String = n.toString().map { if (it in '0'..'9') "�
 internal sealed interface PageState {
     data object Loading : PageState
     data class Error(val message: String) : PageState
-    data class Ready(val page: MushafStore.PreparedPage) : PageState
-    /** Experimental DigitalKhatm viewer (opt-in, only in builds that carry the pack). */
     data class Dk(val page: DkPrepared) : PageState
 }
 
@@ -232,7 +229,6 @@ internal fun MushafScreenContent(
     readOnly: Boolean = false,
 ) {
     val context = LocalContext.current
-    val store = remember { MushafStore.get(context) }
     val pal = rememberMushafPalette()
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
@@ -247,9 +243,7 @@ internal fun MushafScreenContent(
     var preview by remember { mutableStateOf<Set<String>>(emptySet()) }
     var kindMenu by remember { mutableStateOf<Pair<String, Offset>?>(null) }
     var jumpDialog by remember { mutableStateOf(false) }
-    var offlineDialog by remember { mutableStateOf(false) }
     var announce by remember { mutableStateOf("") }
-    val dkOn = remember { com.mohammedsamir.halaqati.quran.dk.DkPack.enabled(context) }
 
     val pagerState = rememberPagerState(initialPage = page - 1) { MushafEngine.TOTAL_PAGES }
     val reducedMotion = LocalReducedMotion.current
@@ -328,8 +322,8 @@ internal fun MushafScreenContent(
                                 // so two pages are never seen side by side. Reduced motion swaps the page at the half way point.
                                 HorizontalPager(
                                     state = pagerState, modifier = Modifier.fillMaxSize(), key = { it },
-                                    // neighbours are prepared ahead only when that is cheap (local pack); the classic viewer would download two extra pages of fonts
-                                    beyondViewportPageCount = if (dkOn) 1 else 0,
+                                    // the neighbours are prepared ahead: the pages come from the pack inside the app, so this costs no network
+                                    beyondViewportPageCount = 1,
                                     userScrollEnabled = (readOnly || tool == Tool.Tap) && !zoomed,
                                 ) { idx ->
                                     Box(
@@ -346,7 +340,7 @@ internal fun MushafScreenContent(
                                         contentAlignment = Alignment.Center,
                                     ) {
                                         MushafPageSlot(
-                                            p = idx + 1, current = idx + 1 == page, dkOn = dkOn, store = store, pageW = pageW, pageH = pageH, pal = pal, tick = tick, tool = tool,
+                                            p = idx + 1, current = idx + 1 == page, pageW = pageW, pageH = pageH, pal = pal, tick = tick, tool = tool,
                                             session = session, preview = preview, inRange = inRange,
                                             onTapWord = { id, pg -> actOnWord(id, pg) },
                                             onLongWord = { id, at -> if (!readOnly) kindMenu = id to at },
@@ -361,7 +355,6 @@ internal fun MushafScreenContent(
                                             kindMenuFor = kindMenu,
                                             onKind = { id, kind, pg -> kindMenu = null; report(session.markWord(id, type, kind, pg), "تم وضع علامة ${if (type == MarkType.Mistake) "خطأ" else "تلقين"}") },
                                             onDismissKind = { kindMenu = null },
-                                            onOffline = { offlineDialog = true },
                                             onZoomChanged = { z -> if (idx + 1 == page) zoomed = z },
                                         )
                                     }
@@ -394,24 +387,22 @@ internal fun MushafScreenContent(
         }
     }
 
-    if (offlineDialog) MushafOfflineDialog(currentPage = page, onDismiss = { offlineDialog = false })
-
     if (jumpDialog) MushafJumpDialog(
         bookmarks = bookmarks, page = page, rangeStart = if (readOnly) null else rangeStartPage, rangeEnd = rangeEndPage,
-        onGo = { page = MushafEngine.clampPage(it); jumpDialog = false }, onOffline = { jumpDialog = false; offlineDialog = true }, onDismiss = { jumpDialog = false },
+        onGo = { page = MushafEngine.clampPage(it); jumpDialog = false }, onDismiss = { jumpDialog = false },
     )
 }
 
 /** Go to a page, to the pages of the assigned range ("ضمن المقرر"), to a juz or to a surah. */
 @Composable
-internal fun MushafJumpDialog(page: Int, rangeStart: Int?, rangeEnd: Int?, onGo: (Int) -> Unit, onOffline: () -> Unit, onDismiss: () -> Unit, bookmarks: List<Int> = emptyList()) {
+internal fun MushafJumpDialog(page: Int, rangeStart: Int?, rangeEnd: Int?, onGo: (Int) -> Unit, onDismiss: () -> Unit, bookmarks: List<Int> = emptyList()) {
     var input by remember { mutableStateOf(page.toString()) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("الانتقال") },
         text = { MushafJumpBody(page, rangeStart, rangeEnd, input, { input = it }, onGo, bookmarks) },
         confirmButton = { TextButton(onClick = { input.toIntOrNull()?.let(onGo) ?: onDismiss() }) { Text("انتقال") } },
-        dismissButton = { Row { TextButton(onClick = onOffline) { Text("بدون إنترنت") }; TextButton(onClick = onDismiss) { Text("إلغاء") } } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } },
     )
 }
 
@@ -525,34 +516,30 @@ internal fun MarkBadge(mistake: Boolean, color: Color, size: androidx.compose.ui
     }
 }
 
-/** One page of the pager: loads its own data (new viewer when the pack is present, else the classic one) and draws it in the page frame. */
+/** One page of the pager: loads its own data from the pack inside the app and draws it in the page frame. */
 @Composable
 private fun MushafPageSlot(
-    p: Int, current: Boolean, dkOn: Boolean, store: MushafStore, pageW: androidx.compose.ui.unit.Dp, pageH: androidx.compose.ui.unit.Dp, pal: MushafPalette, tick: Int, tool: Tool,
+    p: Int, current: Boolean, pageW: androidx.compose.ui.unit.Dp, pageH: androidx.compose.ui.unit.Dp, pal: MushafPalette, tick: Int, tool: Tool,
     session: MushafEngine.Session, preview: Set<String>, inRange: (Int, Int, Int) -> Boolean,
     onTapWord: (String, Int) -> Unit, onLongWord: (String, Offset) -> Unit, onPreview: (Set<String>) -> Unit, onSpan: (List<String>, Int) -> Unit,
-    kindMenuFor: Pair<String, Offset>?, onKind: (String, MarkKind, Int) -> Unit, onDismissKind: () -> Unit, onOffline: () -> Unit, onZoomChanged: (Boolean) -> Unit,
+    kindMenuFor: Pair<String, Offset>?, onKind: (String, MarkKind, Int) -> Unit, onDismissKind: () -> Unit, onZoomChanged: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
     var attempt by remember { mutableIntStateOf(0) }
     var state by remember(p) { mutableStateOf<PageState>(PageState.Loading) }
-    LaunchedEffect(p, dkOn, attempt) {
-        val dkPage = if (dkOn && com.mohammedsamir.halaqati.quran.dk.DkPack.supports(context, p)) runCatching {
+    LaunchedEffect(p, attempt) {
+        state = runCatching {
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 val data = com.mohammedsamir.halaqati.quran.dk.DkPack.data(context)
-                DkPrepared(p, data, data.loadPage(p), com.mohammedsamir.halaqati.quran.dk.DkPack.idsOf(context, p))
+                PageState.Dk(DkPrepared(p, data, data.loadPage(p), com.mohammedsamir.halaqati.quran.dk.DkPack.idsOf(context, p))) as PageState
             }
-        }.getOrNull() else null
-        state = if (dkPage != null) PageState.Dk(dkPage) else store.preparePage(p).fold(
-            onSuccess = { PageState.Ready(it) },
-            onFailure = { PageState.Error(it.message ?: "تعذر تحميل بيانات الصفحة") },
-        )
+        }.getOrElse { PageState.Error(it.message ?: "تعذر تحميل الصفحة") }
     }
     MushafPage(
         state, p, pageW, pageH, pal, tick, tool, session, preview, inRange,
         onTapWord = { onTapWord(it, p) }, onLongWord = onLongWord, onPreview = onPreview, onSpan = { onSpan(it, p) },
         kindMenuFor = if (current) kindMenuFor else null, onKind = { id, k -> onKind(id, k, p) }, onDismissKind = onDismissKind,
-        onRetry = { attempt++ }, onOffline = onOffline, isCurrent = current, onZoomChanged = onZoomChanged,
+        onRetry = { attempt++ }, isCurrent = current, onZoomChanged = onZoomChanged,
     )
 }
 
@@ -561,7 +548,7 @@ private fun MushafPage(
     state: PageState, page: Int, pageW: androidx.compose.ui.unit.Dp, pageH: androidx.compose.ui.unit.Dp, pal: MushafPalette, tick: Int, tool: Tool,
     session: MushafEngine.Session, preview: Set<String>, inRange: (Int, Int, Int) -> Boolean,
     onTapWord: (String) -> Unit, onLongWord: (String, Offset) -> Unit, onPreview: (Set<String>) -> Unit, onSpan: (List<String>) -> Unit,
-    kindMenuFor: Pair<String, Offset>?, onKind: (String, MarkKind) -> Unit, onDismissKind: () -> Unit, onRetry: () -> Unit, onOffline: () -> Unit,
+    kindMenuFor: Pair<String, Offset>?, onKind: (String, MarkKind) -> Unit, onDismissKind: () -> Unit, onRetry: () -> Unit,
     isCurrent: Boolean = true, onZoomChanged: (Boolean) -> Unit = {},
 ) {
     Box(
@@ -574,223 +561,8 @@ private fun MushafPage(
                 Text("تعذّر عرض صفحة ${digits(page)}.", color = pal.pageInk, fontWeight = FontWeight.Bold)
                 Text(state.message + " يمكنك متابعة التسميع بالعدّادات اليدوية دون المصحف.", color = pal.pageInk, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
                 TextButton(onClick = onRetry) { Text("إعادة المحاولة") }
-                TextButton(onClick = onOffline) { Text("تنزيل المصحف للاستخدام بدون إنترنت", color = pal.chromeAccent) }
             }
             is PageState.Dk -> DkReadyPage(state.page, page, pal, tick, tool, session, preview, inRange, onTapWord, onLongWord, onPreview, onSpan, kindMenuFor, onKind, onDismissKind, isCurrent, onZoomChanged)
-            is PageState.Ready -> ReadyPage(state.page, page, pageW, pageH, pal, tick, tool, session, preview, inRange, onTapWord, onLongWord, onPreview, onSpan, kindMenuFor, onKind, onDismissKind)
         }
-    }
-}
-
-@Composable
-internal fun ReadyPage(
-    p: MushafStore.PreparedPage, page: Int, pageW: androidx.compose.ui.unit.Dp, pageH: androidx.compose.ui.unit.Dp, pal: MushafPalette, tick: Int, tool: Tool,
-    session: MushafEngine.Session, preview: Set<String>, inRange: (Int, Int, Int) -> Boolean,
-    onTapWord: (String) -> Unit, onLongWord: (String, Offset) -> Unit, onPreview: (Set<String>) -> Unit, onSpan: (List<String>) -> Unit,
-    kindMenuFor: Pair<String, Offset>?, onKind: (String, MarkKind) -> Unit, onDismissKind: () -> Unit,
-) {
-    val density = LocalDensity.current
-    val opening = MushafEngine.isOpeningPage(page)
-    val shown = if (opening) p.lines.filter { it.kind != MushafEngine.LineKind.Empty } else p.lines
-    val words = remember(p) { p.lines.flatMap { it.words } }
-    val surahInfo = words.firstOrNull()?.surah
-    val inside = remember(p, tick) { words.count { inRange(it.surah, it.ayah, page) } }
-    val rects = remember(p) { HashMap<String, Rect>() }
-    var origin by remember(p) { mutableStateOf(Offset.Zero) }
-    val menuHeightPad = 56.dp
-
-    Column(Modifier.fillMaxSize()) {
-        // header: surah, range chip, juz
-        Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(surahInfo?.let { "سورة " + com.mohammedsamir.halaqati.quran.QuranMetadata.surahName(it) } ?: "", color = pal.frame, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-            Text(if (words.isEmpty() || inside == 0) "" else if (inside == words.size) "ضمن المقرر" else "جزء من المقرر", color = pal.accent, fontSize = 12.sp)
-            Text(p.data.juz?.let { "الجزء ${digits(it)}" } ?: "", color = pal.frame, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-        }
-
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-            val areaW = constraints.maxWidth.toFloat(); val areaH = constraints.maxHeight.toFloat()
-            // one size for the whole page: a full printed line is ~15.9em wide and 15 lines need ~1.8em each
-            val qcfPx = min(areaW / 15.9f, areaH / 27f) * if (opening) 1.0f else 1f
-            val openingScale = if (opening) 1.3f else 1f
-            val sizePx = qcfPx * openingScale
-            val linesW = min(areaW, qcfPx * 15.9f)
-            val measurer = rememberTextMeasurer()
-            val linesWdp = with(density) { linesW.toDp() }
-            val rowH = if (opening) null else with(density) { (areaH / 15f).toDp() }
-
-            Box(
-                Modifier.width(linesWdp).fillMaxSize()
-                    .onGloballyPositioned { origin = it.positionInRoot() }
-                    .pointerInput(p, tool) {
-                        val slop = 10.dp.toPx()
-                        awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false)
-                            fun hit(pos: Offset): String? {
-                                val g = pos + origin
-                                return rects.entries.firstOrNull { it.value.contains(g) }?.key
-                            }
-                            val anchor = hit(down.position) ?: return@awaitEachGesture
-                            var current = anchor
-                            var moved = false; var long = false
-                            val t0 = down.uptimeMillis
-                            if (tool != Tool.Tap) onPreview(setOf(anchor))
-                            var finished = false
-                            while (!finished) {
-                                val waitForLong = tool == Tool.Tap && !moved && !long
-                                val ev = if (waitForLong) withTimeoutOrNull(450L) { awaitPointerEvent() } else awaitPointerEvent()
-                                if (ev == null) { long = true; onLongWord(anchor, down.position); continue }
-                                val ch = ev.changes.firstOrNull() ?: break
-                                if (!ch.pressed) {
-                                    finished = true
-                                    val dur = ch.uptimeMillis - t0
-                                    when {
-                                        long -> Unit
-                                        tool == Tool.Tap -> if (!moved && dur <= 400L) onTapWord(anchor)
-                                        else -> { val ids = MushafEngine.spanBetween(p.lines, anchor, current); onSpan(ids) }
-                                    }
-                                } else {
-                                    if (!moved && hypot(ch.position.x - down.position.x, ch.position.y - down.position.y) > slop) { moved = true }
-                                    if (tool != Tool.Tap && moved) {
-                                        ch.consume()
-                                        hit(ch.position)?.let { w -> current = w; onPreview(MushafEngine.spanBetween(p.lines, anchor, w).toSet()) }
-                                    }
-                                }
-                            }
-                            if (tool != Tool.Tap && !finished) onPreview(emptySet())
-                        }
-                    },
-            ) {
-                Column(Modifier.fillMaxSize(), verticalArrangement = if (opening) Arrangement.spacedBy(with(density) { (sizePx * 0.4f).toDp() }, Alignment.CenterVertically) else Arrangement.Top) {
-                    shown.forEach { line ->
-                        val rowMod = if (rowH != null) Modifier.fillMaxWidth().height(rowH) else Modifier.fillMaxWidth()
-                        when (line.kind) {
-                            MushafEngine.LineKind.Empty -> Box(rowMod)
-                            MushafEngine.LineKind.Banner -> BannerLine(line.surah, p.surahNames, sizePx, density, pal, rowMod)
-                            MushafEngine.LineKind.Basmala -> BasmalaLine(p, sizePx, density, pal, rowMod)
-                            MushafEngine.LineKind.Text -> TextLine(
-                                line, page, p, sizePx, linesW, density, pal, rowMod, measurer, session, tick, preview, inRange, rects, origin,
-                                centered = MushafEngine.isCenteredLine(page, line.n),
-                            )
-                        }
-                    }
-                }
-
-                kindMenuFor?.let { (id, at) ->
-                    val localAt = at
-                    Box(Modifier.offset(with(density) { localAt.x.toDp() }, with(density) { (localAt.y.toDp() - menuHeightPad) })) {
-                        DropdownMenu(expanded = true, onDismissRequest = onDismissKind, offset = DpOffset(0.dp, 0.dp)) {
-                            listOf(MarkKind.Word to "كلمة", MarkKind.Harakah to "حركة", MarkKind.AyahStart to "بداية آية").forEach { (k, label) ->
-                                DropdownMenuItem(text = { Text(label) }, onClick = { onKind(id, k) })
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ------------------------------------------------------------------ lines
-
-private fun glyphStyle(family: FontFamily, sizePx: Float, density: Density, color: Color) =
-    TextStyle(fontFamily = family, fontSize = with(density) { (sizePx).toSp() }, color = color, textDirection = TextDirection.Rtl, lineHeight = with(density) { ((sizePx * 1.5f)).toSp() })
-
-@Composable
-private fun TextLine(
-    line: MushafEngine.Line, page: Int, p: MushafStore.PreparedPage, sizePx: Float, linesW: Float, density: Density, pal: MushafPalette, rowMod: Modifier,
-    measurer: androidx.compose.ui.text.TextMeasurer, session: MushafEngine.Session, tick: Int, preview: Set<String>, inRange: (Int, Int, Int) -> Boolean,
-    rects: HashMap<String, Rect>, origin: Offset, centered: Boolean,
-) {
-    // lines are drawn edge to edge at one size; only a line wider than the text block is made smaller, by one ratio (the print never stretches words)
-    val items = line.items
-    val natural = remember(line, sizePx) {
-        items.sumOf { measurer.measure(it.glyph, glyphStyle(p.families[it.fontPage] ?: FontFamily.Default, sizePx, density, pal.pageInk), softWrap = false, maxLines = 1).size.width.toDouble() } +
-            (if (centered) sizePx * 0.25 * max(0, items.size - 1) else 0.0)
-    }
-    val k = MushafEngine.overflowScale(natural, linesW.toDouble()).toFloat()
-    val lineSize = sizePx * k
-    Row(
-        rowMod,
-        horizontalArrangement = if (centered) Arrangement.spacedBy(with(density) { (lineSize * 0.25f).toDp() }, Alignment.CenterHorizontally) else Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        items.forEach { w ->
-            val family = p.families[w.fontPage] ?: FontFamily.Default
-            if (w.isEnd) {
-                Text(w.glyph, style = glyphStyle(family, lineSize, density, pal.pageInk), softWrap = false, modifier = Modifier.clearSemantics2())
-            } else {
-                MarkedWord(w, family, lineSize, density, pal, session.getMark(w.id), w.id in preview, inRange(w.surah, w.ayah, page), tick, rects)
-            }
-        }
-    }
-}
-
-private fun Modifier.clearSemantics2(): Modifier = this.semantics(mergeDescendants = false) { contentDescription = "" }
-
-@Composable
-private fun MarkedWord(
-    w: MushafEngine.Item, family: FontFamily, sizePx: Float, density: Density, pal: MushafPalette, mark: MushafEngine.Mark?, previewed: Boolean, inRange: Boolean,
-    tick: Int, rects: HashMap<String, Rect>,
-) {
-    val markColor = when (mark?.type) { MarkType.Mistake -> pal.mistake; MarkType.Prompt -> pal.prompt; null -> Color.Unspecified }
-    val markBg = when (mark?.type) { MarkType.Mistake -> pal.mistakeBg; MarkType.Prompt -> pal.promptBg; null -> if (previewed) pal.rangeBg else Color.Transparent }
-    val desc = w.text + (mark?.let { " — " + (if (it.type == MarkType.Mistake) "خطأ" else "تلقين") + (if (it.kind == MarkKind.Harakah) " في الحركة" else if (it.kind == MarkKind.AyahStart) " في بداية الآية" else "") } ?: "")
-    Box(
-        Modifier
-            .onGloballyPositioned { rects[w.id] = it.boundsInRoot() }
-            .drawBehind {
-                val r = CornerRadius(size.height * 0.12f)
-                if (markBg != Color.Transparent) drawRoundRect(markBg, size = Size(size.width, size.height), cornerRadius = r)
-                if (previewed) drawRoundRect(pal.accent, size = Size(size.width, size.height), cornerRadius = r, style = Stroke(1.5f * density.density, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 6f))))
-                if (mark != null) {
-                    val y = size.height * 0.88f; val t = max(2f, sizePx * 0.06f)
-                    drawLine(markColor, Offset(0f, y), Offset(size.width, y), strokeWidth = t, pathEffect = if (mark.type == MarkType.Prompt) PathEffect.dashPathEffect(floatArrayOf(t * 2.5f, t * 1.6f)) else null)
-                }
-            }
-            .semantics { role = Role.Button; contentDescription = desc },
-    ) {
-        Text(w.glyph, style = glyphStyle(family, sizePx, density, if (mark != null) pal.pageInk else pal.pageInk), softWrap = false)
-        if (mark != null) {
-            // a letter beside the underline so the mark never relies on colour alone: × mistake, ت prompt
-            Text(
-                if (mark.type == MarkType.Mistake) "×" else "ت", color = markColor, fontWeight = FontWeight.ExtraBold,
-                fontSize = with(density) { ((sizePx * 0.42f)).toSp() }, modifier = Modifier.align(Alignment.TopEnd).offset(x = 2.dp, y = (-2).dp),
-            )
-            if (mark.kind == MarkKind.Harakah) Text("ـَ", color = pal.frame, fontWeight = FontWeight.Bold, fontSize = with(density) { ((sizePx * 0.4f)).toSp() }, modifier = Modifier.align(Alignment.BottomStart))
-        }
-    }
-}
-
-@Composable
-private fun BannerLine(surah: Int, surahNames: FontFamily?, sizePx: Float, density: Density, pal: MushafPalette, rowMod: Modifier) {
-    val h = with(density) { (sizePx * 1.75f).toDp() }
-    val name = com.mohammedsamir.halaqati.quran.QuranMetadata.surahName(surah)
-    Box(rowMod, contentAlignment = Alignment.Center) {
-        Row(
-            Modifier.fillMaxWidth().height(h).background(pal.rangeBg, RoundedCornerShape(with(density) { (sizePx * 0.3f).toDp() }))
-                .border(with(density) { (sizePx * 0.07f).toDp() }, pal.rule, RoundedCornerShape(with(density) { (sizePx * 0.3f).toDp() }))
-                .semantics { contentDescription = "سورة $name"; role = Role.Image },
-            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (surahNames != null) {
-                val st = TextStyle(fontFamily = surahNames, fontSize = with(density) { ((sizePx * 1.15f)).toSp() }, color = pal.frame)
-                Text("surah", style = st, softWrap = false)
-                Box(Modifier.width(with(density) { (sizePx * 0.45f).toDp() }))
-                Text(surah.toString().padStart(3, '0'), style = st, softWrap = false)
-            } else {
-                Text("سورة $name", color = pal.frame, fontWeight = FontWeight.Bold, fontSize = with(density) { ((sizePx * 0.8f)).toSp() })
-            }
-        }
-    }
-}
-
-@Composable
-private fun BasmalaLine(p: MushafStore.PreparedPage, sizePx: Float, density: Density, pal: MushafPalette, rowMod: Modifier) {
-    val family = p.families[1]
-    Row(
-        rowMod.semantics { contentDescription = "بسم الله الرحمن الرحيم"; role = Role.Image },
-        horizontalArrangement = Arrangement.spacedBy(with(density) { (sizePx * 0.2f).toDp() }, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (family != null) p.basmala.forEach { Text(it, style = glyphStyle(family, sizePx, density, pal.pageInk), softWrap = false) }
     }
 }

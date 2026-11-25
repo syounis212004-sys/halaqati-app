@@ -44,13 +44,17 @@ class DkPackTest {
         assertEquals(10f, m.getValue("2:181:3").left, 0f); assertEquals(90f, m.getValue("2:181:3").right, 0f)
     }
 
-    @Test fun packIsAbsentWithoutAssetsSoTheViewerStaysOff() {
+    @Test fun packAvailabilityFollowsTheAssets() {
         val has = File("src/main/assets/dk/ids.bin").exists()
         assertEquals(has, DkPack.available(ctx))
-        if (!has) { assertFalse(DkPack.enabled(ctx)); assertFalse(DkPack.supports(ctx, 1)) }
+        assertEquals(has, DkPack.supports(ctx, 1))
+        assertFalse(DkPack.supports(ctx, 0)); assertFalse(DkPack.supports(ctx, 605))
     }
 
-    @Test fun pageNeedingReviewKeepsTheCurrentViewer() = assertFalse(DkPack.supports(ctx, 177))
+    @Test fun everyPageIncludingPage177IsServedByThePack() {
+        assumeTrue(File("src/main/assets/dk/ids.bin").exists())
+        assertTrue((1..604).all { DkPack.supports(ctx, it) })
+    }
 
     @Test fun everyPageHasOneIdPerDkWordAndEveryIdParses() {
         assumeTrue(File("src/main/assets/dk/ids.bin").exists())

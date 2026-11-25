@@ -1,9 +1,7 @@
 package com.mohammedsamir.halaqati.quran
 
-/** Which printed pages a juz covers and how big a download of them is (page fonts average about 330 KB each). */
+/** Which printed pages a juz covers. (The mushaf pages are inside the app; nothing is downloaded.) */
 object MushafOfflinePlan {
-    const val APPROX_BYTES_PER_PAGE = 330_000L
-
     /** Pages of one juz; the page a juz starts in the middle of is included in both juz. */
     fun juzPages(juz: Int): IntRange {
         require(juz in 1..QuranMetadata.JUZ_COUNT)
@@ -15,5 +13,4 @@ object MushafOfflinePlan {
 
     fun pagesFor(juzSet: Set<Int>): List<Int> = juzSet.flatMap { juzPages(it) }.distinct().sorted()
 
-    fun estimateBytes(pages: Int): Long = pages * APPROX_BYTES_PER_PAGE
 }

@@ -103,3 +103,9 @@ object ContestRules {
 
     const val NO_HALAQA_MESSAGE = "لم يُربط حسابك بأي حلقة بعد. سيحدد مدير النظام حلقتك عند مراجعة المسابقة."
 }
+
+/**
+ * Donor contests need the database migration `20261125_v2920_donor_contests.sql`, which is applied only with the owner's approval.
+ * Until then the feature stays out of every menu and home screen. Flip to true (and release) after the migration is applied.
+ */
+object ContestsFeature { @Volatile var enabled: Boolean = false }

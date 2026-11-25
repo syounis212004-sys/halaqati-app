@@ -37,7 +37,9 @@ object RoleNavigationPolicy {
     private val limited = listOf(AppDestination.Home, AppDestination.GuardianProfile, AppDestination.Settings)
     private val student = listOf(AppDestination.Home, AppDestination.GuardianProfile, AppDestination.Contests, AppDestination.Settings)
 
-    fun destinations(role: UserRole) = when (role) {
+    fun destinations(role: UserRole): List<AppDestination> = rawDestinations(role).let { all -> if (com.mohammedsamir.halaqati.data.ContestsFeature.enabled) all else all.filterNot { it == AppDestination.Contests } }
+
+    private fun rawDestinations(role: UserRole) = when (role) {
         UserRole.ADMIN -> admin
         UserRole.SUPERVISOR -> supervisor
         UserRole.TEACHER -> teacher
@@ -71,7 +73,9 @@ object RoleNavigationPolicy {
     fun drawerItems(role: UserRole, mode: com.mohammedsamir.halaqati.plans.WorkMode): List<DrawerNavItem> =
         drawerItems(role).filterNot { role != UserRole.GUARDIAN && mode == com.mohammedsamir.halaqati.plans.WorkMode.PROGRAM && it.destination == AppDestination.Plans }
 
-    fun drawerItems(role: UserRole): List<DrawerNavItem> = when (role) {
+    fun drawerItems(role: UserRole): List<DrawerNavItem> = rawDrawerItems(role).filter { com.mohammedsamir.halaqati.data.ContestsFeature.enabled || it.destination != AppDestination.Contests }
+
+    private fun rawDrawerItems(role: UserRole): List<DrawerNavItem> = when (role) {
         UserRole.ADMIN -> listOf(
             item(AppDestination.Home, "الرئيسية"),
             item(AppDestination.Notifications, "الإشعارات"),

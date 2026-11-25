@@ -95,7 +95,21 @@ class RoleNavigationPolicyTest {
         org.junit.Assert.assertEquals(AppDestination.Mushaf, AppDestination.fromRoute("mushaf"))
     }
 
+    @Test fun contestsStayHiddenUntilTheMigrationIsApproved() {
+        com.mohammedsamir.halaqati.data.ContestsFeature.enabled = false
+        for (role in UserRole.values()) {
+            assertFalse("$role cannot open contests while the flag is off", RoleNavigationPolicy.canOpen(role, AppDestination.Contests))
+            assertFalse(RoleNavigationPolicy.drawerItems(role).any { it.destination == AppDestination.Contests })
+            assertFalse(RoleNavigationPolicy.moreSections(role).any { AppDestination.Contests in it.items })
+        }
+    }
+
     @Test fun contestsAreOpenToDonorAdminAndEveryHalaqaRelatedRole() {
+        com.mohammedsamir.halaqati.data.ContestsFeature.enabled = true
+        try { contestsOpenBody() } finally { com.mohammedsamir.halaqati.data.ContestsFeature.enabled = false }
+    }
+
+    private fun contestsOpenBody() {
         for (role in listOf(UserRole.OBSERVER, UserRole.ADMIN, UserRole.TEACHER, UserRole.SUPERVISOR, UserRole.GUARDIAN, UserRole.STUDENT)) {
             assertTrue("$role can open contests", RoleNavigationPolicy.canOpen(role, AppDestination.Contests))
             assertTrue("$role sees contests in the drawer", RoleNavigationPolicy.drawerItems(role).any { it.destination == AppDestination.Contests })
