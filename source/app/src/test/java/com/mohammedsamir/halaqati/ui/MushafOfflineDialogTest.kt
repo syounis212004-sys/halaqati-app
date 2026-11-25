@@ -42,6 +42,8 @@ class MushafOfflineDialogTest {
     @Test fun pickingAllShowsTheSizeAndTheWifiGuardBlocksUntilSwitchedOff() {
         composeRule.setContent { MaterialTheme(lightColorScheme()) { MushafOfflineDialog(currentPage = 3, onDismiss = {}) } }
         composeRule.onNodeWithText("المصحف بدون إنترنت").assertExists()
+        // Quran Foundation Developer Terms: the fonts downloaded here need a visible credit
+        composeRule.onNodeWithText("Quran fonts provided by Quran Foundation", substring = true).assertExists()
         composeRule.onNodeWithText("تنزيل").assertIsNotEnabled()            // nothing chosen yet
         composeRule.onNodeWithText("المصحف كاملًا").performClick()
         composeRule.onNodeWithText("سيُنزَّل ٦٠٤ صفحة", substring = true).assertExists()

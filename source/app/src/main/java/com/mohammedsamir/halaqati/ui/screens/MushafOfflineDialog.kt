@@ -121,6 +121,8 @@ internal fun MushafOfflineDialog(currentPage: Int, onDismiss: () -> Unit) {
                     Text("${digits(done)} / ${digits(total)} صفحة", style = MaterialTheme.typography.bodySmall)
                 }
                 if (message.isNotEmpty()) Text(message, style = MaterialTheme.typography.bodyMedium)
+                // Credit required by the Quran Foundation Developer Terms for the fonts downloaded here; shown in the dialog that downloads them.
+                Text(MUSHAF_CREDIT, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (status.pages > 0 && !running) TextButton(onClick = { confirmDelete = true }, modifier = Modifier.padding(top = 4.dp)) {
                     Text("حذف المصحف المحمّل", color = MaterialTheme.colorScheme.error)
                 }
@@ -141,3 +143,6 @@ internal fun MushafOfflineDialog(currentPage: Int, onDismiss: () -> Unit) {
         dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("إلغاء") } },
     )
 }
+
+/** Credit text; wording to be confirmed with Quran Foundation (Developer Terms s3.1 asks for a visible credit). */
+internal const val MUSHAF_CREDIT = "Quran fonts provided by Quran Foundation (quran.foundation)\nخطوط صفحات المصحف: مجمع الملك فهد لطباعة المصحف الشريف"
