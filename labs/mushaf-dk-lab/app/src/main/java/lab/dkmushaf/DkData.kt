@@ -8,10 +8,10 @@ import java.io.InputStreamReader
 import java.util.zip.GZIPInputStream
 
 /** One positioned glyph of a precomputed DigitalKhatt line (units of the Madina font, em = 1000). */
-class DkGlyph(val cp: Int, val adv: Int, val xo: Int, val yo: Int, val lt: Int, val rt: Int)
-class DkLine(val type: Int, val x: Int, val xscale: Float, val glyphs: List<DkGlyph>) {
+class DkGlyph(val cp: Int, val adv: Float, val xo: Float, val yo: Float, val lt: Float, val rt: Float)
+class DkLine(val type: Int, val x: Float, val xscale: Float, val glyphs: List<DkGlyph>) {
     /** Natural width in glyph units including the line's own x offset and x-scale (as in precomputed/layout.ts of digitalkhatt.org, MIT). */
-    val width: Float = (x + glyphs.sumOf { it.adv }) * xscale
+    val width: Float = (x + glyphs.sumOf { it.adv.toDouble() }.toFloat()) * xscale
 }
 class DkPage(val lines: List<DkLine>)
 
@@ -75,11 +75,11 @@ class DkData(private val ctx: Context) {
                 r.beginArray()
                 while (r.hasNext()) {
                     r.beginArray()
-                    val type = r.nextInt(); val x = r.nextInt(); val xs = r.nextDouble().toFloat()
+                    val type = r.nextInt(); val x = r.nextDouble().toFloat(); val xs = r.nextDouble().toFloat()
                     val gl = ArrayList<DkGlyph>()
                     r.beginArray()
                     while (r.hasNext()) {
-                        val cp = r.nextInt(); val adv = r.nextInt(); val xo = r.nextInt(); val yo = r.nextInt(); val lt = r.nextInt(); val rt = r.nextInt()
+                        val cp = r.nextInt(); val adv = r.nextDouble().toFloat(); val xo = r.nextDouble().toFloat(); val yo = r.nextDouble().toFloat(); val lt = r.nextDouble().toFloat(); val rt = r.nextDouble().toFloat()
                         gl.add(DkGlyph(cp, adv, xo, yo, lt, rt))
                     }
                     r.endArray(); r.endArray()
@@ -94,14 +94,14 @@ class DkData(private val ctx: Context) {
     val cachedPaths: Int get() = pathCache.size()
 
     /** Android Path of a glyph for the given tatweel amounts, interpolated exactly as getGlyphSvg() in digitalkhatt.org layout.ts. */
-    fun path(cp: Int, ltIn: Int, rtIn: Int): Path? {
+    fun path(cp: Int, ltIn: Float, rtIn: Float): Path? {
         val o = outlines[cp] ?: return null
-        val key = (cp.toLong() shl 32) or ((ltIn and 0xFFFF).toLong() shl 16) or (rtIn and 0xFFFF).toLong()
+        val key = (cp.toLong() shl 32) or ((Math.round(ltIn * 16f) and 0xFFFF).toLong() shl 16) or (Math.round(rtIn * 16f) and 0xFFFF).toLong()
         pathCache.get(key)?.let { return it }
         val lim = o.lim ?: intArrayOf(0, 0, 0, 0)
-        val lt = ltIn.coerceIn(minOf(lim[0], lim[1]), maxOf(lim[0], lim[1])); val rt = rtIn.coerceIn(minOf(lim[2], lim[3]), maxOf(lim[2], lim[3]))
-        val ls = if (lt < 0 && lim[0] != 0) lt.toFloat() / lim[0] else if (lt > 0 && lim[1] != 0) lt.toFloat() / lim[1] else 0f
-        val rs = if (rt < 0 && lim[2] != 0) rt.toFloat() / lim[2] else if (rt > 0 && lim[3] != 0) rt.toFloat() / lim[3] else 0f
+        val lt = ltIn.coerceIn(minOf(lim[0], lim[1]).toFloat(), maxOf(lim[0], lim[1]).toFloat()); val rt = rtIn.coerceIn(minOf(lim[2], lim[3]).toFloat(), maxOf(lim[2], lim[3]).toFloat())
+        val ls = if (lt < 0 && lim[0] != 0) lt / lim[0] else if (lt > 0 && lim[1] != 0) lt / lim[1] else 0f
+        val rs = if (rt < 0 && lim[2] != 0) rt / lim[2] else if (rt > 0 && lim[3] != 0) rt / lim[3] else 0f
         fun ip(v: Float, i: Int, j: Int, k: Int): Float {
             var x = v
             if (lt < 0) o.ml?.let { x += (it[i][j][k] - v) * ls } else if (lt > 0) o.xl?.let { x += (it[i][j][k] - v) * ls }

@@ -14,11 +14,11 @@ object DkRender {
         val s = scaleFor(p, wPx); val lh = lineHeight(wPx)
         for ((li, line) in p.lines.withIndex()) {
             nc.save(); nc.translate(wPx, li * lh + lh * 0.72f); nc.scale(s * line.xscale, -s)
-            var pos = -line.x.toFloat()
+            var pos = -line.x
             for (g in line.glyphs) {
                 pos -= g.adv
                 val path = data.path(g.cp, g.lt, g.rt) ?: continue
-                nc.save(); nc.translate(pos + g.xo, g.yo.toFloat()); nc.drawPath(path, paint); nc.restore()
+                nc.save(); nc.translate(pos + g.xo, g.yo); nc.drawPath(path, paint); nc.restore()
             }
             nc.restore()
         }
@@ -28,7 +28,7 @@ object DkRender {
     fun wordRects(p: DkPage, wPx: Float): List<Pair<Int, RectF>> {
         val s = scaleFor(p, wPx); val lh = lineHeight(wPx); val out = ArrayList<Pair<Int, RectF>>()
         for ((li, line) in p.lines.withIndex()) {
-            var pos = -line.x.toFloat(); var minL = Float.MAX_VALUE; var maxR = -Float.MAX_VALUE; var inWord = false
+            var pos = -line.x; var minL = Float.MAX_VALUE; var maxR = -Float.MAX_VALUE; var inWord = false
             fun flush() {
                 if (inWord && minL < maxR) out.add(li to RectF(wPx + minL * s * line.xscale, li * lh, wPx + maxR * s * line.xscale, (li + 1) * lh))
                 minL = Float.MAX_VALUE; maxR = -Float.MAX_VALUE; inWord = false
