@@ -41,11 +41,12 @@ sealed interface AppDestination {
     data object DonorSupport : AppDestination { override val route="donor_support"; override val label="الدعم"; override val iconKey="support" }
     data object DonorImpact : AppDestination { override val route="donor_impact"; override val label="أثري"; override val iconKey="impact" }
     data object DonorStats : AppDestination { override val route="donor_stats"; override val label="الإحصاءات"; override val iconKey="stats" }
+    data object Contests : AppDestination { override val route="contests"; override val label="المسابقات"; override val iconKey="award" }
     data object Add : AppDestination { override val route="add"; override val label="جلسة جديدة"; override val iconKey="add" }
     data object More : AppDestination { override val route="more"; override val label="المزيد"; override val iconKey="more" }
 
     companion object {
-        val navigable: List<AppDestination> = listOf(Mushaf,Home,Notifications,Halaqas,Community,Sessions,SessionToday,QuickMemorization,Students,Plans,Certificates,Exams,Org,Team,Awards,Support,DonorChats,DonorAwards,DonorSupport,DonorImpact,DonorStats,Reports,Quran,Rankings,Insights,ImportExport,SyncCenter,Supervision,Visits,Users,Approvals,ObserverRequests,GuardianProfile,GuardianCompetition,GuardianAchievements,Settings)
+        val navigable: List<AppDestination> = listOf(Mushaf,Home,Notifications,Halaqas,Community,Sessions,SessionToday,QuickMemorization,Students,Plans,Certificates,Exams,Org,Team,Awards,Support,DonorChats,DonorAwards,DonorSupport,DonorImpact,DonorStats,Contests,Reports,Quran,Rankings,Insights,ImportExport,SyncCenter,Supervision,Visits,Users,Approvals,ObserverRequests,GuardianProfile,GuardianCompetition,GuardianAchievements,Settings)
         fun fromRoute(route: String?): AppDestination? = when(route?.trim()) {
             "profile" -> GuardianProfile
             else -> navigable.firstOrNull { it.route == route }

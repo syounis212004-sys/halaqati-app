@@ -8,6 +8,6 @@ object NavigationContract {
         "open_quran" to AppDestination.Quran,"open_rankings" to AppDestination.Rankings,"open_importexport" to AppDestination.ImportExport,
         "open_sync_center" to AppDestination.SyncCenter,"open_supervision" to AppDestination.Supervision,"open_users" to AppDestination.Users,
         "open_guardian_profile" to AppDestination.GuardianProfile,"open_profile" to AppDestination.GuardianProfile,
-        "open_competition" to AppDestination.GuardianCompetition,"open_achievements" to AppDestination.GuardianAchievements,"open_settings" to AppDestination.Settings)
+        "open_competition" to AppDestination.GuardianCompetition,"open_achievements" to AppDestination.GuardianAchievements,"open_settings" to AppDestination.Settings,"open_contests" to AppDestination.Contests)
     fun resolve(role:UserRole,actionId:String):AppDestination?=actions[actionId]?.takeIf{RoleNavigationPolicy.canOpen(role,it)}
 }
