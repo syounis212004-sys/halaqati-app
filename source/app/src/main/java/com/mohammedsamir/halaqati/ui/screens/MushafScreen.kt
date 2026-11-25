@@ -327,7 +327,9 @@ internal fun MushafScreenContent(
                                 // turning a page: the incoming page fades in while the outgoing one fades out and both travel only part of the swipe,
                                 // so two pages are never seen side by side. Reduced motion swaps the page at the half way point.
                                 HorizontalPager(
-                                    state = pagerState, modifier = Modifier.fillMaxSize(), beyondViewportPageCount = 1, key = { it },
+                                    state = pagerState, modifier = Modifier.fillMaxSize(), key = { it },
+                                    // neighbours are prepared ahead only when that is cheap (local pack); the classic viewer would download two extra pages of fonts
+                                    beyondViewportPageCount = if (dkOn) 1 else 0,
                                     userScrollEnabled = (readOnly || tool == Tool.Tap) && !zoomed,
                                 ) { idx ->
                                     Box(
