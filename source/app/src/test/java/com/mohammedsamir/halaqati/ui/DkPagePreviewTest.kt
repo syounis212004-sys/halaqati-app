@@ -110,6 +110,9 @@ class DkPagePreviewTest {
     @Test fun page511Dark() = render("dk_ui_p511_dark", 511, dark = true)
     @Test fun page511Reader() = render("dk_ui_p511_reader", 511, readOnly = true)
     @Test fun page1Fatiha() = render("dk_ui_p1", 1)
+    @Test fun headerPage332() = render("dk_ui_p332", 332, readOnly = true)
+    @Test fun headerPage440() = render("dk_ui_p440", 440, readOnly = true)
+    @Test fun headerPage187() = render("dk_ui_p187", 187, readOnly = true)
 
     @Test fun pinchZoomShowsTheResetButtonAndFreezesPageSwipeUntilReset() {
         assumeTrue(File("src/main/assets/dk/ids.bin").exists())

@@ -6,8 +6,8 @@ target=out/'Halaqati-latest.apk'
 shutil.copy2(apk,target)
 sha=hashlib.sha256(apk.read_bytes()).hexdigest()
 manifest={
-    'versionName':'2.91.11',
-    'versionCode':29111,
+    'versionName':'2.91.12',
+    'versionCode':29113,
     'apkUrl':'https://syounis212004-sys.github.io/halaqati-web/Halaqati-latest.apk',
     'sha256':sha,
     'native':True,

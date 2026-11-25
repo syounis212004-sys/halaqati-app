@@ -267,7 +267,7 @@ fun SupervisorHomeScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, 
         ) {
             item { RoleWelcomeCard(profile.role, photo = profile.avatarPath.takeIf { it.isNotBlank() && it != "null" }, photoName = profile.fullName.ifBlank { "؟" }) }
             item { OrgSummaryCard(profile, navigate) }
-            item(key = "contests-card") { ContestsHomeCard(navigate) }
+            if (com.mohammedsamir.halaqati.data.ContestsFeature.enabled) item(key = "contests-card") { ContestsHomeCard(navigate) }
             item { com.mohammedsamir.halaqati.ui.components.HomeShortcuts(showPlans = false, navigate = navigate, role = profile.role) }
             item {
                 com.mohammedsamir.halaqati.ui.components.NourStatStrip(listOf(Triple("$started/$total", "حلقات بدأت", false), Triple(weekVisits.toString(), "زياراتي هذا الأسبوع", false), Triple(openActions.toString(), "إجراءات مفتوحة", openActions > 0)))

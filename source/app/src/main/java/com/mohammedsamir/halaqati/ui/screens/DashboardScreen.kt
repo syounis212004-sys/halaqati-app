@@ -161,7 +161,7 @@ fun DashboardScreen(
                 )
             }
             if (p.role == com.mohammedsamir.halaqati.model.UserRole.ADMIN || p.role == com.mohammedsamir.halaqati.model.UserRole.SUPERVISOR) item { OrgSummaryCard(p, navigate) }
-            if (p.role != com.mohammedsamir.halaqati.model.UserRole.ADMIN) item(key = "contests-card") { ContestsHomeCard(navigate) }
+            if (com.mohammedsamir.halaqati.data.ContestsFeature.enabled && p.role != com.mohammedsamir.halaqati.model.UserRole.ADMIN) item(key = "contests-card") { ContestsHomeCard(navigate) }
             item { com.mohammedsamir.halaqati.ui.components.HomeShortcuts(showPlans = showPlans, navigate = navigate, showAwards = p.role == com.mohammedsamir.halaqati.model.UserRole.ADMIN, role = p.role) }
             if (!state.loaded) {
                 item { LoadingSkeleton(rows = 2) }

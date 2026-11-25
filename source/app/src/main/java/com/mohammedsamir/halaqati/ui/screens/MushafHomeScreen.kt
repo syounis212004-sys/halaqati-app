@@ -33,19 +33,18 @@ import com.mohammedsamir.halaqati.quran.MushafOfflinePlan
 import com.mohammedsamir.halaqati.quran.QuranMetadata
 import com.mohammedsamir.halaqati.ui.components.ProFilterChip
 
-/** Credit lines kept visible for the fonts and page data the mushaf uses. */
+/** Credit lines for the mushaf: the font software and the page data it is drawn from. */
 internal const val MUSHAF_ATTRIBUTION =
     "خط المصحف Madina: © 2020-2025 Amine Anane و Tarteel Inc.، رخصة SIL Open Font License 1.1.\n" +
-        "Quran fonts provided by Quran Foundation (quran.foundation)؛ خطوط صفحات المصحف الكلاسيكية: مجمع الملك فهد لطباعة المصحف الشريف."
+        "تخطيط الصفحات والأسطر: مشروع DigitalKhatt (digitalkhatt.org)، على طبعة المصحف المدني 1421هـ."
 
-/** The mushaf entry in the main menu: continue where you stopped, jump to a juz or surah, download for offline use. */
+/** The mushaf entry in the main menu: continue where you stopped, jump to a juz or surah. The mushaf works without internet: its pages are inside the app. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MushafHomeScreen() {
     val context = LocalContext.current
     var last by remember { mutableIntStateOf(MushafReaderPrefs.lastPage(context)) }
     var openAt by remember { mutableStateOf<Int?>(null) }
-    var offline by remember { mutableStateOf(false) }
     var surahMenu by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -72,9 +71,7 @@ fun MushafHomeScreen() {
                 }
             }
         }
-        OutlinedButton(onClick = { offline = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("المصحف بدون إنترنت") }
         Text(MUSHAF_ATTRIBUTION, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     openAt?.let { page -> MushafReaderDialog(startPage = page, onDismiss = { openAt = null; last = MushafReaderPrefs.lastPage(context) }) }
-    if (offline) MushafOfflineDialog(currentPage = last, onDismiss = { offline = false })
 }

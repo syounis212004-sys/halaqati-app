@@ -7,20 +7,14 @@ import android.graphics.RectF
 import java.util.zip.GZIPInputStream
 
 /**
- * EXPERIMENTAL DigitalKhatt page viewer support. Off by default and absent from production builds: the glyph streams encode the Quran text, so the
- * pack is never committed; the experimental workflow generates it (scripts/dk/make_dk_assets.py). Without the pack [available] is false and no UI appears.
+ * The mushaf page pack (DigitalKhatt layout). The glyph streams encode the Quran text, so the pack is never committed: the build workflows generate it
+ * from a pinned madina.json (scripts/dk/make_dk_assets.py) and check that it is inside the APK.
  * Rendering follows precomputed/layout.ts of digitalkhatt.org (MIT); font outlines come from the Madina font (OFL 1.1).
  */
 object DkPack {
-    /** Pages whose DigitalKhatt layout still needs a human decision against the printed 1421H page: they keep the current viewer. */
-    val PAGES_NEEDING_REVIEW: Set<Int> = setOf(177)
-
+    /** True when the page pack is inside the app (the release build always carries it). */
     fun available(ctx: Context): Boolean = try { ctx.assets.open("dk/ids.bin").close(); true } catch (_: Exception) { false }
-    fun supports(ctx: Context, page: Int): Boolean = page in 1..604 && page !in PAGES_NEEDING_REVIEW && available(ctx)
-
-    private const val PREFS = "halaqati_dk_experimental"
-    fun enabled(ctx: Context): Boolean = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("enabled", true) && available(ctx)
-    fun setEnabled(ctx: Context, on: Boolean) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("enabled", on).apply()
+    fun supports(ctx: Context, page: Int): Boolean = page in 1..604 && available(ctx)
 
     @Volatile private var shared: DkData? = null
     /** The glyph outlines are parsed once per process (blocking: call off the main thread). */
@@ -42,6 +36,7 @@ class DkColors(val ink: Int, val header: Int, val ayah: Int, val sign: Int)
 /** Pure geometry and drawing for one precomputed page. [pitch] is the line pitch in pixels (the layout's own is lineHeight(w)). */
 object DkRender {
     const val AYAH_FIRST = 58193; const val AYAH_LAST = 58478
+    const val HEADER_SCALE = 0.84f; const val HEADER_BASELINE = 0.575f
     /** Unicode pause signs U+06D6..U+06DC, rub el hizb U+06DE and sajdah U+06E9 as they appear in the stream. */
     fun isSign(cp: Int) = cp in 1750..1756 || cp == 1758 || cp == 1769
 
@@ -51,7 +46,13 @@ object DkRender {
     fun draw(nc: Canvas, data: DkData, p: DkPage, wPx: Float, pitch: Float, paint: Paint, colors: DkColors? = null) {
         val s = scaleFor(p, wPx)
         for ((li, line) in p.lines.withIndex()) {
-            nc.save(); nc.translate(wPx, li * pitch + pitch * 0.72f); nc.scale(s * line.xscale, -s)
+            nc.save()
+            if (line.type == 1) {
+                // the sura-name line sits inside its cartouche: a little smaller and raised, so tails such as the one of the ha stay inside the frame
+                val k = HEADER_SCALE
+                nc.translate(wPx / 2f, li * pitch + pitch * HEADER_BASELINE); nc.scale(k, k); nc.translate(wPx / 2f, 0f)
+            } else nc.translate(wPx, li * pitch + pitch * 0.72f)
+            nc.scale(s * line.xscale, -s)
             var pos = -line.x
             for (g in line.glyphs) {
                 pos -= g.adv
