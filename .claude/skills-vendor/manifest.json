@@ -1,0 +1,278 @@
+{
+ "generated": "2026-11-25",
+ "policy": "Author files are copied unmodified except that test and eval directories (tests/, evals/) are omitted as non-runtime. Integrity hash = sha256 over, for each file in sorted relative-path order (tests/, evals/, __pycache__ excluded): relative path + NUL + bytes + NUL. Recompute with .claude/skills-vendor/verify.py.",
+ "sources": {
+  "cc-thinking-skills": {
+   "url": "https://github.com/tjboudreaux/cc-thinking-skills",
+   "commit": "7b8fece345dfaa11773be7152ccd194589cb5437",
+   "license": "MIT"
+  },
+  "skills": {
+   "url": "https://github.com/mattpocock/skills",
+   "commit": "d65391149dbb5fe76478e76fa8d5122b2aa5a70e",
+   "license": "MIT"
+  },
+  "BMAD-METHOD": {
+   "url": "https://github.com/bmad-code-org/BMAD-METHOD",
+   "commit": "e435a22574fe55722841086e5566420178b98df3",
+   "license": "MIT"
+  },
+  "superpowers": {
+   "url": "https://github.com/obra/superpowers",
+   "commit": "22f0b463e7a5e579904dd6211a520321035526f7",
+   "license": "MIT"
+  }
+ },
+ "skills": {
+  "bmad-advanced-elicitation": {
+   "source": "BMAD-METHOD",
+   "path": "skills/core-tools/bmad-advanced-elicitation",
+   "sha256": "00e1f8048fcc6f5d3a9638d0784cfa317a254e1c4fb428ee6c90ab28abbbf923"
+  },
+  "bmad-agent-analyst": {
+   "source": "BMAD-METHOD",
+   "path": "skills/method/bmad-agent-analyst",
+   "sha256": "fc1e9013139052b0fd7c91508e71a2ed25134ad165a5095827522cdebafb16c0"
+  },
+  "bmad-agent-architect": {
+   "source": "BMAD-METHOD",
+   "path": "skills/method/bmad-agent-architect",
+   "sha256": "20eb369b5d89a720973afc14f2ac98eed50ef8d8857896310f9ccc81f86834a4"
+  },
+  "bmad-architecture": {
+   "source": "BMAD-METHOD",
+   "path": "skills/method/bmad-architecture",
+   "sha256": "544f258908ab2fd772ab25899bbfaba0c84b1fd60bc796ca0f230a624b626c6c"
+  },
+  "bmad-brainstorming": {
+   "source": "BMAD-METHOD",
+   "path": "skills/core-tools/bmad-brainstorming",
+   "sha256": "d7115d4162e544f33c35ad02495a39b37e2c6bceca4867579951131bf514b7b3"
+  },
+  "bmad-deep-recon": {
+   "source": "BMAD-METHOD",
+   "path": "skills/core-tools/bmad-deep-recon",
+   "sha256": "9d32c5da9f2c9dca9610ae2dfbaecb80a7ae61686c4c5387461959556b973941"
+  },
+  "bmad-forge-idea": {
+   "source": "BMAD-METHOD",
+   "path": "skills/core-tools/bmad-forge-idea",
+   "sha256": "97d98e5e0a72a8ca8c1504e51af9dccda080afc44e225cc504152a683575219a"
+  },
+  "bmad-party-mode": {
+   "source": "BMAD-METHOD",
+   "path": "skills/core-tools/bmad-party-mode",
+   "sha256": "f80411a8ee3715c7763680ce2c9e01dd72a9241bae3e59a42d02bcca4a8aea1c"
+  },
+  "bmad-project-context": {
+   "source": "BMAD-METHOD",
+   "path": "skills/method/bmad-project-context",
+   "sha256": "3fe163782e199aa58de114e547d914c85d1660545d56e0517d57f991a6f0e01a"
+  },
+  "bmad-review": {
+   "source": "BMAD-METHOD",
+   "path": "skills/core-tools/bmad-review",
+   "sha256": "31f2c66fed68535dbb451450b1638143e839d16c6014f32970448d6b16c3c9b6"
+  },
+  "bmod-core-tools": {
+   "source": "BMAD-METHOD",
+   "path": "skills/core-tools/bmod-core-tools",
+   "sha256": "eb610c7fdbe104a004b5e6307d19c02a100ae9a79e4d990f886a2842d5783f4e"
+  },
+  "codebase-design": {
+   "source": "skills",
+   "path": "skills/engineering/codebase-design",
+   "sha256": "61f4936a45f334e894fe4c7e9b1bbaf509c1b451c2f8bddf91e563ac6ae82422"
+  },
+  "domain-modeling": {
+   "source": "skills",
+   "path": "skills/engineering/domain-modeling",
+   "sha256": "18a9314d338b8135e4108d1d31d2fd57ad289cf8bf31d2acd6a6f3053ac22a38"
+  },
+  "grill-me": {
+   "source": "skills",
+   "path": "skills/productivity/grill-me",
+   "sha256": "14c292fe16c0aed833cbbabb0983515c8d665fb6061d9755b13dba870363323b"
+  },
+  "grill-with-docs": {
+   "source": "skills",
+   "path": "skills/engineering/grill-with-docs",
+   "sha256": "2dff19547f0f72000f8b88868e21b7d76c27cf5c7ececc6edf4042bbe06157ac"
+  },
+  "grilling": {
+   "source": "skills",
+   "path": "skills/productivity/grilling",
+   "sha256": "27f71f106a7062691b2982d4f847304a62930ebed8b50734f4d4fd498d60afa8"
+  },
+  "handoff": {
+   "source": "skills",
+   "path": "skills/productivity/handoff",
+   "sha256": "77c2607c751b7c522e0208ab113ba4949f8267610d6061323c7ccd3ace21d7da"
+  },
+  "improve-codebase-architecture": {
+   "source": "skills",
+   "path": "skills/engineering/improve-codebase-architecture",
+   "sha256": "8d02654da91dea62336b390b4c77031629840aec40d604aa6aa08e78df98d7ea"
+  },
+  "prototype": {
+   "source": "skills",
+   "path": "skills/engineering/prototype",
+   "sha256": "c4efd5e0f1c302b6225be83e8e42abdb05e13fde900484e4e2240e90b4e83eb6"
+  },
+  "research": {
+   "source": "skills",
+   "path": "skills/engineering/research",
+   "sha256": "f2d6425b15cf3100d5c3eb4305a8e817174b8e5fa1fde6e06ad4b61321c32a60"
+  },
+  "thinking-bounded-rationality": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-bounded-rationality",
+   "sha256": "ecdfb5f09e5623c98c941f5eacd771fc580b21002ddebba00ce0cdcfd49405c2"
+  },
+  "thinking-circle-of-competence": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-circle-of-competence",
+   "sha256": "cb356a546be2349dc4941db6ee7f84d11510493f3ce178bda08f522890da69b5"
+  },
+  "thinking-cynefin": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-cynefin",
+   "sha256": "800efcbab3d87894373e9089c7d5cce24527d49084efdde52fbd140720c5af92"
+  },
+  "thinking-effectuation": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-effectuation",
+   "sha256": "811ca3a9ac096f52654cd910cf8a883a2de2564d059a9c7edd01153e0907641f"
+  },
+  "thinking-first-principles": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-first-principles",
+   "sha256": "a1a52e35555f5427254f52d7325638657e5e36f73a14497687a14c17e5db8bdf"
+  },
+  "thinking-five-whys-plus": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-five-whys-plus",
+   "sha256": "a9c473ff1f3e2d2e81657c165e9fa7d4e2f769cb46a1c28d972401353e385567"
+  },
+  "thinking-jobs-to-be-done": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-jobs-to-be-done",
+   "sha256": "367855328b6ab661e4b5be38ea63e97448fd7a5f589427941fdce3c82a7fb12b"
+  },
+  "thinking-kepner-tregoe": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-kepner-tregoe",
+   "sha256": "ea4a9e2062ac1725ea04f7ac6604bde3c41c446b2e6db1ae4a0eafd4c06aa61a"
+  },
+  "thinking-lindy-effect": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-lindy-effect",
+   "sha256": "81d15b276281463be1bf401d23846f502fcec98861eefed59690fe8af7016b77"
+  },
+  "thinking-map-territory": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-map-territory",
+   "sha256": "59b46625a9ad4b871d4a92d81922b25dd50a5a6c451418cf3fb70bb4ced78552"
+  },
+  "thinking-margin-of-safety": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-margin-of-safety",
+   "sha256": "7626357bf537ad1a91912e0c9d57693cc9ff3ab50ceff28b4a9991947cae2c62"
+  },
+  "thinking-model-combination": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-model-combination",
+   "sha256": "dbf11bf4ef742f4fac2cbf437e306f32fc39bb22ff982519f90f9cff1bf2ea0b"
+  },
+  "thinking-model-router": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-model-router",
+   "sha256": "910f3f94981c6da76060b68ca3763acf0611eee8d5aa0d39ee4b5f421974b9b7"
+  },
+  "thinking-ooda": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-ooda",
+   "sha256": "9c26b29351939c34fab90afb9d1ad53ad63af786fc6de00085c8213f06686e2c"
+  },
+  "thinking-opportunity-cost": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-opportunity-cost",
+   "sha256": "334922cf270f8ee6536389b94e91d042c6aea14ff24a665011841495722cbd08"
+  },
+  "thinking-pre-mortem": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-pre-mortem",
+   "sha256": "2596062d07e1708ffb6f9753b778e78c972eff2b4e4d414728de3f85afb215a2"
+  },
+  "thinking-probabilistic": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-probabilistic",
+   "sha256": "6a6f9c8223f3666f07df270097b04489f1c6a15dd7972c4109529da666a861b2"
+  },
+  "thinking-red-team": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-red-team",
+   "sha256": "d05e0c9e4539e5e6c44250ad4b9e997469d2934d18223b226246cf5830cc34bf"
+  },
+  "thinking-reversibility": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-reversibility",
+   "sha256": "9659a987d0b5ede351991e83c535bde060aa765d50074db4dc6c5f03744597f1"
+  },
+  "thinking-scientific-method": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-scientific-method",
+   "sha256": "c9e9d2854ea9ac513fa7cfe9cad023784c82de5a4abd21fcf68acc102a3cac44"
+  },
+  "thinking-second-order": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-second-order",
+   "sha256": "34d2fed0cbbc831614d5fb30a283fa95fc5a8c06816601940c416fa8ffd99476"
+  },
+  "thinking-socratic": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-socratic",
+   "sha256": "29c54fea3b2c65e98a7b4a8f52d539104bfe6d77f67ea725db8917265e789463"
+  },
+  "thinking-steel-manning": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-steel-manning",
+   "sha256": "bb550f800c31b9eedd26241181712962c8a9fcea799f401c4b9774e84be38a10"
+  },
+  "thinking-systems": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-systems",
+   "sha256": "64916216ee577e84a9e9930a10ea409bc9511d8496e3f36cd142bd329ae035ed"
+  },
+  "thinking-theory-of-constraints": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-theory-of-constraints",
+   "sha256": "cb66cd95df6d161b666cda98c04efa2b4a32e5ae70c525af8c31a83cacdc5306"
+  },
+  "thinking-thought-experiment": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-thought-experiment",
+   "sha256": "8a1bfd965666fce45d70ff668867d1132f4ca3ea1b1948b1b54024973577125d"
+  },
+  "thinking-triz": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-triz",
+   "sha256": "3711e9ba2ed5e8ec6fbade559aabad8e921db879f2b704fe3062b33418832667"
+  },
+  "thinking-via-negativa": {
+   "source": "cc-thinking-skills",
+   "path": "skills/thinking-via-negativa",
+   "sha256": "5321d88408d65e228eb75805958d50cd916ff4edabaace8283be471fa87fcf54"
+  },
+  "wait-what": {
+   "source": "skills",
+   "path": "skills/productivity/wait-what",
+   "sha256": "7eb4f8dd850b68708fb62fe2d7486b633246bd388e745f6cb6744d47b7a73b2c"
+  }
+ },
+ "superpowers_note": "obra/superpowers is installed as a Claude Code plugin (superpowers@anthropic-plugin-directory, commit 22f0b46); not vendored here to avoid duplicates.",
+ "excluded_dirs": [
+  "tests",
+  "evals"
+ ]
+}
