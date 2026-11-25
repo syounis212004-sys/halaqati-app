@@ -105,7 +105,7 @@ object ContestRules {
 }
 
 /**
- * Donor contests need the database migration `20261125_v2920_donor_contests.sql`, which is applied only with the owner's approval.
- * Until then the feature stays out of every menu and home screen. Flip to true (and release) after the migration is applied.
+ * Donor contests need the database migration `20261125_v2920_donor_contests.sql`; it was applied to the project on 2026-11-25 (migration name
+ * donor_contests_v2920), so the feature is on. Set to false to hide every contest entry (menus and home cards) without touching the database.
  */
-object ContestsFeature { @Volatile var enabled: Boolean = false }
+object ContestsFeature { @Volatile var enabled: Boolean = true }
