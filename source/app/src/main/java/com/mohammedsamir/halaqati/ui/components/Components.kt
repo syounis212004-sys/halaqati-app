@@ -381,10 +381,12 @@ fun ProFilterChip(
     modifier: Modifier = Modifier,
     leadingIcon: (@Composable (() -> Unit))? = null,
     showCheckIcon: Boolean = true,
+    enabled: Boolean = true,
 ) {
     FilterChip(
         selected = selected,
         onClick = onClick,
+        enabled = enabled,
         label = { Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         leadingIcon = leadingIcon ?: if (selected && showCheckIcon) {
             { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(17.dp)) }
