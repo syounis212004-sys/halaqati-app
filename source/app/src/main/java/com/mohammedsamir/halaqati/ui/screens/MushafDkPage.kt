@@ -53,6 +53,7 @@ import com.mohammedsamir.halaqati.quran.MushafEngine
 import com.mohammedsamir.halaqati.quran.MushafEngine.MarkKind
 import com.mohammedsamir.halaqati.quran.MushafEngine.MarkType
 import com.mohammedsamir.halaqati.quran.QuranMetadata
+import com.mohammedsamir.halaqati.quran.dk.DkBitmaps
 import com.mohammedsamir.halaqati.quran.dk.DkColors
 import com.mohammedsamir.halaqati.quran.dk.DkData
 import com.mohammedsamir.halaqati.quran.dk.DkPage
@@ -105,13 +106,21 @@ internal fun DkReadyPage(
             val pageHpx = pitch * p.dk.lines.size
             val ink = pal.pageInk.toArgb()
             val colors = remember(pal) { DkColors(ink = ink, header = pal.frame.toArgb(), ayah = pal.frame.toArgb(), sign = pal.rule.toArgb()) }
-            val bitmap by produceState<Bitmap?>(null, p, wPx.toInt(), pitch.toInt(), colors) {
-                value = withContext(Dispatchers.Default) {
-                    val bmp = Bitmap.createBitmap(wPx.toInt().coerceAtLeast(1), pageHpx.toInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888)
-                    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ink; style = Paint.Style.FILL }
-                    DkRender.draw(android.graphics.Canvas(bmp), p.data, p.dk, wPx.toInt().toFloat(), pitch, paint, colors)
-                    bmp
+            // the page bitmap: from the cache at once, otherwise drawn on the render pool. A draw that takes too long is retried (never a silent blank page).
+            val bmpKey = DkBitmaps.key(page, wPx.toInt(), pitch.toInt(), colors)
+            var bitmap by remember(bmpKey) { mutableStateOf(DkBitmaps.peek(bmpKey)) }
+            var drawFailed by remember(bmpKey) { mutableStateOf(false) }
+            var drawAttempt by remember(bmpKey) { androidx.compose.runtime.mutableIntStateOf(0) }
+            androidx.compose.runtime.LaunchedEffect(bmpKey, drawAttempt) {
+                drawFailed = false
+                var tries = 0
+                while (bitmap == null && tries < 3) {
+                    val got = try {
+                        withTimeoutOrNull(10_000L) { DkBitmaps.get(bmpKey, p.data, p.dk, wPx.toInt(), pitch, colors) }
+                    } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { null }
+                    if (got != null) bitmap = got else { tries++; kotlinx.coroutines.delay(250L * tries) }
                 }
+                if (bitmap == null) drawFailed = true
             }
             val rects = remember(p, wPx, pitch) { DkRender.rectsById(p.ids, DkRender.wordRects(p.dk, wPx.toInt().toFloat(), pitch)).mapValues { Rect(it.value.left, it.value.top, it.value.right, it.value.bottom) } }
             val wDp = with(density) { wPx.toInt().toDp() }; val hDp = with(density) { pageHpx.toInt().toDp() }
@@ -179,6 +188,12 @@ internal fun DkReadyPage(
                     },
             ) {
                 bitmap?.let { Image(it.asImageBitmap(), contentDescription = null, modifier = Modifier.fillMaxSize()) }
+                if (bitmap == null) {
+                    if (drawFailed) Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("تعذّر رسم الصفحة", color = pal.pageInk, fontWeight = FontWeight.Bold)
+                        androidx.compose.material3.TextButton(onClick = { drawAttempt++ }) { Text("إعادة المحاولة") }
+                    } else Text("جارٍ رسم الصفحة…", color = pal.pageInk.copy(alpha = 0.6f), modifier = Modifier.align(Alignment.Center))
+                }
                 kindMenuFor?.let { (id, at) ->
                     Box(Modifier.offset(with(density) { at.x.toDp() }, with(density) { at.y.toDp() - 56.dp })) {
                         DropdownMenu(expanded = true, onDismissRequest = onDismissKind, offset = DpOffset(0.dp, 0.dp)) {

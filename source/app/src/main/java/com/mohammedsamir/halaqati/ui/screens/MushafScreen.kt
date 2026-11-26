@@ -32,6 +32,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.AutoFixNormal
@@ -297,14 +299,18 @@ internal fun MushafScreenContent(
                             )
                         }
                         Spacer(Modifier.weight(1f))
-                        TextButton(onClick = { page = MushafEngine.clampPage(page - 1) }, enabled = page > 1, modifier = Modifier.heightIn(min = 48.dp)) { Text("السابقة", color = pal.chromeAccent) }
-                        TextButton(onClick = { jumpDialog = true }, modifier = Modifier.heightIn(min = 48.dp)) {
-                            Text("${digits(page)} / ٦٠٤", fontWeight = FontWeight.Bold, color = pal.chromeInk)
+                        IconButton(onClick = { page = MushafEngine.clampPage(page - 1) }, enabled = page > 1, modifier = Modifier.size(48.dp)) {
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "الصفحة السابقة", tint = if (page > 1) pal.chromeAccent else pal.chromeInk.copy(alpha = 0.3f))
                         }
-                        TextButton(onClick = { page = MushafEngine.clampPage(page + 1) }, enabled = page < MushafEngine.TOTAL_PAGES, modifier = Modifier.heightIn(min = 48.dp)) { Text("التالية", color = pal.chromeAccent) }
+                        TextButton(onClick = { jumpDialog = true }, modifier = Modifier.heightIn(min = 48.dp)) {
+                            Text("${digits(page)} / ٦٠٤", fontWeight = FontWeight.Bold, color = pal.chromeInk, maxLines = 1, softWrap = false)
+                        }
+                        IconButton(onClick = { page = MushafEngine.clampPage(page + 1) }, enabled = page < MushafEngine.TOTAL_PAGES, modifier = Modifier.size(48.dp)) {
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "الصفحة التالية", tint = if (page < MushafEngine.TOTAL_PAGES) pal.chromeAccent else pal.chromeInk.copy(alpha = 0.3f))
+                        }
                         Spacer(Modifier.weight(1f))
                         if (!readOnly && rangeStartPage != null && rangeStartPage != page) {
-                            TextButton(onClick = { page = rangeStartPage }, modifier = Modifier.heightIn(min = 48.dp)) { Text("إلى المقرر", color = pal.chromeAccent, fontWeight = FontWeight.Bold) }
+                            TextButton(onClick = { page = rangeStartPage }, modifier = Modifier.heightIn(min = 48.dp)) { Text("إلى المقرر", color = pal.chromeAccent, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false) }
                         } else Spacer(Modifier.width(48.dp))
                     }
                     // ---- the official V7 estimate on one line (more only when a page is over its limit)
@@ -391,78 +397,6 @@ internal fun MushafScreenContent(
         bookmarks = bookmarks, page = page, rangeStart = if (readOnly) null else rangeStartPage, rangeEnd = rangeEndPage,
         onGo = { page = MushafEngine.clampPage(it); jumpDialog = false }, onDismiss = { jumpDialog = false },
     )
-}
-
-/** Go to a page, to the pages of the assigned range ("ضمن المقرر"), to a juz or to a surah. */
-@Composable
-internal fun MushafJumpDialog(page: Int, rangeStart: Int?, rangeEnd: Int?, onGo: (Int) -> Unit, onDismiss: () -> Unit, bookmarks: List<Int> = emptyList()) {
-    var input by remember { mutableStateOf(page.toString()) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("الانتقال") },
-        text = { MushafJumpBody(page, rangeStart, rangeEnd, input, { input = it }, onGo, bookmarks) },
-        confirmButton = { TextButton(onClick = { input.toIntOrNull()?.let(onGo) ?: onDismiss() }) { Text("انتقال") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } },
-    )
-}
-
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-@Composable
-internal fun MushafJumpBody(page: Int, rangeStart: Int?, rangeEnd: Int?, input: String, onInput: (String) -> Unit, onGo: (Int) -> Unit, bookmarks: List<Int> = emptyList()) {
-    var surahMenu by remember { mutableStateOf(false) }
-    var surah by remember { mutableStateOf<Int?>(null) }
-    var ayahInput by remember { mutableStateOf("") }
-    val rangePages = remember(rangeStart, rangeEnd) {
-        if (rangeStart == null) emptyList() else (min(rangeStart, rangeEnd ?: rangeStart)..max(rangeStart, rangeEnd ?: rangeStart)).toList()
-    }
-    val curJuz = (1..30).firstOrNull { page in com.mohammedsamir.halaqati.quran.MushafOfflinePlan.juzPages(it) } ?: 1
-    Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        OutlinedTextField(
-            value = input, onValueChange = { onInput(it.filter(Char::isDigit).take(3)) }, singleLine = true,
-            label = { Text("رقم الصفحة (١–٦٠٤)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        if (rangePages.isNotEmpty()) {
-            Text("ضمن المقرر", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                val shown = if (rangePages.size > 24) listOf(rangePages.first(), rangePages.last()) else rangePages
-                shown.forEach { p -> com.mohammedsamir.halaqati.ui.components.ProFilterChip(selected = p == page, onClick = { onGo(p) }, label = digits(p), showCheckIcon = false) }
-            }
-            if (rangePages.size > 24) Text("من صفحة ${digits(rangePages.first())} إلى ${digits(rangePages.last())} (${digits(rangePages.size)} صفحة)", style = MaterialTheme.typography.bodySmall)
-        }
-        if (bookmarks.isNotEmpty()) {
-            Text("العلامات المرجعية", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                bookmarks.forEach { b -> com.mohammedsamir.halaqati.ui.components.ProFilterChip(selected = b == page, onClick = { onGo(b) }, label = "ص ${digits(b)}", showCheckIcon = false) }
-            }
-        }
-        Text("الجزء", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            for (j in 1..30) com.mohammedsamir.halaqati.ui.components.ProFilterChip(selected = j == curJuz, onClick = { onGo(com.mohammedsamir.halaqati.quran.MushafOfflinePlan.juzPages(j).first) }, label = digits(j), showCheckIcon = false)
-        }
-        TextButton(onClick = { surahMenu = !surahMenu }) { Text(surah?.let { "سورة " + com.mohammedsamir.halaqati.quran.QuranMetadata.surahName(it) } ?: "السورة…") }
-        if (surahMenu) androidx.compose.material3.Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
-                for (sn in 1..114) Text(
-                    "${digits(sn)}. ${com.mohammedsamir.halaqati.quran.QuranMetadata.surahName(sn)}",
-                    modifier = Modifier.fillMaxWidth().clickable { surahMenu = false; surah = sn; ayahInput = "" }.padding(horizontal = 14.dp, vertical = 12.dp),
-                )
-            }
-        }
-        surah?.let { sn ->
-            val max = com.mohammedsamir.halaqati.quran.QuranMetadata.maxAyah(sn)
-            val ayah = ayahInput.toIntOrNull()
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = ayahInput, onValueChange = { ayahInput = it.filter(Char::isDigit).take(3) }, singleLine = true, modifier = Modifier.weight(1f),
-                    label = { Text("رقم الآية (١–${digits(max)})") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    isError = ayahInput.isNotEmpty() && (ayah == null || ayah !in 1..max),
-                )
-                TextButton(enabled = ayah != null && ayah in 1..max, onClick = { onGo(com.mohammedsamir.halaqati.quran.QuranMetadata.pageFor(sn, ayah!!)) }) { Text("اذهب إلى الآية") }
-            }
-            TextButton(onClick = { onGo(com.mohammedsamir.halaqati.quran.QuranMetadata.pageFor(sn, 1)) }) { Text("بداية السورة") }
-        }
-    }
 }
 
 @Composable
