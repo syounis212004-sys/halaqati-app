@@ -97,4 +97,25 @@ class ContestRulesTest {
         org.junit.Assert.assertTrue(ContestRules.validate(d.copy(endsOn = "20-12-2026")).isEmpty())
         org.junit.Assert.assertTrue(ContestRules.validate(d.copy(endsOn = "20-11-2026")).containsKey("endsOn"))
     }
+
+    @Test fun creatorLabelsAndMessagesFollowTheRole() {
+        org.junit.Assert.assertEquals("المانح", ContestRules.creatorLabel(null))
+        org.junit.Assert.assertEquals("المحفظ", ContestRules.creatorLabel("teacher"))
+        org.junit.Assert.assertEquals("المشرف", ContestRules.creatorLabel("supervisor"))
+        org.junit.Assert.assertEquals("مدير النظام", ContestRules.creatorLabel("admin"))
+        org.junit.Assert.assertEquals(ContestRules.NO_HALAQA_MESSAGE, ContestRules.noHalaqaMessage(com.mohammedsamir.halaqati.model.UserRole.OBSERVER))
+        org.junit.Assert.assertTrue(ContestRules.noHalaqaMessage(com.mohammedsamir.halaqati.model.UserRole.TEACHER).contains("ربطك بحلقتك"))
+    }
+
+    @Test fun formatDateRoundTripsThroughParseDate() {
+        val d = java.time.LocalDate.of(2026, 1, 5)
+        org.junit.Assert.assertEquals("05-01-2026", ContestRules.formatDate(d))
+        org.junit.Assert.assertEquals(d, ContestRules.parseDate(ContestRules.formatDate(d)))
+        org.junit.Assert.assertEquals("2026-01-05", ContestRules.normalizeDate(ContestRules.formatDate(d)))
+    }
+
+    @Test fun yearsOutsideTwoThousandToTwentyOneHundredAreRejected() {
+        for (t in listOf("01-12-0026", "01-01-0000", "01-12-1999", "01-12-2101")) org.junit.Assert.assertNull(t, ContestRules.parseDate(t))
+        org.junit.Assert.assertNotNull(ContestRules.parseDate("01-12-2026"))
+    }
 }

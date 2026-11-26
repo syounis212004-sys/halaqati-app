@@ -33,4 +33,9 @@ class DeepLinkRulesTest {
         assertNull(DeepLinkRules.navigation("student:not-a-uuid"))
         assertNull(DeepLinkRules.navigation("halaqati://student/not-a-uuid"))
     }
+
+    @Test fun contributionAndContestLinksOpenTheirPages() {
+        assertEquals(DeepLinkRules.Destination("contribute"), DeepLinkRules.navigation("contribute"))
+        assertEquals(DeepLinkRules.Destination("contests"), DeepLinkRules.navigation("contests"))
+    }
 }

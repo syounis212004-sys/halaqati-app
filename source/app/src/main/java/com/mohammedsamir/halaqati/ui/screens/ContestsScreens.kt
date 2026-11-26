@@ -8,8 +8,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -27,6 +30,7 @@ import com.mohammedsamir.halaqati.ui.components.EmptyState
 import com.mohammedsamir.halaqati.ui.components.HalaqatiAlertDialog
 import com.mohammedsamir.halaqati.ui.components.LoadingSkeleton
 import com.mohammedsamir.halaqati.ui.components.ProFilterChip
+import com.mohammedsamir.halaqati.ui.components.SegmentedTabs
 import com.mohammedsamir.halaqati.ui.components.StateNotice
 import com.mohammedsamir.halaqati.ui.components.StatusPill
 import com.mohammedsamir.halaqati.ui.components.items
@@ -44,8 +48,9 @@ import org.json.JSONObject
 @Composable
 fun ContestsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
     when (profile.role) {
-        UserRole.OBSERVER -> DonorContestsScreen()
+        UserRole.OBSERVER -> DonorContestsScreen(UserRole.OBSERVER)
         UserRole.ADMIN -> AdminContestsScreen()
+        UserRole.TEACHER, UserRole.SUPERVISOR -> StaffContestsScreen(profile.role)
         else -> ReadOnlyContestsScreen()
     }
 }
@@ -73,7 +78,7 @@ private fun ContestCard(c: Contest, showDonor: Boolean, showStatus: Boolean, act
             Text(c.title, style = MaterialTheme.typography.titleSmall)
             val meta = listOfNotNull(
                 c.halaqaName?.let { "الحلقة: $it" } ?: if (c.halaqaId == null) "الحلقة: لم تُحدَّد بعد" else null,
-                c.donorName?.takeIf { showDonor }?.let { "المانح: $it" },
+                c.donorName?.takeIf { showDonor }?.let { "${ContestRules.creatorLabel(c.creatorRole)}: $it" },
             )
             meta.forEach { Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             Text("الشروط", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
@@ -134,8 +139,9 @@ private fun StatusFilterRow(selected: ContestStatus?, items: List<Contest>, onSe
 // ---------------------------------------------------------------- donor
 
 @Composable
-fun DonorContestsScreen() {
+fun DonorContestsScreen(role: UserRole = UserRole.OBSERVER, embedded: Boolean = false, reloadTick: Int = 0) {
     val st = rememberContestList { AppGraph.repo.contestsMine(it) }
+    LaunchedEffect(reloadTick) { if (reloadTick > 0) st.reload(true) }
     val scope = rememberCoroutineScope()
     var halaqas by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
     var halaqasLoaded by remember { mutableStateOf(false) }
@@ -151,12 +157,12 @@ fun DonorContestsScreen() {
     val shown = ContestRules.filter(st.items, filter)
 
     Column(Modifier.fillMaxSize()) {
-        AppTopBar(title = "مسابقاتي", onRefresh = { st.reload(true) })
+        if (!embedded) AppTopBar(title = "مسابقاتي", onRefresh = { st.reload(true) })
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             notice?.let { item { StateNotice(it, "success") } }
             st.message?.let { item { StateNotice(it, if (st.isError) "danger" else "success") } }
             if (halaqasLoaded && ContestRules.pickerState(halaqas.map { it.optString("id") }) == ContestPickerState.NO_HALAQA) {
-                item { StateNotice(ContestRules.NO_HALAQA_MESSAGE, "info") }
+                item { StateNotice(ContestRules.noHalaqaMessage(role), "info") }
             }
             item {
                 Button(
@@ -182,7 +188,7 @@ fun DonorContestsScreen() {
 
     if (showForm) {
         ContestFormDialog(
-            halaqas = halaqas,
+            halaqas = halaqas, role = role,
             onDismiss = { showForm = false },
             onSubmit = { draft, halaqaId ->
                 val error = withContext(Dispatchers.IO) { runCatching { AppGraph.repo.contestSubmit(draft, halaqaId) }.exceptionOrNull() }
@@ -198,7 +204,7 @@ fun DonorContestsScreen() {
 }
 
 @Composable
-private fun ContestFormDialog(halaqas: List<JSONObject>, onDismiss: () -> Unit, onSubmit: suspend (ContestDraft, String?) -> String?) {
+private fun ContestFormDialog(halaqas: List<JSONObject>, role: UserRole, onDismiss: () -> Unit, onSubmit: suspend (ContestDraft, String?) -> String?) {
     val scope = rememberCoroutineScope()
     var name by remember { mutableStateOf("") }
     var title by remember { mutableStateOf("") }
@@ -231,11 +237,11 @@ private fun ContestFormDialog(halaqas: List<JSONObject>, onDismiss: () -> Unit, 
                 field("title", title, "العنوان", { title = it })
                 field("conditions", conditions, "الشروط", { conditions = it }, lines = 3)
                 field("reward", reward, "المكافأة", { reward = it }, lines = 2)
-                field("startsOn", startsOn, "تاريخ البداية (اختياري)", { startsOn = it }, hint = "يوم-شهر-سنة، مثل 01-12-2026")
-                field("endsOn", endsOn, "تاريخ النهاية (اختياري)", { endsOn = it }, hint = "يوم-شهر-سنة، مثل 31-12-2026")
+                DateField("تاريخ البداية (اختياري)", startsOn, { startsOn = it }, errors["startsOn"], "اختر من التقويم أو اكتب 01-12-2026", !busy)
+                DateField("تاريخ النهاية (اختياري)", endsOn, { endsOn = it }, errors["endsOn"], "اختر من التقويم أو اكتب 31-12-2026", !busy, minDate = ContestRules.parseDate(startsOn))
                 Text("الحلقة المستهدفة", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                 when (picker) {
-                    ContestPickerState.NO_HALAQA -> StateNotice(ContestRules.NO_HALAQA_MESSAGE, "info")
+                    ContestPickerState.NO_HALAQA -> StateNotice(ContestRules.noHalaqaMessage(role), "info")
                     ContestPickerState.SINGLE -> StatusPill(halaqas.first().optString("name"), "neutral")
                     ContestPickerState.CHOOSE -> FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         halaqas.forEach { h -> ProFilterChip(halaqaId == h.optString("id"), { halaqaId = h.optString("id") }, h.optString("name"), enabled = !busy) }
@@ -244,7 +250,7 @@ private fun ContestFormDialog(halaqas: List<JSONObject>, onDismiss: () -> Unit, 
                 if (picker == ContestPickerState.CHOOSE && halaqaId == null) {
                     Text("اختر الحلقة التي تستهدفها المسابقة", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Text("تصل المسابقة إلى مدير النظام، وتظهر لأصحاب الحلقة بعد اعتمادها.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(if (role == UserRole.ADMIN) "تُعتمد مسابقتك فورًا وتظهر لأصحاب الحلقة." else "تصل المسابقة إلى مدير النظام، وتظهر لأصحاب الحلقة بعد اعتمادها.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 serverError?.let { StateNotice(it, "danger") }
             }
         },
@@ -274,6 +280,7 @@ fun AdminContestsScreen() {
     var deciding by remember { mutableStateOf<Pair<Contest, Boolean>?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
     var noticeError by remember { mutableStateOf(false) }
+    var showForm by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         runCatchingCancellable { withContext(Dispatchers.IO) { AppGraph.repo.contestHalaqas(true) } }.onSuccess { halaqas = it }
@@ -282,16 +289,17 @@ fun AdminContestsScreen() {
     val pendingCount = st.items.count { it.status == ContestStatus.PENDING }
 
     Column(Modifier.fillMaxSize()) {
-        AppTopBar(title = "مسابقات المانحين", onRefresh = { st.reload(true) })
+        AppTopBar(title = "المسابقات", onRefresh = { st.reload(true) })
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             notice?.let { item { StateNotice(it, if (noticeError) "danger" else "success") } }
             st.message?.let { item { StateNotice(it, if (st.isError) "danger" else "success") } }
+            item { Button(onClick = { showForm = true; notice = null }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("مسابقة جديدة") } }
             if (st.items.isNotEmpty()) {
                 item { StateNotice(if (pendingCount > 0) "بانتظار قرارك: $pendingCount" else "لا توجد مسابقات بانتظار القرار", if (pendingCount > 0) "warning" else "info") }
                 item { StatusFilterRow(filter, st.items, { filter = it }) }
             }
             if (st.loading && st.items.isEmpty()) item { LoadingSkeleton(rows = 3) }
-            if (!st.loading && st.items.isEmpty() && !st.isError) item { EmptyState("لا توجد مسابقات من المانحين بعد", animated = false) }
+            if (!st.loading && st.items.isEmpty() && !st.isError) item { EmptyState("لا توجد مسابقات بعد", animated = false) }
             if (!st.loading && st.items.isNotEmpty() && shown.isEmpty()) item { EmptyState("لا توجد مسابقات بهذه الحالة", animated = false) }
             items(shown, key = { it.id }) { c ->
                 ContestCard(
@@ -305,6 +313,15 @@ fun AdminContestsScreen() {
         }
     }
 
+    if (showForm) ContestFormDialog(
+        halaqas = halaqas, role = UserRole.ADMIN, onDismiss = { showForm = false },
+        onSubmit = { draft, halaqaId ->
+            val error = withContext(Dispatchers.IO) { runCatching { AppGraph.repo.contestSubmit(draft, halaqaId) }.exceptionOrNull() }
+            if (error == null) { showForm = false; noticeError = false; notice = "أُنشئت المسابقة واعتُمدت، وأُبلغ أصحاب الحلقة"; st.reload(true) }
+            error?.let { contestError(it, "تعذر إنشاء المسابقة") }
+        },
+    )
+
     deciding?.let { (contest, approve) ->
         DecisionDialog(
             contest = contest, approve = approve, halaqas = halaqas, onDismiss = { deciding = null },
@@ -313,7 +330,7 @@ fun AdminContestsScreen() {
                 deciding = null
                 result.onSuccess { ok ->
                     noticeError = !ok
-                    notice = if (!ok) "تم البت في هذه المسابقة سابقًا" else if (approve) "اعتُمدت المسابقة وأُبلغ المانح وأصحاب الحلقة" else "رُفضت المسابقة وأُبلغ المانح"
+                    notice = if (!ok) "تم البت في هذه المسابقة سابقًا" else if (approve) "اعتُمدت المسابقة وأُبلغ صاحبها وأصحاب الحلقة" else "رُفضت المسابقة وأُبلغ المانح"
                 }.onFailure { noticeError = true; notice = contestError(it, "تعذر تنفيذ القرار") }
                 st.reload(true)
             },
@@ -326,7 +343,7 @@ private fun DecisionDialog(contest: Contest, approve: Boolean, halaqas: List<JSO
     val scope = rememberCoroutineScope()
     var reason by remember { mutableStateOf("") }
     var halaqaId by remember { mutableStateOf(contest.halaqaId) }
-    var link by remember { mutableStateOf(contest.halaqaId == null) }
+    var link by remember { mutableStateOf(contest.halaqaId == null && contest.creatorRole == "donor") }
     var busy by remember { mutableStateOf(false) }
     val to = if (approve) ContestStatus.APPROVED else ContestStatus.REJECTED
     val error = ContestRules.decisionError(contest.status, to, reason, halaqaId)
@@ -342,7 +359,7 @@ private fun DecisionDialog(contest: Contest, approve: Boolean, halaqas: List<JSO
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         halaqas.forEach { h -> ProFilterChip(halaqaId == h.optString("id"), { halaqaId = h.optString("id") }, h.optString("name"), enabled = !busy) }
                     }
-                    if (halaqaId != contest.halaqaId || contest.halaqaId == null) {
+                    if (contest.creatorRole == "donor" && (halaqaId != contest.halaqaId || contest.halaqaId == null)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Checkbox(checked = link, onCheckedChange = { link = it }, enabled = !busy)
                             Text("ربط المانح ${contest.donorName.orEmpty()} بهذه الحلقة", style = MaterialTheme.typography.bodyMedium)
@@ -350,7 +367,7 @@ private fun DecisionDialog(contest: Contest, approve: Boolean, halaqas: List<JSO
                     }
                     Text("بعد الاعتماد تظهر المسابقة لمحفّظي الحلقة ومشرفيها وأولياء أمور طلابها وطلابها للقراءة فقط.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
-                    OutlinedTextField(value = reason, onValueChange = { reason = it }, label = { Text("سبب الرفض (يظهر للمانح)") }, minLines = 3, enabled = !busy, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = reason, onValueChange = { reason = it }, label = { Text("سبب الرفض (يظهر لصاحب المسابقة)") }, minLines = 3, enabled = !busy, modifier = Modifier.fillMaxWidth())
                 }
             }
         },
@@ -368,10 +385,11 @@ private fun DecisionDialog(contest: Contest, approve: Boolean, halaqas: List<JSO
 // ---------------------------------------------------------------- everyone connected to the halaqa (read-only)
 
 @Composable
-fun ReadOnlyContestsScreen() {
+fun ReadOnlyContestsScreen(embedded: Boolean = false, reloadTick: Int = 0) {
     val st = rememberContestList { AppGraph.repo.contestsVisible(it) }
+    LaunchedEffect(reloadTick) { if (reloadTick > 0) st.reload(true) }
     Column(Modifier.fillMaxSize()) {
-        AppTopBar(title = "المسابقات", onRefresh = { st.reload(true) })
+        if (!embedded) AppTopBar(title = "المسابقات", onRefresh = { st.reload(true) })
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             st.message?.let { item { StateNotice(it, "danger") } }
             if (st.loading && st.items.isEmpty()) item { LoadingSkeleton(rows = 2) }
@@ -403,5 +421,57 @@ fun ContestsHomeCard(navigate: (String) -> Unit) {
             }
             Text("عرض", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
         }
+    }
+}
+
+
+// ---------------------------------------------------------------- teacher / supervisor: own contests + the halaqa's approved ones
+
+@Composable
+fun StaffContestsScreen(role: UserRole) {
+    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var tick by remember { mutableIntStateOf(0) }
+    Column(Modifier.fillMaxSize()) {
+        AppTopBar(title = "المسابقات", onRefresh = { tick++ })
+        SegmentedTabs(listOf("مسابقاتي", "مسابقات حلقاتي"), tab, { tab = it }, Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+        Box(Modifier.weight(1f)) {
+            if (tab == 0) DonorContestsScreen(role, embedded = true, reloadTick = tick) else ReadOnlyContestsScreen(embedded = true, reloadTick = tick)
+        }
+    }
+}
+
+/** A date text field with a calendar button. The calendar writes day-first text; typing works too (see ContestRules.parseDate). */
+@Composable
+internal fun DateField(label: String, value: String, onChange: (String) -> Unit, error: String?, hint: String, enabled: Boolean, minDate: java.time.LocalDate? = null) {
+    var open by remember { mutableStateOf(false) }
+    OutlinedTextField(
+        value = value, onValueChange = onChange, label = { Text(label) }, singleLine = true, enabled = enabled,
+        isError = error != null, supportingText = { Text(error ?: hint) }, modifier = Modifier.fillMaxWidth(),
+        trailingIcon = {
+            IconButton(onClick = { open = true }, enabled = enabled, modifier = Modifier.size(48.dp)) {
+                Icon(Icons.Default.CalendarMonth, contentDescription = "اختيار $label من التقويم")
+            }
+        },
+    )
+    if (open) {
+        val utc = java.time.ZoneOffset.UTC
+        val initial = ContestRules.parseDate(value) ?: minDate ?: java.time.LocalDate.now()
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = initial.atStartOfDay(utc).toInstant().toEpochMilli(),
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long) =
+                    minDate == null || !java.time.Instant.ofEpochMilli(utcTimeMillis).atZone(utc).toLocalDate().isBefore(minDate)
+            },
+        )
+        DatePickerDialog(
+            onDismissRequest = { open = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.selectedDateMillis?.let { onChange(ContestRules.formatDate(java.time.Instant.ofEpochMilli(it).atZone(utc).toLocalDate())) }
+                    open = false
+                }) { Text("تأكيد") }
+            },
+            dismissButton = { TextButton(onClick = { open = false }) { Text("إلغاء") } },
+        ) { DatePicker(state = state) }
     }
 }

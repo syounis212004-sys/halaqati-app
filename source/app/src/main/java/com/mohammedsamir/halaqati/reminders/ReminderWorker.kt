@@ -11,8 +11,10 @@ class ReminderWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         val ctx = applicationContext
         val r = ReminderPrefs.load(ctx)
         val text = ReminderTexts.forRole(ReminderPrefs.role(ctx))
-        if (r.enabled && text != null) NotificationHelper.showReminder(ctx, text.first, text.second)
-        ReminderScheduler.apply(ctx)
+        val target = inputData.getLong(ReminderScheduler.KEY_TARGET, 0L)
+        val late = if (target > 0) System.currentTimeMillis() - target else 0L
+        if (r.enabled && text != null && late <= ReminderScheduler.MAX_LATE_MS) NotificationHelper.showReminder(ctx, text.first, text.second)
+        ReminderScheduler.apply(ctx, fromWorker = true)
         return Result.success()
     }
 }

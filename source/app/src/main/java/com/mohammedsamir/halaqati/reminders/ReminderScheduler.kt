@@ -15,6 +15,9 @@ import java.util.concurrent.TimeUnit
  */
 object ReminderScheduler {
     const val WORK_NAME = "halaqati_contribution_reminder"
+    const val KEY_TARGET = "target_epoch_ms"
+    /** A reminder that the system delayed by more than this (Doze, battery saver) is skipped rather than shown at a bad hour. */
+    const val MAX_LATE_MS = 2L * 60 * 60 * 1000
 
     /** The first moment after [now] that matches the reminder, or null when it is off or has no day chosen. */
     fun nextAt(now: ZonedDateTime, r: Reminder): ZonedDateTime? {
@@ -29,14 +32,22 @@ object ReminderScheduler {
     }
 
     /** Reads the saved choice and (re)schedules, or cancels when it is off or nobody is signed in. Safe to call any time. */
-    fun apply(ctx: Context, now: ZonedDateTime = ZonedDateTime.now()) {
+    fun apply(ctx: Context, now: ZonedDateTime = ZonedDateTime.now(), fromWorker: Boolean = false) {
+        // a failure here (for example WorkManager not ready yet) must never break the screen that asked; the next app start schedules again
+        runCatching { applyNow(ctx, now, fromWorker) }.onFailure { android.util.Log.w("Reminder", "could not schedule the reminder", it) }
+    }
+
+    private fun applyNow(ctx: Context, now: ZonedDateTime, fromWorker: Boolean) {
         val wm = WorkManager.getInstance(ctx.applicationContext)
-        val next = if (ReminderPrefs.role(ctx).isBlank()) null else nextAt(now, ReminderPrefs.load(ctx))
+        // only a role that has a reminder text is scheduled (a donor or student never wakes WorkManager for nothing)
+        val next = if (ReminderTexts.forRole(ReminderPrefs.role(ctx)) == null) null else nextAt(now, ReminderPrefs.load(ctx))
         if (next == null) { wm.cancelUniqueWork(WORK_NAME); return }
         val delay = Duration.between(now, next).toMillis().coerceAtLeast(1_000L)
+        // the worker schedules its own successor: REPLACE would cancel the very job that is running, so it is appended instead
         wm.enqueueUniqueWork(
-            WORK_NAME, ExistingWorkPolicy.REPLACE,
-            OneTimeWorkRequestBuilder<ReminderWorker>().setInitialDelay(delay, TimeUnit.MILLISECONDS).build(),
+            WORK_NAME, if (fromWorker) ExistingWorkPolicy.APPEND_OR_REPLACE else ExistingWorkPolicy.REPLACE,
+            OneTimeWorkRequestBuilder<ReminderWorker>().setInitialDelay(delay, TimeUnit.MILLISECONDS)
+                .setInputData(androidx.work.workDataOf(KEY_TARGET to next.toInstant().toEpochMilli())).build(),
         )
     }
 

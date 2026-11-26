@@ -121,4 +121,15 @@ class RoleNavigationPolicyTest {
         assertEquals(AppDestination.Contests, AppDestination.fromRoute("contests"))
         assertEquals("المسابقات", AppDestination.Contests.label)
     }
+
+    @Test fun theContributionPageIsForGuardiansTeachersSupervisorsAndAdminOnly() {
+        for (role in listOf(UserRole.GUARDIAN, UserRole.TEACHER, UserRole.SUPERVISOR, UserRole.ADMIN)) {
+            assertTrue("$role can open the contribution page", RoleNavigationPolicy.canOpen(role, AppDestination.Contribute))
+            assertTrue("$role sees it in the drawer", RoleNavigationPolicy.drawerItems(role).any { it.destination == AppDestination.Contribute })
+        }
+        for (role in listOf(UserRole.OBSERVER, UserRole.STUDENT, UserRole.UNKNOWN)) {
+            assertFalse("$role has no contribution page", RoleNavigationPolicy.canOpen(role, AppDestination.Contribute))
+        }
+        assertEquals(AppDestination.Contribute, AppDestination.fromRoute("contribute"))
+    }
 }

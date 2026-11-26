@@ -351,3 +351,61 @@ grant execute on function public.contest_my() to authenticated;
 grant execute on function public.contest_admin_list() to authenticated;
 grant execute on function public.contest_visible() to authenticated;
 grant execute on function public.contest_decide(uuid, text, text, uuid, boolean) to authenticated;
+
+-- 4) Review fixes (applied as a second step) -------------------------------------------------------------------------------------
+-- 4a) The direct chat with the administrator (rc54_thread_open -> rc52_thread_owner) was donor-only; guardians who sponsor need it too.
+create or replace function public.rc52_thread_owner(p_kind text, p_ref uuid) returns uuid
+language plpgsql stable security definer set search_path = public, pg_temp as $$
+declare d uuid;
+begin
+  if p_kind = 'reward' then select donor_id into d from public.reward_requests where id = p_ref;
+  elsif p_kind = 'pledge' then select donor_id into d from public.support_pledges where id = p_ref;
+  elsif p_kind = 'direct' then select id into d from public.profiles where id = p_ref and role::text in ('observer', 'guardian') and active = true;
+  end if;
+  return d;
+end $$;
+
+-- 4b) creator_role is shown on cards and drives the approval logic: a donor writing straight through the table must not claim another role.
+drop policy if exists donor_contests_donor_insert on public.donor_contests;
+create policy donor_contests_donor_insert on public.donor_contests for insert to authenticated
+  with check (
+    donor_id = (select auth.uid()) and public.contest_is_donor() and creator_role = 'donor'
+    and status = 'pending' and decided_by is null and decided_at is null and reject_reason is null
+    and (halaqa_id is null or public.contest_donor_linked(halaqa_id))
+  );
+drop policy if exists donor_contests_donor_update on public.donor_contests;
+create policy donor_contests_donor_update on public.donor_contests for update to authenticated
+  using (donor_id = (select auth.uid()) and status = 'pending')
+  with check (
+    donor_id = (select auth.uid()) and creator_role = 'donor' and status = 'pending' and decided_by is null and decided_at is null and reject_reason is null
+    and (halaqa_id is null or public.contest_donor_linked(halaqa_id))
+  );
+
+-- 4c) Notify the people who reach the halaqa through a membership too (the same people who can see the contest).
+create or replace function public.contest_notify_related(p_id uuid, p_target uuid, p_name text, p_hname text, p_skip uuid) returns void
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare r record;
+begin
+  for r in
+    select distinct u.uid from (
+      select ht.teacher_id as uid from public.halaqa_teachers ht where ht.halaqa_id = p_target
+      union select hs.supervisor_id from public.halaqa_supervisors hs where hs.halaqa_id = p_target
+      union select h.supervisor_id from public.halaqas h where h.id = p_target and h.supervisor_id is not null
+      union select s.user_id from public.students s where s.halaqa_id = p_target and s.user_id is not null and s.status = 'active'
+      union select sg.guardian_id from public.student_guardians sg join public.students s on s.id = sg.student_id
+            where s.halaqa_id = p_target and s.status = 'active'
+      union select s.user_id from public.student_halaqa_memberships m join public.students s on s.id = m.student_id
+            where m.halaqa_id = p_target and m.status = 'active' and m.ended_at is null and s.user_id is not null
+      union select sg.guardian_id from public.student_halaqa_memberships m join public.students s on s.id = m.student_id
+            join public.student_guardians sg on sg.student_id = s.id
+            where m.halaqa_id = p_target and m.status = 'active' and m.ended_at is null
+    ) u where u.uid is not null and u.uid <> coalesce(p_skip, '00000000-0000-0000-0000-000000000000'::uuid)
+  loop
+    insert into public.notifications (recipient_id, sender_id, halaqa_id, kind, title, body, source_key, deep_link, data)
+    values (r.uid, auth.uid(), p_target, 'contest_approved', 'مسابقة جديدة في حلقتك',
+            left(p_name, 120) || coalesce(' — ' || p_hname, ''),
+            'contest:' || p_id::text || ':approved', 'contests', jsonb_build_object('contest_id', p_id))
+    on conflict (recipient_id, source_key) do nothing;
+  end loop;
+end $$;
+revoke all on function public.contest_notify_related(uuid, uuid, text, text, uuid) from public, anon, authenticated;

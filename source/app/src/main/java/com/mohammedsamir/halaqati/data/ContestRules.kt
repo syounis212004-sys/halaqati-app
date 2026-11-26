@@ -37,6 +37,7 @@ data class Contest(
     val startsOn: String?,
     val endsOn: String?,
     val createdAt: String?,
+    val creatorRole: String = "donor",
 ) {
     companion object {
         private fun JSONObject.str(k: String): String? = if (isNull(k)) null else optString(k).trim().takeIf { it.isNotEmpty() && it != "null" }
@@ -46,7 +47,7 @@ data class Contest(
             status = ContestStatus.from(o.optString("status")),
             halaqaId = o.str("halaqa_id"), halaqaName = o.str("halaqa_name"), donorName = o.str("donor_name"),
             rejectReason = o.str("reject_reason"), startsOn = o.str("starts_on"), endsOn = o.str("ends_on"),
-            createdAt = o.str("created_at"),
+            createdAt = o.str("created_at"), creatorRole = o.str("creator_role") ?: "donor",
         )
     }
 }
@@ -59,6 +60,19 @@ object ContestRules {
     const val CONDITIONS_MIN = 10; const val CONDITIONS_MAX = 2000
     const val REWARD_MIN = 3; const val REWARD_MAX = 500
     const val REASON_MIN = 3; const val REASON_MAX = 500
+
+    /** Who made the contest, for its card ("المانح", "المحفظ", "المشرف", "مدير النظام"). */
+    fun creatorLabel(role: String?) = when (role) { "teacher" -> "المحفظ"; "supervisor" -> "المشرف"; "admin" -> "مدير النظام"; else -> "المانح" }
+
+    /** What to tell an account that cannot create a contest yet because it has no halaqa to target. */
+    fun noHalaqaMessage(role: com.mohammedsamir.halaqati.model.UserRole) = when (role) {
+        com.mohammedsamir.halaqati.model.UserRole.OBSERVER -> NO_HALAQA_MESSAGE
+        com.mohammedsamir.halaqati.model.UserRole.ADMIN -> "لا توجد حلقة فعّالة لإنشاء مسابقة لها."
+        else -> "لا توجد حلقة مرتبطة بحسابك لإنشاء مسابقة. تواصل مع مدير النظام لربطك بحلقتك."
+    }
+
+    /** The form shows dates day-first (01-12-2026); [parseDate] reads it back. */
+    fun formatDate(d: LocalDate): String = "%02d-%02d-%04d".format(d.dayOfMonth, d.monthValue, d.year)
 
     fun DATE_ERROR(which: String) = "تاريخ $which غير صالح. اكتبه هكذا: 01-12-2026 (يوم-شهر-سنة)"
 
@@ -77,6 +91,7 @@ object ContestRules {
             c.length == 4 && a.length <= 2 -> Triple(c.toInt(), b, a.toInt())
             else -> return null
         }
+        if (y !in 2000..2100) return null
         return runCatching { LocalDate.of(y, mo, d) }.getOrNull()
     }
 

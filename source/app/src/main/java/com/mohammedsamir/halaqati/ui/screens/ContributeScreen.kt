@@ -52,7 +52,7 @@ fun ContributeScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, navi
         Box(Modifier.weight(1f)) {
             when {
                 guardian && tab == 0 -> SponsorSupport(profile, tick, showRewards = false)
-                guardian && tab == 1 -> ReadOnlyContestsScreen(embedded = true)
+                guardian && tab == 1 -> ReadOnlyContestsScreen(embedded = true, reloadTick = tick)
                 !guardian && tab == 0 -> StaffContributeTab(profile.role, tick, navigate)
                 else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     item { ReminderPanel(profile.role.name) }

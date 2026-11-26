@@ -73,6 +73,15 @@ fun ReminderPanel(role: String, modifier: Modifier = Modifier) {
     var refused by remember { mutableStateOf(false) }
     fun permissionMissing() = Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
     var missing by remember { mutableStateOf(permissionMissing()) }
+    // coming back from the phone's notification settings: read the permission again
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    androidx.compose.runtime.DisposableEffect(lifecycle) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) { missing = permissionMissing(); if (!missing) refused = false }
+        }
+        lifecycle.addObserver(obs)
+        onDispose { lifecycle.removeObserver(obs) }
+    }
     fun commit(n: Reminder) { r = n; ReminderPrefs.save(ctx, n); ReminderScheduler.apply(ctx) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         missing = permissionMissing(); refused = !ok
