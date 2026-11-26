@@ -80,4 +80,21 @@ class ContestRulesTest {
         assertEquals(listOf("2"), ContestRules.filter(items, ContestStatus.APPROVED).map { it.id })
         assertEquals(listOf("1", "2"), ContestRules.filter(items, null).map { it.id })
     }
+
+    @Test fun datesAreAcceptedInDayFirstAndYearFirstForms() {
+        val want = java.time.LocalDate.of(2026, 12, 1)
+        for (t in listOf("2026-12-01", "01-12-2026", "1/12/2026", "01.12.2026", "2026/12/1", "\u0660\u0661-\u0661\u0662-\u0662\u0660\u0662\u0666", "\u200F01-12-2026\u200E", " 01-12-2026 ")) {
+            org.junit.Assert.assertEquals(t, want, ContestRules.parseDate(t))
+        }
+        org.junit.Assert.assertEquals("2026-12-01", ContestRules.normalizeDate("01-12-2026"))
+        org.junit.Assert.assertNull(ContestRules.normalizeDate("  "))
+    }
+
+    @Test fun impossibleOrAmbiguousDatesAreRejected() {
+        for (t in listOf("31-02-2026", "2026-13-01", "12-2026", "01-12-26", "abc", "")) org.junit.Assert.assertNull(t, ContestRules.parseDate(t))
+        val d = ContestDraft("اسم المسابقة", "عنوان", "شروط المسابقة كاملة", "جائزة", "01-12-2026", "31-11-2026")
+        org.junit.Assert.assertTrue(ContestRules.validate(d).containsKey("endsOn"))
+        org.junit.Assert.assertTrue(ContestRules.validate(d.copy(endsOn = "20-12-2026")).isEmpty())
+        org.junit.Assert.assertTrue(ContestRules.validate(d.copy(endsOn = "20-11-2026")).containsKey("endsOn"))
+    }
 }
