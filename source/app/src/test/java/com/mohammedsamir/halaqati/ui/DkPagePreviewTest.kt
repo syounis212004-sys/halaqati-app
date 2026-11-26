@@ -132,4 +132,29 @@ class DkPagePreviewTest {
         rule.waitForIdle()
         rule.onNodeWithText("إعادة الحجم").assertDoesNotExist()
     }
+
+    private fun jump(name: String, tabLabel: String?, dark: Boolean = false) {
+        rule.setContent {
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Rtl) {
+                com.mohammedsamir.halaqati.ui.theme.HalaqatiTheme(com.mohammedsamir.halaqati.data.UiPreferences.defaults().copy(themeMode = if (dark) com.mohammedsamir.halaqati.data.ThemeMode.DARK else com.mohammedsamir.halaqati.data.ThemeMode.LIGHT, motion = com.mohammedsamir.halaqati.data.MotionLevel.REDUCED)) {
+                    androidx.compose.material3.Surface(color = MaterialTheme.colorScheme.surface, modifier = androidx.compose.ui.Modifier.fillMaxSize()) {
+                        androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.padding(top = 40.dp)) {
+                            androidx.compose.material3.Text("الانتقال", modifier = androidx.compose.ui.Modifier.padding(horizontal = 22.dp), style = MaterialTheme.typography.titleLarge)
+                            androidx.compose.material3.Text(com.mohammedsamir.halaqati.ui.screens.jumpHere(527), modifier = androidx.compose.ui.Modifier.padding(horizontal = 22.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall)
+                            com.mohammedsamir.halaqati.ui.screens.MushafJumpBody(527, 511, 515, "527", {}, {}, listOf(42, 300))
+                        }
+                    }
+                }
+            }
+        }
+        if (tabLabel != null) rule.onNodeWithText(tabLabel).performClick()
+        rule.waitForIdle(); Thread.sleep(300); rule.waitForIdle()
+        val view = rule.onRoot().fetchSemanticsNode().root as android.view.View
+        val bmp = android.graphics.Bitmap.createBitmap(view.width.coerceAtLeast(1), view.height.coerceAtLeast(1), android.graphics.Bitmap.Config.ARGB_8888)
+        view.draw(android.graphics.Canvas(bmp))
+        File("build/preview").mkdirs(); File("build/preview/$name.png").outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+    }
+    @Test fun jumpPageTab() = jump("dk_ui_jump_page", null)
+    @Test fun jumpSurahTab() = jump("dk_ui_jump_surah", "السور")
+    @Test fun jumpJuzTabDark() = jump("dk_ui_jump_juz_dark", "الأجزاء", dark = true)
 }

@@ -168,25 +168,39 @@ class MushafReaderPolishTest {
         rule.onNodeWithText("العلامات المرجعية").assertIsDisplayed()
         rule.onNodeWithText("ص ٣٠٠").performClick()
         assertEquals(300, went)
-        rule.onNodeWithText("السورة…").performScrollTo().performClick()
+        rule.onNodeWithText("السور").performClick()
         rule.waitForIdle()
-        if (rule.onAllNodesWithText("٢. " + com.mohammedsamir.halaqati.quran.QuranMetadata.surahName(2)).fetchSemanticsNodes().isEmpty()) throw AssertionError(rule.onRoot().printToString(Int.MAX_VALUE).lines().filter { "Text =" in it || "ContentDescription" in it }.joinToString("|").take(3000))
-        rule.onNodeWithText("٢. " + com.mohammedsamir.halaqati.quran.QuranMetadata.surahName(2)).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        rule.onNodeWithText(com.mohammedsamir.halaqati.quran.QuranMetadata.surahName(2)).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         rule.waitForIdle()
-        if (rule.onAllNodesWithText("رقم الآية", substring = true).fetchSemanticsNodes().isEmpty()) throw AssertionError(rule.onRoot().printToString(Int.MAX_VALUE).lines().filter { "Text =" in it }.joinToString("|").takeLast(1500))
-        rule.onNodeWithText("رقم الآية", substring = true).performScrollTo().performTextInput("255")
-        rule.onNodeWithText("اذهب إلى الآية").performScrollTo().performClick()
+        rule.onNodeWithText("رقم الآية", substring = true).performTextInput("255")
+        rule.onNodeWithText("اذهب إلى الآية").performClick()
         assertEquals(com.mohammedsamir.halaqati.quran.QuranMetadata.pageFor(2, 255), went)
     }
 
     @Test fun anAyahNumberBeyondTheSurahIsRejected() {
         rule.setContent { MaterialTheme(lightColorScheme()) { MushafJumpBody(page = 3, rangeStart = null, rangeEnd = null, input = "3", onInput = {}, onGo = {}) } }
-        rule.onNodeWithText("السورة…").performScrollTo().performClick()
-        rule.onNodeWithText("١٠٣. " + com.mohammedsamir.halaqati.quran.QuranMetadata.surahName(103)).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        rule.onNodeWithText("السور").performClick()
+        rule.onNodeWithText("ابحث عن سورة").performTextInput(com.mohammedsamir.halaqati.quran.QuranMetadata.surahName(103).removePrefix("ال"))
         rule.waitForIdle()
-        if (rule.onAllNodesWithText("رقم الآية", substring = true).fetchSemanticsNodes().isEmpty()) throw AssertionError(rule.onRoot().printToString(Int.MAX_VALUE).lines().filter { "Text =" in it }.joinToString("|").takeLast(1200))
+        rule.onNodeWithText(com.mohammedsamir.halaqati.quran.QuranMetadata.surahName(103)).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         rule.waitForIdle()
-        rule.onNodeWithText("رقم الآية", substring = true).performScrollTo().performTextInput("9")
+        rule.onNodeWithText("رقم الآية", substring = true).performTextInput("9")
         rule.onNodeWithText("اذهب إلى الآية").assertIsNotEnabled()
+    }
+
+    @Test fun juzTabGoesToTheFirstPageOfTheJuz() {
+        var went = -1
+        rule.setContent { MaterialTheme(lightColorScheme()) { MushafJumpBody(page = 3, rangeStart = null, rangeEnd = null, input = "3", onInput = {}, onGo = { went = it }) } }
+        rule.onNodeWithText("الأجزاء").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText("١٥").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        assertEquals(com.mohammedsamir.halaqati.quran.MushafOfflinePlan.juzPages(15).first, went)
+    }
+
+    @Test fun aLongRangeIsOfferedAsFirstAndLastPage() {
+        var went = -1
+        rule.setContent { MaterialTheme(lightColorScheme()) { MushafJumpBody(page = 3, rangeStart = 10, rangeEnd = 60, input = "3", onInput = {}, onGo = { went = it }) } }
+        rule.onNodeWithText("آخر المقرر").performClick()
+        assertEquals(60, went)
     }
 }

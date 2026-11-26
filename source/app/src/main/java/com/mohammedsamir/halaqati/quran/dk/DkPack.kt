@@ -43,9 +43,10 @@ object DkRender {
     fun lineHeight(wPx: Float) = wPx * 232f / 1440f
     fun scaleFor(p: DkPage, wPx: Float) = wPx / p.lines.maxOf { it.width }
 
-    fun draw(nc: Canvas, data: DkData, p: DkPage, wPx: Float, pitch: Float, paint: Paint, colors: DkColors? = null) {
+    fun draw(nc: Canvas, data: DkData, p: DkPage, wPx: Float, pitch: Float, paint: Paint, colors: DkColors? = null, check: (() -> Unit)? = null) {
         val s = scaleFor(p, wPx)
         for ((li, line) in p.lines.withIndex()) {
+            check?.invoke()   // lets a cancelled render stop at the next line instead of finishing a page nobody will see
             nc.save()
             if (line.type == 1) {
                 // the sura-name line sits inside its cartouche: a little smaller and raised, so tails such as the one of the ha stay inside the frame
