@@ -60,6 +60,29 @@ object ContestRules {
     const val REWARD_MIN = 3; const val REWARD_MAX = 500
     const val REASON_MIN = 3; const val REASON_MAX = 500
 
+    fun DATE_ERROR(which: String) = "تاريخ $which غير صالح. اكتبه هكذا: 01-12-2026 (يوم-شهر-سنة)"
+
+    /**
+     * A date typed by a person. Accepts day-month-year (01-12-2026, 1/12/2026) and year-month-day (2026-12-01), with - / or . between the parts,
+     * Arabic-Indic or Persian digits, and ignores the invisible direction marks that right-to-left text carries. Null when it is not a real date.
+     */
+    fun parseDate(raw: String): LocalDate? {
+        val t = raw.map { c ->
+            when (c) { in '\u0660'..'\u0669' -> '0' + (c - '\u0660'); in '\u06F0'..'\u06F9' -> '0' + (c - '\u06F0'); else -> c }
+        }.filterNot { it in '\u200E'..'\u200F' || it in '\u202A'..'\u202E' || it in '\u2066'..'\u2069' || it.isWhitespace() }.joinToString("")
+        val m = Regex("^(\\d{1,4})[-/.](\\d{1,2})[-/.](\\d{1,4})$").matchEntire(t) ?: return null
+        val a = m.groupValues[1]; val b = m.groupValues[2].toInt(); val c = m.groupValues[3]
+        val (y, mo, d) = when {
+            a.length == 4 && c.length <= 2 -> Triple(a.toInt(), b, c.toInt())
+            c.length == 4 && a.length <= 2 -> Triple(c.toInt(), b, a.toInt())
+            else -> return null
+        }
+        return runCatching { LocalDate.of(y, mo, d) }.getOrNull()
+    }
+
+    /** The ISO form the database expects (2026-12-01), or the text unchanged when it is not a date (validation reports it). */
+    fun normalizeDate(raw: String?): String? = raw?.trim()?.takeIf { it.isNotEmpty() }?.let { parseDate(it)?.toString() ?: it }
+
     /** Field key -> Arabic message. Empty map = valid. */
     fun validate(d: ContestDraft): Map<String, String> {
         val e = linkedMapOf<String, String>()
@@ -75,8 +98,8 @@ object ContestRules {
         check("title", "العنوان", d.title, TITLE_MIN, TITLE_MAX)
         check("conditions", "الشروط", d.conditions, CONDITIONS_MIN, CONDITIONS_MAX)
         check("reward", "المكافأة", d.reward, REWARD_MIN, REWARD_MAX)
-        val s = d.startsOn?.takeIf { it.isNotBlank() }?.let { runCatching { LocalDate.parse(it) }.getOrNull() ?: run { e["startsOn"] = "تاريخ البداية غير صالح"; null } }
-        val en = d.endsOn?.takeIf { it.isNotBlank() }?.let { runCatching { LocalDate.parse(it) }.getOrNull() ?: run { e["endsOn"] = "تاريخ النهاية غير صالح"; null } }
+        val s = d.startsOn?.takeIf { it.isNotBlank() }?.let { parseDate(it) ?: run { e["startsOn"] = DATE_ERROR("البداية"); null } }
+        val en = d.endsOn?.takeIf { it.isNotBlank() }?.let { parseDate(it) ?: run { e["endsOn"] = DATE_ERROR("النهاية"); null } }
         if (s != null && en != null && en.isBefore(s)) e["endsOn"] = "تاريخ النهاية قبل تاريخ البداية"
         return e
     }

@@ -98,7 +98,7 @@ private fun rememberContestList(load: (Boolean) -> List<Contest>): ContestListSt
     val state = remember { ContestListState() }
     state.scope = scope
     state.load = load
-    LaunchedEffect(Unit) { state.reload(false) }
+    LaunchedEffect(Unit) { state.reload(true) }
     return state
 }
 
@@ -141,10 +141,11 @@ fun DonorContestsScreen() {
     var halaqasLoaded by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf<ContestStatus?>(null) }
     var showForm by remember { mutableStateOf(false) }
+    var opening by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
-        runCatchingCancellable { withContext(Dispatchers.IO) { AppGraph.repo.contestHalaqas(false) } }
+        runCatchingCancellable { withContext(Dispatchers.IO) { AppGraph.repo.contestHalaqas(true) } }
             .onSuccess { halaqas = it; halaqasLoaded = true }
     }
     val shown = ContestRules.filter(st.items, filter)
@@ -158,7 +159,18 @@ fun DonorContestsScreen() {
                 item { StateNotice(ContestRules.NO_HALAQA_MESSAGE, "info") }
             }
             item {
-                Button(onClick = { showForm = true; notice = null }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("مسابقة جديدة") }
+                Button(
+                    enabled = !opening,
+                    onClick = {
+                        notice = null; opening = true
+                        // the donor's halaqat are read fresh each time (an admin may have linked one a minute ago); the saved copy is used only when offline
+                        scope.launch {
+                            runCatchingCancellable { withContext(Dispatchers.IO) { AppGraph.repo.contestHalaqas(true) } }.onSuccess { halaqas = it; halaqasLoaded = true }
+                            opening = false; showForm = true
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                ) { Text(if (opening) "جارٍ التحميل…" else "مسابقة جديدة") }
             }
             if (st.items.isNotEmpty()) item { StatusFilterRow(filter, st.items, { filter = it }) }
             if (st.loading && st.items.isEmpty()) item { LoadingSkeleton(rows = 3) }
@@ -219,8 +231,8 @@ private fun ContestFormDialog(halaqas: List<JSONObject>, onDismiss: () -> Unit, 
                 field("title", title, "العنوان", { title = it })
                 field("conditions", conditions, "الشروط", { conditions = it }, lines = 3)
                 field("reward", reward, "المكافأة", { reward = it }, lines = 2)
-                field("startsOn", startsOn, "تاريخ البداية (اختياري)", { startsOn = it }, hint = "مثال: 2026-12-01")
-                field("endsOn", endsOn, "تاريخ النهاية (اختياري)", { endsOn = it }, hint = "مثال: 2026-12-31")
+                field("startsOn", startsOn, "تاريخ البداية (اختياري)", { startsOn = it }, hint = "يوم-شهر-سنة، مثل 01-12-2026")
+                field("endsOn", endsOn, "تاريخ النهاية (اختياري)", { endsOn = it }, hint = "يوم-شهر-سنة، مثل 31-12-2026")
                 Text("الحلقة المستهدفة", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                 when (picker) {
                     ContestPickerState.NO_HALAQA -> StateNotice(ContestRules.NO_HALAQA_MESSAGE, "info")
@@ -240,7 +252,7 @@ private fun ContestFormDialog(halaqas: List<JSONObject>, onDismiss: () -> Unit, 
             Button(
                 enabled = !busy && (picker != ContestPickerState.CHOOSE || halaqaId != null),
                 onClick = {
-                    val draft = ContestDraft(name, title, conditions, reward, startsOn.trim().ifBlank { null }, endsOn.trim().ifBlank { null })
+                    val draft = ContestDraft(name, title, conditions, reward, ContestRules.normalizeDate(startsOn), ContestRules.normalizeDate(endsOn))
                     errors = ContestRules.validate(draft)
                     if (errors.isEmpty()) scope.launch { busy = true; serverError = onSubmit(draft, halaqaId); busy = false }
                 },
@@ -264,7 +276,7 @@ fun AdminContestsScreen() {
     var noticeError by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        runCatchingCancellable { withContext(Dispatchers.IO) { AppGraph.repo.contestHalaqas(false) } }.onSuccess { halaqas = it }
+        runCatchingCancellable { withContext(Dispatchers.IO) { AppGraph.repo.contestHalaqas(true) } }.onSuccess { halaqas = it }
     }
     val shown = ContestRules.filter(st.items, filter)
     val pendingCount = st.items.count { it.status == ContestStatus.PENDING }
