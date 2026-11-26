@@ -333,7 +333,11 @@ private fun DonorPage(title: String, profile: Profile, pending: Int, onRefresh: 
 fun DonorAwardsPage(profile: Profile, pending: Int, onRefresh: () -> Unit) = DonorPage("المكرَّمون", profile, pending, onRefresh) { DonorAwardsTab(it) }
 
 @Composable
-fun DonorSupportPage(profile: Profile, pending: Int, onRefresh: () -> Unit) = DonorPage("الدعم", profile, pending, onRefresh) { tick ->
+fun DonorSupportPage(profile: Profile, pending: Int, onRefresh: () -> Unit) = DonorPage("الدعم", profile, pending, onRefresh) { tick -> SponsorSupport(profile, tick, showRewards = true) }
+
+/** The sponsorship cards, my pledges and the chat with the administrator. The donor also has reward requests; a guardian only sponsors. */
+@Composable
+internal fun SponsorSupport(profile: Profile, tick: Int, showRewards: Boolean) {
     var section by rememberSaveable { mutableIntStateOf(0) }
     val chatScope = rememberCoroutineScope()
     var chatId by remember { mutableStateOf<String?>(null) }
@@ -341,8 +345,8 @@ fun DonorSupportPage(profile: Profile, pending: Int, onRefresh: () -> Unit) = Do
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         chatError?.let { com.mohammedsamir.halaqati.ui.components.StateNotice(it, kind = "error", modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) }
-        SegmentedTabs(listOf("الكفالات والدعم", "طلبات المكافآت"), section, { section = it }, Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
-        com.mohammedsamir.halaqati.ui.components.TabContentTransition(section, { it }, Modifier.weight(1f)) { s ->
+        if (showRewards) SegmentedTabs(listOf("الكفالات والدعم", "طلبات المكافآت"), section, { section = it }, Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+        com.mohammedsamir.halaqati.ui.components.TabContentTransition(if (showRewards) section else 0, { it }, Modifier.weight(1f)) { s ->
             if (s == 0) DonorSupportTab(tick) else DonorRewardsTab(tick)
         }
     }

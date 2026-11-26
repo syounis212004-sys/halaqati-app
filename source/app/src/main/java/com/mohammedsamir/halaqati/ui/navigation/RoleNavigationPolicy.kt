@@ -9,7 +9,7 @@ object RoleNavigationPolicy {
     private val admin = listOf(
         AppDestination.Home, AppDestination.Notifications, AppDestination.Halaqas,
         AppDestination.Community, AppDestination.Sessions, AppDestination.SessionToday, AppDestination.QuickMemorization,
-        AppDestination.Students, AppDestination.Plans, AppDestination.Certificates, AppDestination.Exams, AppDestination.Awards, AppDestination.Support, AppDestination.DonorChats, AppDestination.Contests,
+        AppDestination.Students, AppDestination.Plans, AppDestination.Certificates, AppDestination.Exams, AppDestination.Awards, AppDestination.Support, AppDestination.DonorChats, AppDestination.Contests, AppDestination.Contribute,
         AppDestination.Reports, AppDestination.Mushaf, AppDestination.Quran, AppDestination.Rankings, AppDestination.Insights,
         AppDestination.ImportExport, AppDestination.SyncCenter, AppDestination.Supervision, AppDestination.Visits,
         AppDestination.Users, AppDestination.Approvals, AppDestination.ObserverRequests, AppDestination.Org, AppDestination.Team, AppDestination.Settings,
@@ -19,7 +19,7 @@ object RoleNavigationPolicy {
     private val supervisor = listOf(
         AppDestination.Home, AppDestination.Notifications, AppDestination.Halaqas, AppDestination.Community,
         AppDestination.Sessions, AppDestination.Students, AppDestination.Exams, AppDestination.Reports, AppDestination.Mushaf, AppDestination.Rankings,
-        AppDestination.Insights, AppDestination.Supervision, AppDestination.Visits, AppDestination.Contests, AppDestination.Approvals, AppDestination.Org, AppDestination.Team,
+        AppDestination.Insights, AppDestination.Supervision, AppDestination.Visits, AppDestination.Contests, AppDestination.Contribute, AppDestination.Approvals, AppDestination.Org, AppDestination.Team,
         AppDestination.SyncCenter, AppDestination.Settings,
     )
     private val teacher = admin.filterNot {
@@ -28,7 +28,7 @@ object RoleNavigationPolicy {
     }
     private val guardian = listOf(
         AppDestination.Home, AppDestination.Notifications, AppDestination.Community,
-        AppDestination.Plans, AppDestination.Exams, AppDestination.Contests, AppDestination.Reports, AppDestination.Mushaf, AppDestination.GuardianCompetition,
+        AppDestination.Plans, AppDestination.Exams, AppDestination.Contests, AppDestination.Contribute, AppDestination.Reports, AppDestination.Mushaf, AppDestination.GuardianCompetition,
         AppDestination.GuardianAchievements, AppDestination.GuardianProfile,
         AppDestination.SyncCenter, AppDestination.Settings,
     )
@@ -91,6 +91,7 @@ object RoleNavigationPolicy {
             item(AppDestination.DonorChats, "محادثات المانحين"),
             item(AppDestination.ObserverRequests, "طلبات المانحين"),
             item(AppDestination.Contests, "مسابقات المانحين"),
+            item(AppDestination.Contribute, "المساهمة"),
             item(AppDestination.Reports, "التقارير"),
             item(AppDestination.Mushaf, "المصحف"),
             item(AppDestination.Quran, "حاسبة القرآن"),
@@ -115,6 +116,7 @@ object RoleNavigationPolicy {
             item(AppDestination.Students, "الطلاب"),
             item(AppDestination.Exams, "الاختبارات"),
             item(AppDestination.Contests, "المسابقات"),
+            item(AppDestination.Contribute, "المساهمة"),
             item(AppDestination.Reports, "التقارير"),
             item(AppDestination.Rankings, "الترتيب والإحصائيات"),
             item(AppDestination.Insights, "المتابعة والمقارنة"),
@@ -135,6 +137,7 @@ object RoleNavigationPolicy {
             item(AppDestination.Certificates, "الشهادات"),
             item(AppDestination.Exams, "الاختبارات"),
             item(AppDestination.Contests, "المسابقات"),
+            item(AppDestination.Contribute, "المساهمة"),
             item(AppDestination.Reports, "التقارير"),
             item(AppDestination.Mushaf, "المصحف"),
             item(AppDestination.Quran, "حاسبة القرآن"),
@@ -151,6 +154,7 @@ object RoleNavigationPolicy {
             item(AppDestination.Plans, "خطط أبنائي الذكية"),
             item(AppDestination.Exams, "اختبارات أبنائي"),
             item(AppDestination.Contests, "المسابقات"),
+            item(AppDestination.Contribute, "المساهمة"),
             item(AppDestination.Reports, "تقارير أبنائي"),
             item(AppDestination.GuardianCompetition, "إحصائيات ومنافسة"),
             item(AppDestination.GuardianAchievements, "الإنجازات"),
@@ -189,7 +193,7 @@ object RoleNavigationPolicy {
         return listOfNotNull(
             sec("إدارة الحلقة", AppDestination.Halaqas, AppDestination.Students, AppDestination.Plans),
             sec("المانح", AppDestination.DonorStats),
-            sec("المسابقات", AppDestination.Contests),
+            sec("المسابقات والمساهمة", AppDestination.Contests, AppDestination.Contribute),
             sec("المتابعة والإنجاز", AppDestination.Insights, AppDestination.GuardianCompetition, AppDestination.GuardianAchievements, AppDestination.Rankings, AppDestination.Supervision, AppDestination.Visits, AppDestination.Certificates, AppDestination.Exams, AppDestination.Awards),
             sec("الدعم والمانحون", AppDestination.Support, AppDestination.DonorChats, AppDestination.ObserverRequests),
             sec("التقارير والأدوات", AppDestination.Reports, AppDestination.Mushaf, AppDestination.Quran, AppDestination.ImportExport),

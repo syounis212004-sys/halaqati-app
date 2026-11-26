@@ -251,6 +251,14 @@ private fun MainShell(
 
     // RC60: tapping a chat push (deep_link = "chat:<thread id>") opens that conversation straight away.
     var chatDeepLinkId by remember { mutableStateOf<String?>(null) }
+    // the contribution reminder is local: tell it who is signed in (its text depends on the role) and make sure the next one is scheduled
+    val reminderContext = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(profile.role) {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            com.mohammedsamir.halaqati.reminders.ReminderPrefs.setRole(reminderContext, profile.role.name)
+            com.mohammedsamir.halaqati.reminders.ReminderScheduler.apply(reminderContext)
+        }
+    }
     LaunchedEffect(profile.id) {
         // The system owner sits above every association, so his role label reads "مسؤول النظام" everywhere.
         com.mohammedsamir.halaqati.ui.components.PlatformOwnerState.isOwner = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -458,6 +466,7 @@ private fun FeatureRouter(destination:AppDestination,profile:Profile,sync:SyncSt
         "home"->if (profile.role == com.mohammedsamir.halaqati.model.UserRole.SUPERVISOR) SupervisorHomeScreen(profile,sync.pending,onSync,navigate) else if (profile.role == com.mohammedsamir.halaqati.model.UserRole.OBSERVER) com.mohammedsamir.halaqati.ui.screens.DonorHomeScreen(profile,sync.pending,onSync,navigate) else if (profile.role == com.mohammedsamir.halaqati.model.UserRole.GUARDIAN) com.mohammedsamir.halaqati.ui.guardian.GuardianHomeScreen(navigate) else DashboardScreen(profile,sync,navigate,onSync)
         "observer_requests"->ObserverRequestsAdminScreen(profile)
         "contests"->com.mohammedsamir.halaqati.ui.screens.ContestsScreen(profile,sync.pending,onSync)
+        "contribute"->com.mohammedsamir.halaqati.ui.screens.ContributeScreen(profile,sync.pending,onSync,navigate)
         "students"->StudentsScreen(sync.pending,onSync,initialStudentId=deepLinkedStudentId,onInitialStudentConsumed=onStudentFocusConsumed,openStudentProfile={ navigate("student:$it") },role=profile.role.name.lowercase())
         "sessions"->if (profile.role == com.mohammedsamir.halaqati.model.UserRole.SUPERVISOR) SupervisorSessionsScreen(profile,sync.pending,onSync) else SessionsScreen(sync.pending,onSync,role=profile.role.name.lowercase())
         "session_today"->SessionsScreen(sync.pending,onSync,openTodayOnLaunch=true,role=profile.role.name.lowercase())

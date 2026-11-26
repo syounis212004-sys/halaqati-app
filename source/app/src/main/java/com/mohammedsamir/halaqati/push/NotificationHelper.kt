@@ -14,8 +14,16 @@ object NotificationHelper {
     /** Must match halaqati-notify Edge Function android.notification.channel_id. */
     const val CHANNEL_ID = "halaqati_general"
 
+    /** Local, scheduled reminders have their own channel so they can be silenced from the system settings without touching real alerts. */
+    const val REMINDER_CHANNEL_ID = "halaqati_reminders"
+
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        context.getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel(REMINDER_CHANNEL_ID, "تذكيرات المساهمة", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = "تذكير دوري بالتكفّل بحلقة أو إنشاء مسابقة، يمكن إيقافه من التطبيق"
+            },
+        )
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(
                 CHANNEL_ID,
@@ -34,6 +42,7 @@ object NotificationHelper {
         body: String,
         deepLink: String?,
         stableKey: String? = null,
+        channelId: String = CHANNEL_ID,
     ) {
         ensureChannel(context)
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -54,7 +63,7 @@ object NotificationHelper {
 
         manager.notify(
             notificationId,
-            NotificationCompat.Builder(context, CHANNEL_ID)
+            NotificationCompat.Builder(context, channelId)
                 .setSmallIcon(com.mohammedsamir.halaqati.R.drawable.ic_stat_halaqati)
                 .setContentTitle(title)
                 .setContentText(body)
@@ -63,5 +72,11 @@ object NotificationHelper {
                 .setContentIntent(pendingIntent)
                 .build(),
         )
+    }
+
+    /** A reminder produced on the device (never from the server); tapping it opens the contribution page. */
+    fun showReminder(context: Context, title: String, body: String) {
+        if (!androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()) return
+        show(context, title, body, "contribute", stableKey = "reminder:contribute", channelId = REMINDER_CHANNEL_ID)
     }
 }

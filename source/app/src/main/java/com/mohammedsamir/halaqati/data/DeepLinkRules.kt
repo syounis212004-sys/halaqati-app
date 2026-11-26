@@ -22,6 +22,8 @@ object DeepLinkRules {
         "guardian_competition",
         "guardian_achievements",
         "guardian_profile",
+        "contribute",
+        "contests",
     )
 
     fun navigation(raw: String?): Destination? {

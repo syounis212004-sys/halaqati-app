@@ -194,6 +194,8 @@ class HalaqatiRepository(
             runCatching { context.getSharedPreferences("halaqati_native_report_cache", Context.MODE_PRIVATE).edit().clear().apply() }
         }
         store.clear()
+        // the reminder belongs to the signed-in person: nothing is shown on a signed-out device
+        runCatching { com.mohammedsamir.halaqati.reminders.ReminderPrefs.setRole(context, null); com.mohammedsamir.halaqati.reminders.ReminderScheduler.cancel(context) }
     }
 
     fun authCallbackType(url: String): String = api.callbackType(url)

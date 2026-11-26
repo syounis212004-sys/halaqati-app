@@ -4961,6 +4961,9 @@ fun SettingsScreen(profile: Profile, onLogout: () -> Unit) {
                 }
             }
 
+            if (profile.role in setOf(UserRole.GUARDIAN, UserRole.TEACHER, UserRole.SUPERVISOR, UserRole.ADMIN)) item {
+                SettingsCollapsible(Icons.Default.NotificationsActive, "تذكيرات المساهمة", "تذكير أسبوعي يمكن إطفاؤه") { ReminderPanel(profile.role.name) }
+            }
             item { SettingsCollapsible(Icons.Default.Palette, "المظهر", "الوضع واللون والكثافة") {
                 SettingsGroup {
                     SettingsRow(Icons.Default.DarkMode, "الوضع الداكن", "اتبع النظام أو اختر الوضع", trailing = {
