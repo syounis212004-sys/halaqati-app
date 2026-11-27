@@ -81,7 +81,7 @@ internal class DkPrepared(val page: Int, val data: DkData, val dk: DkPage, val i
  */
 @Composable
 internal fun DkReadyPage(
-    p: DkPrepared, page: Int, pal: MushafPalette, tick: Int, tool: Tool, session: MushafEngine.Session, preview: Set<String>, inRange: (Int, Int, Int) -> Boolean,
+    p: DkPrepared, page: Int, pal: MushafPalette, tick: Int, tool: Tool, marksById: Map<String, MushafEngine.Mark>, preview: Set<String>, inRange: (Int, Int, Int) -> Boolean,
     onTapWord: (String) -> Unit, onLongWord: (String, Offset) -> Unit, onPreview: (Set<String>) -> Unit, onSpan: (List<String>) -> Unit,
     kindMenuFor: Pair<String, Offset>?, onKind: (String, MarkKind) -> Unit, onDismissKind: () -> Unit,
     isCurrent: Boolean = true, onZoomChanged: (Boolean) -> Unit = {},
@@ -139,7 +139,7 @@ internal fun DkReadyPage(
                         // the sura-name cartouche behind the sura-name line (DigitalKhatm draws the name only)
                         p.dk.lines.forEachIndexed { i, line -> if (line.type == 1) drawSuraOrnament(i * pitch + pitch * 0.06f, pitch * 0.88f, pal) }
                         for ((id, r) in rects) {
-                            val mark = session.getMark(id)
+                            val mark = marksById[id]
                             val prev = id in preview
                             val bg = when (mark?.type) { MarkType.Mistake -> pal.mistakeBg; MarkType.Prompt -> pal.promptBg; null -> if (prev) pal.rangeBg else androidx.compose.ui.graphics.Color.Transparent }
                             val corner = CornerRadius(r.height * 0.12f)

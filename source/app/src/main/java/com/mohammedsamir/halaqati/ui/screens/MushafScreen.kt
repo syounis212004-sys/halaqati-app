@@ -242,6 +242,7 @@ internal fun MushafScreenContent(
     var type by rememberSaveable { mutableStateOf(MarkType.Mistake) }
     var dockOpen by rememberSaveable { mutableStateOf(true) }
     var tick by remember { mutableIntStateOf(0) }            // marks live outside Compose state: bump to repaint
+    val marksById = remember(session, tick) { session.marksSnapshot().associateBy { it.id } }
     var preview by remember { mutableStateOf<Set<String>>(emptySet()) }
     var kindMenu by remember { mutableStateOf<Pair<String, Offset>?>(null) }
     var jumpDialog by remember { mutableStateOf(false) }
@@ -347,7 +348,7 @@ internal fun MushafScreenContent(
                                     ) {
                                         MushafPageSlot(
                                             p = idx + 1, current = idx + 1 == page, pageW = pageW, pageH = pageH, pal = pal, tick = tick, tool = tool,
-                                            session = session, preview = preview, inRange = inRange,
+                                            marksById = marksById, preview = preview, inRange = inRange,
                                             onTapWord = { id, pg -> actOnWord(id, pg) },
                                             onLongWord = { id, at -> if (!readOnly) kindMenu = id to at },
                                             onPreview = { preview = it },
@@ -454,7 +455,7 @@ internal fun MarkBadge(mistake: Boolean, color: Color, size: androidx.compose.ui
 @Composable
 private fun MushafPageSlot(
     p: Int, current: Boolean, pageW: androidx.compose.ui.unit.Dp, pageH: androidx.compose.ui.unit.Dp, pal: MushafPalette, tick: Int, tool: Tool,
-    session: MushafEngine.Session, preview: Set<String>, inRange: (Int, Int, Int) -> Boolean,
+    marksById: Map<String, MushafEngine.Mark>, preview: Set<String>, inRange: (Int, Int, Int) -> Boolean,
     onTapWord: (String, Int) -> Unit, onLongWord: (String, Offset) -> Unit, onPreview: (Set<String>) -> Unit, onSpan: (List<String>, Int) -> Unit,
     kindMenuFor: Pair<String, Offset>?, onKind: (String, MarkKind, Int) -> Unit, onDismissKind: () -> Unit, onZoomChanged: (Boolean) -> Unit,
 ) {
@@ -470,7 +471,7 @@ private fun MushafPageSlot(
         }.getOrElse { PageState.Error(it.message ?: "تعذر تحميل الصفحة") }
     }
     MushafPage(
-        state, p, pageW, pageH, pal, tick, tool, session, preview, inRange,
+        state, p, pageW, pageH, pal, tick, tool, marksById, preview, inRange,
         onTapWord = { onTapWord(it, p) }, onLongWord = onLongWord, onPreview = onPreview, onSpan = { onSpan(it, p) },
         kindMenuFor = if (current) kindMenuFor else null, onKind = { id, k -> onKind(id, k, p) }, onDismissKind = onDismissKind,
         onRetry = { attempt++ }, isCurrent = current, onZoomChanged = onZoomChanged,
@@ -480,7 +481,7 @@ private fun MushafPageSlot(
 @Composable
 private fun MushafPage(
     state: PageState, page: Int, pageW: androidx.compose.ui.unit.Dp, pageH: androidx.compose.ui.unit.Dp, pal: MushafPalette, tick: Int, tool: Tool,
-    session: MushafEngine.Session, preview: Set<String>, inRange: (Int, Int, Int) -> Boolean,
+    marksById: Map<String, MushafEngine.Mark>, preview: Set<String>, inRange: (Int, Int, Int) -> Boolean,
     onTapWord: (String) -> Unit, onLongWord: (String, Offset) -> Unit, onPreview: (Set<String>) -> Unit, onSpan: (List<String>) -> Unit,
     kindMenuFor: Pair<String, Offset>?, onKind: (String, MarkKind) -> Unit, onDismissKind: () -> Unit, onRetry: () -> Unit,
     isCurrent: Boolean = true, onZoomChanged: (Boolean) -> Unit = {},
@@ -496,7 +497,7 @@ private fun MushafPage(
                 Text(state.message + " يمكنك متابعة التسميع بالعدّادات اليدوية دون المصحف.", color = pal.pageInk, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
                 TextButton(onClick = onRetry) { Text("إعادة المحاولة") }
             }
-            is PageState.Dk -> DkReadyPage(state.page, page, pal, tick, tool, session, preview, inRange, onTapWord, onLongWord, onPreview, onSpan, kindMenuFor, onKind, onDismissKind, isCurrent, onZoomChanged)
+            is PageState.Dk -> DkReadyPage(state.page, page, pal, tick, tool, marksById, preview, inRange, onTapWord, onLongWord, onPreview, onSpan, kindMenuFor, onKind, onDismissKind, isCurrent, onZoomChanged)
         }
     }
 }
