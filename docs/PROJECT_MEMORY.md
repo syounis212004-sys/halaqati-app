@@ -27,6 +27,9 @@ Source base for knowledge setup: `e900ccb` (RC114 / 2.91.14); code is in `source
 - These are repository facts, not independent verification of production rollout.
 
 ## Known limitations / unfinished work
+- External CircleCI reports "No configuration was found"; this already occurs
+  on baseline `e900ccb`. The independent knowledge GitHub Actions job is the
+  relevant tooling gate; do not mistake CircleCI configuration failure for tests.
 - Contribution Home shortcut remains deferred in discovery decisions.
 - Historical security-review findings require current-code verification; do not
   report them as present production vulnerabilities without reproducing them.
