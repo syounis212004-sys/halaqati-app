@@ -32,6 +32,7 @@ jobs:
         with:
           gradle-version: '8.13'
           cache-read-only: false
+          cache-cleanup: always
       - uses: android-actions/setup-android@v3
         with:
           packages: ""

@@ -7,9 +7,9 @@ import androidx.activity.ComponentActivity
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.PixelMap
-import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toPixelMap
-import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
@@ -103,14 +103,22 @@ class MushafMarkRenderingTest {
             .maxBy { it.value.width() }
         val center = Offset(box.centerX(), box.centerY())
         fun pixels(label: String? = null): PixelMap {
-            val image = node.captureToImage()
+            val rect = node.fetchSemanticsNode().boundsInRoot
+            val view = compose.onRoot().fetchSemanticsNode().root as android.view.View
+            val bitmap = compose.runOnIdle {
+                val output = Bitmap.createBitmap(rect.width.toInt(), rect.height.toInt(), Bitmap.Config.ARGB_8888)
+                val canvas = android.graphics.Canvas(output)
+                canvas.translate(-rect.left, -rect.top)
+                view.draw(canvas)
+                output
+            }
             if (label != null) {
                 val dir = File("build/mushaf-mark-regression").apply { mkdirs() }
                 File(dir, "$initialTheme-$type-$label.png").outputStream().use {
-                    image.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
                 }
             }
-            return image.toPixelMap()
+            return bitmap.asImageBitmap().toPixelMap()
         }
         fun strokePixels(before: PixelMap?, after: PixelMap, red: Boolean): Int {
             var colored = 0
