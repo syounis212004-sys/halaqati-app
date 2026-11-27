@@ -126,7 +126,7 @@ internal enum class Tool { Tap, Highlight, Erase }
 /**
  * Every colour comes from the app theme the user chose in Settings (light, dark or system), so the mushaf matches all other screens:
  * paper = warm paper in the light theme and the theme's surface in the dark one; ink, frame and rule follow the scheme; a mistake is the
- * scheme's error colour and a prompt its info blue (the same status colours the rest of the app uses).
+ * scheme's error colour and a prompt a blue tuned for contrast against the page.
  */
 internal class MushafPalette(scheme: ColorScheme, info: Color) {
     val dark = scheme.background.luminance() < 0.5f
@@ -137,7 +137,7 @@ internal class MushafPalette(scheme: ColorScheme, info: Color) {
     val rule = scheme.tertiary
     val mistake = scheme.error
     val mistakeBg = mistake.copy(alpha = if (dark) 0.22f else 0.16f)
-    val prompt = info
+    val prompt = if (dark) Color(0xFF64B5F6) else Color(0xFF1565C0)
     val promptBg = prompt.copy(alpha = if (dark) 0.24f else 0.14f)
     val rangeBg = scheme.primary.copy(alpha = 0.10f)
     val accent = scheme.primary
