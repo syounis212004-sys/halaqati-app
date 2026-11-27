@@ -12,7 +12,6 @@ import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -191,13 +190,21 @@ class MushafMarkRenderingTest {
 
         compose.onNodeWithContentDescription("تلقين، العدد 0").performClick()
         compose.onNodeWithContentDescription("لمس").performClick()
-        node.performTouchInput { longClick(center) }
-        compose.onNodeWithText("حركة").performClick()
+        fun chooseKind(label: String) {
+            // The gesture coroutine uses a real timeout. Do not dispatch down/up in one batch.
+            node.performTouchInput { down(center) }
+            try {
+                compose.waitUntil(5_000) { compose.onAllNodesWithText(label).fetchSemanticsNodes().size == 1 }
+            } finally {
+                node.performTouchInput { up() }
+            }
+            compose.onNodeWithText(label).performClick()
+        }
+        chooseKind("حركة")
         expect(MushafEngine.MarkType.Prompt, 0, 0)
         compose.runOnIdle { assertEquals(MushafEngine.MarkKind.Harakah, session.getMark(id)?.kind) }
         assertStroke(null, pixels(), red = false)
-        node.performTouchInput { longClick(center) }
-        compose.onNodeWithText("بداية آية").performClick()
+        chooseKind("بداية آية")
         expect(MushafEngine.MarkType.Prompt, 0, 1)
         compose.runOnIdle { assertEquals(MushafEngine.MarkKind.AyahStart, session.getMark(id)?.kind) }
         assertStroke(null, pixels(), red = false)
