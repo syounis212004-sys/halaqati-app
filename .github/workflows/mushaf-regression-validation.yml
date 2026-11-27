@@ -1,0 +1,43 @@
+name: Mushaf rendering validation
+on:
+  push:
+    branches: [fix/android-mushaf-mark-rendering]
+permissions:
+  contents: read
+jobs:
+  rendering:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.13'
+          cache-read-only: false
+      - name: Install SDK and prepare verified test assets
+        run: |
+          sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+          curl -fsSL --retry 4 -o "$RUNNER_TEMP/madina.json" https://digitalkhatt.org/assets/layouts/madina.json
+          echo "5de6e0c60d8a402b37483fed4f799eeefaebd5edd94b67ff1ac8d8e9ba5ff358  $RUNNER_TEMP/madina.json" | sha256sum -c -
+          python3 -I source/scripts/dk/make_dk_assets.py "$RUNNER_TEMP/madina.json" source/app/src/main/assets/dk
+          python3 -I source/scripts/dk/verify_pack.py source/app/src/main/assets/dk
+      - name: Run Compose pixel regression and focused Android checks
+        working-directory: source
+        run: >
+          gradle --no-daemon --console=plain :app:testDebugUnitTest
+          -x :app:processDebugGoogleServices
+          --tests '*MushafMarkRenderingTest'
+          --tests '*MushafEngineTest'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mushaf-test-results
+          path: |
+            source/app/build/test-results/testDebugUnitTest/
+            source/app/build/mushaf-mark-regression/
