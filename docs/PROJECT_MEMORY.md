@@ -1,0 +1,46 @@
+# Halaqati Android — project memory
+
+Keep this short; use Graphify for symbols/relationships and verify actual source.
+Source base for knowledge setup: `e900ccb` (RC114 / 2.91.14); code is in `source/`.
+
+## Decisions to preserve
+- Native Kotlin/Compose + Arabic RTL; preserve application identity and signing.
+- Room/account-scoped durable outbox is local-first; Supabase is cloud authority.
+  Keep pending writes across restarts/signout, explicit `updated_at` conflict
+  resolution, and old databases during migrations. See RC7 offline foundation.
+- Phase records are authoritative; `smart_plans` is compatibility storage. Keep
+  revision conflicts, frozen results and atomic/idempotent transitions; avoid
+  ambiguous historical backfills. See `POWER_RC11_2_CORE_PHASE_CONSISTENCY_AR.md`.
+- Keep scoped RLS, admin-only contest approvals and pinned SECURITY DEFINER
+  search paths. Review-only SQL is not an instruction to apply a migration.
+- Release workflows use a pinned ZIP, not automatically the `source/` directory;
+  updating source alone does not publish an application release.
+
+## Implemented / documented fixes
+- RC100 documents device-bound auth callbacks, preservation of pending writes,
+  trusted update hashes/hosts and ordered durable synchronization.
+- RC114 documents scoped guardian sponsorship, admin-approved staff contests,
+  contributions and local WorkManager reminders. Contest writes need connectivity;
+  cached lists can remain readable offline.
+- These are repository facts, not independent verification of production rollout.
+
+## Known limitations / unfinished work
+- Contribution Home shortcut remains deferred in discovery decisions.
+- Historical security-review findings require current-code verification; do not
+  report them as present production vulnerabilities without reproducing them.
+- Graphify 0.9.121 has partial AST results for 21 existing files and cannot infer
+  all SQL/runtime relationships. Check `graphify-out/coverage.json`, then source.
+- All supported documentation has structural sections/links; seven selected
+  architecture/decision documents have semantic enrichment. No full-text LLM
+  rescan is needed for ordinary future tasks.
+- No application build, database mutation, UI change or release is part of this setup.
+
+## Knowledge workflow
+- Mandatory: bootstrap/status → bounded Graphify query → targeted source read.
+- After substantive changes: `graphify update .`, refresh affected semantic
+  decisions if needed, verify/snapshot, commit reviewed graph+manifest.
+- Preserve 64 existing Claude skills and the 15 Codex skills restored from the
+  still-independent setup branch; Graphify is skill 16 in `.agents/skills/`.
+- Never commit secrets, personal data, machine paths or raw extraction caches.
+- Record a confirmed fix or lasting decision here with a source reference;
+  do not save whole conversations or duplicate the graph.

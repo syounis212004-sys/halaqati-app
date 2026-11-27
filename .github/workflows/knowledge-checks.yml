@@ -1,0 +1,42 @@
+name: Android knowledge integrity
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'source/**'
+      - 'docs/**'
+      - 'tools/knowledge/**'
+      - '.agents/**'
+      - '.codex/**'
+      - '.graphify*'
+      - 'graphify-out/**'
+      - 'AGENTS.md'
+      - '.github/workflows/knowledge-checks.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/knowledge/**'
+      - 'graphify-out/**'
+      - '.github/workflows/knowledge-checks.yml'
+permissions:
+  contents: read
+jobs:
+  knowledge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Record committed graph before rehydration
+        run: sha256sum graphify-out/graph.json > /tmp/knowledge-before.sha256
+      - name: Restore pinned local tooling and Git hooks
+        run: bash tools/knowledge/bootstrap.sh
+      - name: Graph, query, incremental update, privacy exclusions and hook checks
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          "$(cat graphify-out/.graphify_python)" tools/knowledge/manage.py verify
+          "$(cat graphify-out/.graphify_python)" -m unittest discover -s tools/knowledge/tests
+      - name: Require the graph to have been refreshed before the PR
+        run: sha256sum --check /tmp/knowledge-before.sha256

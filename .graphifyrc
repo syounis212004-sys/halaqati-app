@@ -1,0 +1,4 @@
+# Small outputs by default; opt in to a larger query only when necessary.
+query_budget=900
+query_depth=1
+viz_node_limit=0
