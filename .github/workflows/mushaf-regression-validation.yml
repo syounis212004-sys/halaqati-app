@@ -2,6 +2,7 @@ name: Mushaf rendering validation
 on:
   push:
     branches: [fix/android-mushaf-mark-rendering]
+    paths: ['source/**', '.github/workflows/mushaf-regression-validation.yml']
 permissions:
   contents: read
 jobs:

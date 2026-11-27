@@ -1,0 +1,92 @@
+name: Mushaf Android display validation
+on:
+  push:
+    branches: [fix/android-mushaf-mark-rendering]
+    paths: ['.github/workflows/mushaf-device-validation.yml']
+permissions:
+  contents: read
+jobs:
+  display:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [before, after]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          ref: ${{ matrix.version == 'before' && 'ad60a593c9ab962347c78519ddb50d667241cd0b' || github.sha }}
+      - uses: actions/checkout@v6
+        if: matrix.version == 'before'
+        with:
+          path: validation
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.13'
+          cache-read-only: false
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+      - name: Prepare test APK locally on the runner
+        env:
+          VERSION: ${{ matrix.version }}
+        run: |
+          sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+          curl -fsSL --retry 4 -o "$RUNNER_TEMP/madina.json" https://digitalkhatt.org/assets/layouts/madina.json
+          echo "5de6e0c60d8a402b37483fed4f799eeefaebd5edd94b67ff1ac8d8e9ba5ff358  $RUNNER_TEMP/madina.json" | sha256sum -c -
+          python3 -I source/scripts/dk/make_dk_assets.py "$RUNNER_TEMP/madina.json" source/app/src/main/assets/dk
+          python3 -I source/scripts/dk/verify_pack.py source/app/src/main/assets/dk
+          cat > source/app/google-services.json <<'JSON'
+          {"project_info":{"project_number":"123456789012","project_id":"halaqati-rendering-test"},"client":[{"client_info":{"mobilesdk_app_id":"1:123456789012:android:1234567890abcdef","android_client_info":{"package_name":"com.mohammedsamir.halaqati"}},"api_key":[{"current_key":"offline-fixture"}]}],"configuration_version":"1"}
+          JSON
+          python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+          subpath = 'app/src/test/java/com/mohammedsamir/halaqati/ui/MushafMarkRenderingTest.kt'
+          src = Path('validation/source' if os.environ['VERSION'] == 'before' else 'source') / subpath
+          target = Path('source') / subpath.replace('/test/', '/androidTest/')
+          s = src.read_text()
+          s = re.sub(r'^import (?:org\.robolectric\..*|android\.content\.ComponentName|androidx\.compose\.ui\.test\.onRoot|org\.junit\.rules\..*|org\.junit\.runners\.model\.Statement)\n', '', s, flags=re.M)
+          s = s.replace('import androidx.compose.ui.test.junit4.createComposeRule', 'import androidx.compose.ui.test.junit4.createAndroidComposeRule\nimport androidx.compose.ui.test.captureToImage\nimport androidx.compose.ui.graphics.asAndroidBitmap\nimport androidx.test.ext.junit.runners.AndroidJUnit4')
+          s = re.sub(r'@RunWith\(RobolectricTestRunner::class\).*?    @Test', '@RunWith(AndroidJUnit4::class)\nclass MushafMarkRenderingTest {\n    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()\n\n    @Test', s, count=1, flags=re.S)
+          s = re.sub(r'            val rect = node\.fetchSemanticsNode\(\).*?\n            if \(label', '            val bitmap = node.captureToImage().asAndroidBitmap()\n            if (label', s, count=1, flags=re.S)
+          s = s.replace('File("build/mushaf-mark-regression")', 'File(app.filesDir, "mushaf-mark-regression")')
+          target.parent.mkdir(parents=True, exist_ok=True)
+          target.write_text(s)
+          PY
+          cd source
+          gradle --no-daemon --console=plain :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Enable emulator hardware acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Prepare emulator assertions
+        run: |
+          cat > "$RUNNER_TEMP/test-mushaf-display.sh" <<'SH'
+          set -eu
+          adb shell wm size 1080x2300
+          adb shell wm density 420
+          adb install source/app/build/outputs/apk/debug/app-debug.apk
+          adb install source/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          adb shell am instrument -w -r -e class com.mohammedsamir.halaqati.ui.MushafMarkRenderingTest com.mohammedsamir.halaqati.test/androidx.test.runner.AndroidJUnitRunner | tee "$RUNNER_TEMP/display-test.txt"
+          ! rg 'FAILURES|INSTRUMENTATION_FAILED' "$RUNNER_TEMP/display-test.txt"
+          rg 'OK \(5 tests\)' "$RUNNER_TEMP/display-test.txt"
+          SH
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: bash "$RUNNER_TEMP/test-mushaf-display.sh"
+        env:
+          ANDROID_AVD_WAIT_TIME_BEFORE_KILL: '10'
