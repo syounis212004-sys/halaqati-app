@@ -17,6 +17,8 @@ Source base for knowledge setup: `e900ccb` (RC114 / 2.91.14); code is in `source
   updating source alone does not publish an application release.
 
 ## Implemented / documented fixes
+- Knowledge bootstrap resolves pipx Python shebang flags (`-E`) separately from
+  interpreter paths; guarded by `test_pipx_python_shebang_options`.
 - RC100 documents device-bound auth callbacks, preservation of pending writes,
   trusted update hashes/hosts and ordered durable synchronization.
 - RC114 documents scoped guardian sponsorship, admin-approved staff contests,

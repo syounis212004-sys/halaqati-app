@@ -30,7 +30,7 @@ Claude skills and the 15 restored Codex skills; Graphify is an additional skill.
    some Kotlin/SQL relationships can be missing. Expand one query/search at a time
    only when the graph is insufficient, stale, ambiguous or partially parsed;
    state the reason briefly. Accuracy and security take priority over token savings.
-5. After meaningful changes run `graphify update .`, then run
+5. After meaningful changes run `GRAPHIFY_VIZ_NODE_LIMIT=0 graphify update .`, then run
    `tools/knowledge/manage.py snapshot` with the saved Graphify interpreter and
    include the reviewed graph/manifest in the same change. Native Git hooks check
    commits, checkouts, merges and rebases. Recheck freshness after branch/pull.

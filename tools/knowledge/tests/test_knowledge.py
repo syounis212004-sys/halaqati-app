@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -18,6 +19,14 @@ def run(*args, cwd):
 
 
 class KnowledgeTests(unittest.TestCase):
+    def test_pipx_python_shebang_options(self):
+        with tempfile.TemporaryDirectory(prefix="graphify-launcher-") as directory:
+            launcher = Path(directory) / "graphify"
+            launcher.write_text(f"#!{sys.executable} -E\n# pipx console launcher\n")
+            result = run(sys.executable, str(ROOT / "tools/knowledge/interpreter.py"),
+                         str(launcher), cwd=ROOT)
+            self.assertEqual(result.stdout.strip(), sys.executable)
+
     def test_portable_skill_and_preserved_skills(self):
         skills = list((ROOT / ".agents/skills").glob("*/SKILL.md"))
         self.assertGreaterEqual(len(skills), 16)

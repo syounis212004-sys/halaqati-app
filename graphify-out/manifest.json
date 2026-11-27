@@ -3150,9 +3150,9 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1795790781.098766,
-    "seen": 1795790811.0930617,
-    "ast_hash": "24bcc43f5553067b79317623207172b7",
+    "mtime": 1795791131.7581387,
+    "seen": 1795791136.9113164,
+    "ast_hash": "8981547d1209dd0d3b62c03ad52d4ee6",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
@@ -4404,9 +4404,9 @@
     "semantic_hash": ""
   },
   "tools/knowledge/bootstrap.sh": {
-    "mtime": 1795790695.723816,
-    "seen": 1795790702.917003,
-    "ast_hash": "eae4b26e9be4423f9f6bdc7a217bbb4f",
+    "mtime": 1795791089.0266986,
+    "seen": 1795791101.0679739,
+    "ast_hash": "4b6aa374f00362c6e023a7b842ba8e3a",
     "semantic_hash": ""
   },
   "tools/knowledge/manage.py": {
@@ -4416,15 +4416,21 @@
     "semantic_hash": ""
   },
   "docs/PROJECT_MEMORY.md": {
-    "mtime": 1795790435.930974,
-    "seen": 1795790442.710961,
-    "ast_hash": "92a640c0ac814d145043f8769869ee6c",
+    "mtime": 1795791131.3541439,
+    "seen": 1795791136.9113193,
+    "ast_hash": "cd864c8d3cabaf51b6690c78673e58c2",
     "semantic_hash": ""
   },
   "tools/knowledge/README.md": {
     "mtime": 1795790804.9464731,
     "seen": 1795790811.0932894,
     "ast_hash": "e1e68400065a9978b23ed834e041c12f",
+    "semantic_hash": ""
+  },
+  "tools/knowledge/interpreter.py": {
+    "mtime": 1795791088.6107044,
+    "seen": 1795791101.067977,
+    "ast_hash": "b77c1f2f7a9a1427408b1be0d10ce5b6",
     "semantic_hash": ""
   }
 }
