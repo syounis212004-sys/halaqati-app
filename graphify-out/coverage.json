@@ -1,0 +1,19 @@
+{
+  "nodes": 6726,
+  "relationships": 18140,
+  "source_files": 732,
+  "source_tree": "8dacdc83aa5ec8aa90488c33ffbfae94e6f78d4d",
+  "graphify_version": "0.9.121",
+  "directed": true,
+  "documentation_mode": "native sections/links for all supported docs; selected semantic decisions",
+  "semantic_nodes": 47,
+  "limitations": [
+    "AST coverage is partial for 21 existing parser-warning files; not compiler errors",
+    "SQL without recognized definitions may have no symbol nodes",
+    "Documentation sections/links are indexed locally; only selected decisions have semantic enrichment",
+    "Codex PreToolUse hook is an official no-op; mandatory query-first policy is in AGENTS.md",
+    "Historical release ZIPs, bundled Web code, binaries and sensitive files are excluded"
+  ],
+  "semantic_api_calls": 0,
+  "host_agent_token_usage": "not available"
+}

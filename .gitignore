@@ -5,3 +5,14 @@
 .claude/enforce/__pycache__/
 .playwright-mcp/
 source/.kotlin/
+
+# Graphify: portable graph/manifest are tracked, machine state is not.
+.venv-graphify/
+tools/knowledge/**/__pycache__/
+graphify-out/.*
+graphify-out/cache/
+graphify-out/graph.html
+graphify-out/GRAPH_REPORT.md
+graphify-out/obsidian/
+graphify-out/wiki/
+graphify-out/query_results/
