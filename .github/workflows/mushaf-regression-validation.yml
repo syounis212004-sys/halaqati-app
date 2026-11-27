@@ -20,6 +20,9 @@ jobs:
         with:
           gradle-version: '8.13'
           cache-read-only: false
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: ""
       - name: Install SDK and prepare verified test assets
         run: |
           sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'

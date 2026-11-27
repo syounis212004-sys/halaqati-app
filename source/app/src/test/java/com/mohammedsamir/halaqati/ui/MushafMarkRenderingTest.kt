@@ -54,10 +54,12 @@ class MushafMarkRenderingTest {
         }
     }).around(compose)
 
-    @Test fun marksRepaintAfterWordTouchInLight() = checkMarks(ThemeMode.LIGHT)
-    @Test fun marksRepaintAfterWordTouchInDark() = checkMarks(ThemeMode.DARK)
+    @Test fun mistakeRepaintsInLight() = checkMarks(ThemeMode.LIGHT, MushafEngine.MarkType.Mistake)
+    @Test fun mistakeRepaintsInDark() = checkMarks(ThemeMode.DARK, MushafEngine.MarkType.Mistake)
+    @Test fun promptRepaintsInLight() = checkMarks(ThemeMode.LIGHT, MushafEngine.MarkType.Prompt)
+    @Test fun promptRepaintsInDark() = checkMarks(ThemeMode.DARK, MushafEngine.MarkType.Prompt)
 
-    private fun checkMarks(initialTheme: ThemeMode) {
+    private fun checkMarks(initialTheme: ThemeMode, type: MushafEngine.MarkType) {
         val page = 300
         val app = ApplicationProvider.getApplicationContext<Application>()
         val layout = DkPack.data(app).loadPage(page)
@@ -103,20 +105,14 @@ class MushafMarkRenderingTest {
             assertTrue("$initialTheme: expected visible ${if (red) "red" else "blue"} stroke pixels, found $colored", colored >= 12)
         }
 
+        val isMistake = type == MushafEngine.MarkType.Mistake
+        if (!isMistake) compose.onNodeWithContentDescription("تلقين، العدد 0").performClick()
         val unmarked = pixels()
         node.performTouchInput { click(center) }
         compose.runOnIdle {
-            assertEquals(MushafEngine.MarkType.Mistake, session.getMark(id)?.type)
-            assertEquals(1 to 0, counts.value)
+            assertEquals(type, session.getMark(id)?.type)
+            assertEquals(if (isMistake) 1 to 0 else 0 to 1, counts.value)
         }
-        assertStroke(unmarked, pixels(), red = true)
-
-        compose.onNodeWithContentDescription("تلقين، العدد 0").performClick()
-        node.performTouchInput { click(center) }
-        compose.runOnIdle {
-            assertEquals(MushafEngine.MarkType.Prompt, session.getMark(id)?.type)
-            assertEquals(0 to 1, counts.value)
-        }
-        assertStroke(unmarked, pixels(), red = false)
+        assertStroke(unmarked, pixels(), red = isMistake)
     }
 }
