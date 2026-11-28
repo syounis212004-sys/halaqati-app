@@ -1922,7 +1922,6 @@ private fun GoldenStudentCard(
                     }
                     val quietLine = buildList {
                         halaqaName?.takeIf(String::isNotBlank)?.let(::add)
-                        snapshot?.progress?.let { add("ورد اليوم ${plainNumber(it.dailyTarget)} ص") }
                     }.joinToString(" · ")
                     if (quietLine.isNotBlank()) {
                         Text(quietLine, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -2544,7 +2543,6 @@ private fun SessionRosterScreen(
         val snapshots = planSnapshotsByStudent[studentId].orEmpty()
         return snapshots.firstOrNull { snapshot -> snapshot.activities.any { it.key == key && it.scheduledToday } }
             ?: snapshots.firstOrNull { snapshot -> snapshot.activities.any { it.key == key } }
-            ?: snapshots.firstOrNull()
     }
 
     val queryNormalized = query.trim()
@@ -6291,16 +6289,28 @@ private fun SmartPlanAccordionCard(
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp),
     ) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth().nourPattern(PatternLevel.Subtle, MaterialTheme.colorScheme.primary), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 val (dotBg, dotFg) = planHealthColors(health.code)
-                Surface(shape = RoundedCornerShape(999.dp), color = dotBg, modifier = Modifier.size(32.dp)) {
-                    Box(contentAlignment = Alignment.Center) { Box(Modifier.size(10.dp).background(dotFg, RoundedCornerShape(50))) }
+                val statusSymbol = when (health.code) {
+                    SmartPlanHealthRules.BLUE -> "↑"
+                    SmartPlanHealthRules.GREEN -> "✓"
+                    SmartPlanHealthRules.YELLOW -> "!"
+                    SmartPlanHealthRules.RED -> "!!"
+                    else -> "–"
+                }
+                Surface(shape = RoundedCornerShape(999.dp), color = dotBg, contentColor = dotFg, modifier = Modifier.size(28.dp)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(statusSymbol, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.semantics { contentDescription = health.label })
+                    }
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                    OneLineName(snapshot.student.fullName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    if (expanded) Text(currentPhase, style = MaterialTheme.typography.labelMedium, color = com.mohammedsamir.halaqati.ui.theme.textAccent("primary"), fontWeight = FontWeight.SemiBold)
+                    Text(snapshot.student.fullName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, softWrap = true)
+                    if (expanded) {
+                        Text(currentPhase, style = MaterialTheme.typography.labelMedium, color = com.mohammedsamir.halaqati.ui.theme.textAccent("primary"), fontWeight = FontWeight.SemiBold)
+                        PlanHealthBadge(health.code, health.label)
+                    }
                 }
-                PlanHealthBadge(health.code, health.label)
                 IconButton(onClick = onToggle, modifier = Modifier.size(HalaqatiUiTokens.TouchTarget)) {
                     Icon(if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = if (expanded) "طي الخطة" else "عرض الخطة")
                 }
