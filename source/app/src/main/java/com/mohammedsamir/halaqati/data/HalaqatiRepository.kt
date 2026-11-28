@@ -6555,9 +6555,10 @@ class HalaqatiRepository(
         val owner = currentUserId() ?: return
         val item = queue.item(id, owner) ?: return
         val server = item.serverJson?.let { runCatching { JSONObject(it) }.getOrNull() }
-        if (item.entityTable == "students" && !item.entityId.isNullOrBlank()) {
+        val entityId = item.entityId
+        if (item.entityTable == "students" && !entityId.isNullOrBlank()) {
             if (server != null) upsertStudentLocal(owner, server, dirty = false)
-            else offlineDb.students().deleteAny(owner, item.entityId)
+            else offlineDb.students().deleteAny(owner, entityId)
             cache.put(owner, CACHE_STUDENTS, localStudentsJson(owner).toString())
         }
         queue.discard(id, owner)
