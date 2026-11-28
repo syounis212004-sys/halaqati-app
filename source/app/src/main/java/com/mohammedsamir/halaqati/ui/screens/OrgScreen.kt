@@ -49,7 +49,7 @@ private data class OrgAssociation(
     val admins: List<OrgPerson>, val supervisors: List<OrgPerson>, val teachers: List<OrgPerson>,
     val centers: List<OrgCenter>, val unassigned: List<OrgHalaqa>, val students: Int, val logo: String? = null,
 ) { val halaqatCount get() = centers.sumOf { it.halaqat.size } + unassigned.size }
-private data class OrgRoot(val isOwner: Boolean, val associations: List<OrgAssociation>, val people: List<OrgPerson>, val halaqat: List<OrgHalaqa>, val centersMissing: Boolean)
+private data class OrgRoot(val isOwner: Boolean, val associations: List<OrgAssociation>, val people: List<OrgPerson>, val halaqat: List<OrgHalaqa>, val centersMissing: Boolean, val uniqueStudents: Int)
 
 private const val NEED_LOGO_SQL = "لحفظ الشعارات شغّل ملف RC69_logos.sql في Supabase مرة واحدة."
 private const val NEED_SQL = "لتفعيل المراكز والمساجد شغّل ملف RC67_org.sql في Supabase مرة واحدة."
@@ -99,7 +99,7 @@ private fun loadOrg(myId: String): OrgRoot {
             centers, mine.filter { it.centerId == null || it.centerId !in known }, mine.sumOf { it.students }, alogo,
         )
     }
-    return OrgRoot(owner, associations, people, halaqat, centersResult.isFailure)
+    return OrgRoot(owner, associations, people, halaqat, centersResult.isFailure, students.map { it.optString("id") }.distinct().size)
 }
 
 /* ============================== screen ============================== */
@@ -172,7 +172,7 @@ fun OrgScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, navigate: (
                     }
                 }
                 if (r.associations.isEmpty()) item { EmptyState("لا توجد جمعيات بعد. أضف أول جمعية ثم عيّن مسؤولها.") }
-                items(r.associations, key = { "a-" + it.id }) { a -> AssociationCard(a, Modifier.animateItem()) { openId = a.id } }
+                items(r.associations, key = { "a-" + it.id }) { a -> AssociationCard(a, Modifier.animateItem(), onEdit = { editingAssociation = a }) { openId = a.id } }
                 val loose = r.halaqat.filter { it.associationId == null }
                 if (loose.isNotEmpty()) {
                     item {
@@ -184,12 +184,14 @@ fun OrgScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, navigate: (
                     }
                     item { Text("لا تتبع أي جمعية: يراها مسؤول النظام ومن أُسندت إليهم مباشرة. اربط الحلقة بجمعية متى شئت دون فقد أي بيانات.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     items(loose, key = { "lh-" + it.id }) { h ->
-                        ElevatedCard(Modifier.fillMaxWidth().animateItem()) {
-                            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(h.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
-                                    Text("${h.students} طالب · ${h.teachers.size} محفّظ · ${h.supervisors.size} مشرف", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                                }
+                        ElevatedCard(Modifier.fillMaxWidth().animateItem(), shape = RoundedCornerShape(24.dp)) {
+                            Row(Modifier.fillMaxWidth().nourHeroFill(MaterialTheme.colorScheme.primary).padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                OrgLogo(h.logo, Icons.Default.MenuBook, HalaqatiGradients.Gold, tile = 48.dp, glyph = 24.dp)
+                                Text(h.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
+                                IconButton(onClick = { logoFor = h }) { Icon(Icons.Default.Edit, "تعديل الشعار", tint = Color.White) }
+                            }
+                            Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("${h.students} طالب · ${h.teachers.size} محفّظ · ${h.supervisors.size} مشرف", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 FilledTonalButton(onClick = { attaching = h }, modifier = Modifier.heightIn(min = 48.dp)) { Icon(Icons.Default.Link, null); Spacer(Modifier.width(6.dp)); Text("ربط بجمعية") }
                             }
                         }
@@ -393,8 +395,8 @@ private fun OwnerHero(r: OrgRoot) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OrgStat("جمعيات", r.associations.size.toString(), Modifier.weight(1f))
                 OrgStat("مسؤولو جمعيات", r.associations.sumOf { it.admins.size }.toString(), Modifier.weight(1f))
-                OrgStat("حلقات", r.associations.sumOf { it.halaqatCount }.toString(), Modifier.weight(1f))
-                OrgStat("طلاب", r.associations.sumOf { it.students }.toString(), Modifier.weight(1f))
+                OrgStat("حلقات", r.halaqat.size.toString(), Modifier.weight(1f))
+                OrgStat("طلاب", r.uniqueStudents.toString(), Modifier.weight(1f))
             }
         }
     }
@@ -454,17 +456,24 @@ private fun OrgStat(label: String, value: String, modifier: Modifier = Modifier)
 }
 
 @Composable
-private fun AssociationCard(a: OrgAssociation, modifier: Modifier = Modifier, onOpen: () -> Unit) {
+private fun AssociationCard(a: OrgAssociation, modifier: Modifier = Modifier, onEdit: () -> Unit, onOpen: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     Surface(modifier.fillMaxWidth().clickable(onClick = onOpen), shape = RoundedCornerShape(24.dp), color = cs.surface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column {
-            Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant).padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth().nourHeroFill(cs.primary).padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OrgLogo(a.logo, Icons.Default.AccountBalance, HalaqatiGradients.Gold, tile = 52.dp, glyph = 28.dp)
                 Column(Modifier.weight(1f)) {
-                    Text(a.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface, maxLines = 2)
-                    Text(a.admins.firstOrNull()?.let { "المسؤول: " + it.name } ?: "لم يُعيَّن مسؤول بعد", style = MaterialTheme.typography.bodyMedium, color = if (a.admins.isEmpty()) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                    Text(a.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                    Text(a.admins.firstOrNull()?.let { "المسؤول: " + it.name } ?: "لم يُعيَّن مسؤول بعد", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = .92f), fontWeight = FontWeight.Bold)
                 }
-                Icon(Icons.Default.ChevronLeft, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                var menu by remember(a.id) { mutableStateOf(false) }
+                Box {
+                    IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "خيارات الجمعية", tint = Color.White) }
+                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        DropdownMenuItem(text = { Text("تعديل البيانات والشعار") }, onClick = { menu = false; onEdit() })
+                        DropdownMenuItem(text = { Text("إدارة الجمعية ومسؤوليها") }, onClick = { menu = false; onOpen() })
+                    }
+                }
             }
             Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("مشرفون" to a.supervisors.size, "مراكز" to a.centers.size, "حلقات" to a.halaqatCount, "محفّظون" to a.teachers.size, "طلاب" to a.students).forEach { (l, v) ->
