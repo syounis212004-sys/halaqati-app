@@ -42,11 +42,30 @@ jobs:
           cat > source/app/google-services.json <<'JSON'
           {"project_info":{"project_number":"123456789012","project_id":"halaqati-v12-debug-fixture"},"client":[{"client_info":{"mobilesdk_app_id":"1:123456789012:android:1234567890abcdef","android_client_info":{"package_name":"com.mohammedsamir.halaqati"}},"api_key":[{"current_key":"offline-fixture"}]}],"configuration_version":"1"}
           JSON
+      - name: Restore pinned Robolectric API 35 fixture
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/robolectric/android-all-instrumented/15-robolectric-12650502-i7
+          key: robolectric-api35-33c2d7cc4186
+      - name: Verify or fetch Robolectric API 35 fixture
+        run: |
+          set -euo pipefail
+          version=15-robolectric-12650502-i7
+          relative="org/robolectric/android-all-instrumented/$version/android-all-instrumented-$version.jar"
+          jar="$HOME/.m2/repository/$relative"
+          digest=33c2d7cc4186d4605269d5d411fa1818972c5b30a9f70bfbbd3d430b076af52f
+          if ! printf '%s  %s\n' "$digest" "$jar" | sha256sum --check --status; then
+            mkdir -p "$(dirname "$jar")"
+            curl -fsSL --retry 4 --max-time 160 "https://maven-central.storage-download.googleapis.com/maven2/$relative" -o "$jar.part"
+            printf '%s  %s\n' "$digest" "$jar.part" | sha256sum --check
+            mv "$jar.part" "$jar"
+          fi
       - name: Build APK and run unit tests
         working-directory: source
         env:
           SUPABASE_URL: https://staging.invalid
           SUPABASE_PUBLISHABLE_KEY: offline-fixture
+          JAVA_TOOL_OPTIONS: -Drobolectric.dependency.repo.url=https://maven-central.storage-download.googleapis.com/maven2
         run: |
           cat > "$RUNNER_TEMP/central-mirror.gradle" <<'GRADLE'
           gradle.beforeSettings { settings ->
