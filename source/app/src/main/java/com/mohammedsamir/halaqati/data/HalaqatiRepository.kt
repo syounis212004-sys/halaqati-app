@@ -6404,7 +6404,7 @@ class HalaqatiRepository(
         // RC15.2: tathbit recitations belong to the monthly plan, never to a phase. The server
         // trigger resolves plan_id from the session date, so no schema-dependent column is sent.
         if (draft.activityType != TrackActivityPolicy.TATHBIT) resolvedSmartPlanPhaseId?.let { obj.put("phase_id", it) }
-        if (draft.notes.isNotBlank()) obj.put("teacher_note", draft.notes)
+        if (draft.notes.isNotBlank() || draft.tilawahAssessment?.optInt("version") == 2) obj.put("teacher_note", draft.notes)
         draft.startSurah?.let { obj.put("start_surah", it) }
         draft.startAyah?.let { obj.put("start_ayah", it) }
         draft.endSurah?.let { obj.put("end_surah", it) }
@@ -6423,7 +6423,7 @@ class HalaqatiRepository(
             if (pending != null) {
                 require(!pending.conflict && !pending.blocked) { "يوجد تعديل متعارض محفوظ؛ راجع مركز المزامنة أولًا" }
                 val prior = pending.body?.let { JSONObject(it) }?.optJSONObject("selection_data")?.optJSONObject("tilawah_assessment")
-                if (prior?.optString("revision") == assessment.optString("base_revision"))
+                if (prior != null && prior.optString("revision") == assessment.optString("base_revision"))
                     assessment.put("base_revision", prior.opt("base_revision") ?: JSONObject.NULL)
             }
         }

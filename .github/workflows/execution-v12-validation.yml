@@ -215,3 +215,34 @@ jobs:
           docker cp source/migration/proposals/phase_four_independent_scope.sql "$PG_CONTAINER:/tmp/scope/proposals/"
           docker cp source/migration/tests/phase_four_independent_scope.sql "$PG_CONTAINER:/tmp/scope/tests/"
           docker exec "$PG_CONTAINER" psql -U postgres -d scope_fixture -v ON_ERROR_STOP=1 -f /tmp/scope/tests/phase_four_independent_scope.sql
+
+  seven-points-contract-sql:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: fixture-only-password
+          POSTGRES_DB: seven_fixture
+        options: >-
+          --health-cmd "pg_isready -U postgres -d seven_fixture"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Test scoped staff, guardian summaries, same-day history, scoring and revision conflicts
+        env:
+          PG_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          docker exec "$PG_CONTAINER" mkdir -p /tmp/seven/tests /tmp/seven/proposals
+          docker cp source/migration/20261128120800_guardian_activity_overview_v12.sql "$PG_CONTAINER:/tmp/seven/"
+          docker cp source/migration/tests/guardian_activity_overview_v12.sql "$PG_CONTAINER:/tmp/seven/tests/"
+          docker cp source/migration/tests/seven_points_contracts.sql "$PG_CONTAINER:/tmp/seven/tests/"
+          docker cp source/migration/proposals/seven_points_scoped_projections.sql "$PG_CONTAINER:/tmp/seven/proposals/"
+          docker cp source/migration/proposals/seven_points_tilawah_scoring.sql "$PG_CONTAINER:/tmp/seven/proposals/"
+          docker exec "$PG_CONTAINER" psql -U postgres -d seven_fixture -v ON_ERROR_STOP=1 -f /tmp/seven/tests/seven_points_contracts.sql

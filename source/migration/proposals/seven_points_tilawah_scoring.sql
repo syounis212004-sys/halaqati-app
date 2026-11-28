@@ -85,4 +85,23 @@ revoke all on function public.rc_tilawah_score_guard_v2() from public,anon,authe
 drop trigger if exists zz_tilawah_score_guard_v2 on public.recitation_entries;
 create trigger zz_tilawah_score_guard_v2 before insert or update on public.recitation_entries
 for each row execute function public.rc_tilawah_score_guard_v2();
+-- Keep historical review sessions editable; prevent new independent review sessions.
+create or replace function public.rc_no_new_review_sessions_v2()
+returns trigger language plpgsql security invoker set search_path='' as $f$
+begin
+  if new.session_type::text='review' then
+    if tg_op='INSERT' then
+      if not exists(select 1 from public.sessions s where s.id=new.id and s.session_type::text='review') then
+        raise exception 'review belongs to tasmee sessions' using errcode='23514';
+      end if;
+    elsif old.session_type::text is distinct from 'review' then
+      raise exception 'review belongs to tasmee sessions' using errcode='23514';
+    end if;
+  end if;
+  return new;
+end $f$;
+revoke all on function public.rc_no_new_review_sessions_v2() from public,anon,authenticated;
+drop trigger if exists zz_no_new_review_sessions_v2 on public.sessions;
+create trigger zz_no_new_review_sessions_v2 before insert or update of session_type on public.sessions
+for each row execute function public.rc_no_new_review_sessions_v2();
 commit;
