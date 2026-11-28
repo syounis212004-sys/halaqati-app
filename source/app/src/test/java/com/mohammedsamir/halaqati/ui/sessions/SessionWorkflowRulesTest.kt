@@ -90,4 +90,23 @@ class SessionWorkflowRulesTest {
         )
     }
 
+
+    @Test fun excusedIsNotUnexcusedAbsence() {
+        val states = listOf(SessionWorkflowRules.StudentState.ABSENT, SessionWorkflowRules.StudentState.EXCUSED, SessionWorkflowRules.StudentState.UNMARKED)
+        val result = SessionWorkflowRules.summary(states)
+        assertEquals(1, result.absent)
+        assertEquals(1, result.excused)
+        assertEquals(1, result.unmarked)
+        assertFalse(SessionWorkflowRules.matchesFilter(SessionWorkflowRules.StudentState.EXCUSED, "absent"))
+        assertTrue(SessionWorkflowRules.matchesFilter(SessionWorkflowRules.StudentState.EXCUSED, "excused"))
+    }
+
+    @Test fun statusTransitionNeverCancelsOrSilentlyReopens() {
+        assertTrue(SessionWorkflowRules.canTransition("open","closed"))
+        assertTrue(SessionWorkflowRules.canTransition("closed","open"))
+        assertTrue(SessionWorkflowRules.canTransition("planned","open"))
+        assertFalse(SessionWorkflowRules.canTransition("open","cancelled"))
+        assertFalse(SessionWorkflowRules.canTransition("closed","planned"))
+        assertFalse(SessionWorkflowRules.canTransition("cancelled","open"))
+    }
 }

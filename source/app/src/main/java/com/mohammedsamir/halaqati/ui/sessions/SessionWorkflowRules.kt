@@ -13,6 +13,17 @@ object SessionWorkflowRules {
         if (WorkModeRules.isProgramType(halaqaType)) listOf("tilawah", "lesson", "test", "other")
         else manualSessionTypes.filterNot { it == "tajweed" }
 
+    fun canTransition(from: String, to: String): Boolean =
+        (from == "open" && to == "closed") || (from in setOf("planned","closed") && to == "open")
+
+    fun statusLabel(status: String): String = when (status) {
+        "open" -> "مفتوحة"
+        "closed" -> "مغلقة"
+        "planned" -> "مجدولة"
+        "cancelled" -> "ملغاة"
+        else -> "حالة غير معروفة"
+    }
+
     const val NOT_RECITED_MARKER = "halaqati:not_recited"
 
     enum class StudentState {
@@ -67,6 +78,7 @@ object SessionWorkflowRules {
         val recited: Int,
         val present: Int,
         val absent: Int,
+        val excused: Int = 0,
     )
 
     fun summary(states: Collection<StudentState>): Summary = Summary(
@@ -75,7 +87,8 @@ object SessionWorkflowRules {
         notRecited = states.count { it == StudentState.NOT_RECITED },
         recited = states.count { it == StudentState.RECITED },
         present = states.count { it in setOf(StudentState.PRESENT, StudentState.LATE, StudentState.NOT_RECITED, StudentState.RECITED) },
-        absent = states.count { it == StudentState.ABSENT || it == StudentState.EXCUSED },
+        absent = states.count { it == StudentState.ABSENT },
+        excused = states.count { it == StudentState.EXCUSED },
     )
 
     fun matchesSearch(value: String, query: String): Boolean {
@@ -101,7 +114,8 @@ object SessionWorkflowRules {
         "not_recited" -> state == StudentState.NOT_RECITED
         "recited" -> state == StudentState.RECITED
         "present_pending" -> state == StudentState.PRESENT || state == StudentState.LATE
-        "absent" -> state == StudentState.ABSENT || state == StudentState.EXCUSED
+        "absent" -> state == StudentState.ABSENT
+        "excused" -> state == StudentState.EXCUSED
         else -> true
     }
 

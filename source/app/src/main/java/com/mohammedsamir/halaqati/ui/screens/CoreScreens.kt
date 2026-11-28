@@ -67,6 +67,7 @@ import com.mohammedsamir.halaqati.plans.SmartPlanHealthRules
 import com.mohammedsamir.halaqati.plans.SmartPlanActivityRules
 import com.mohammedsamir.halaqati.ui.components.*
 import com.mohammedsamir.halaqati.ui.sessions.SessionWorkflowRules
+import com.mohammedsamir.halaqati.ui.sessions.SessionScheduleRules
 import com.mohammedsamir.halaqati.ui.theme.HalaqatiUiTokens
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -1707,13 +1708,6 @@ GoldenSessionCard(
                         session = session,
                         onClick = { if (!session.archived) activeId = session.id else editingSession = session },
                         onEdit = { editingSession = session },
-                        onCancel = {
-                            scope.launch {
-                                com.mohammedsamir.halaqati.ui.runCatchingCancellable { withContext(Dispatchers.IO) { AppGraph.repo.cancelSession(session.id) } }
-                                    .onSuccess { reload(); onRefresh() }
-                                    .onFailure { message = it.message ?: "تعذر إلغاء الجلسة" }
-                            }
-                        },
                         onArchive = {
                             scope.launch {
                                 com.mohammedsamir.halaqati.ui.runCatchingCancellable { withContext(Dispatchers.IO) { AppGraph.repo.setSessionArchived(session, true) } }
@@ -2061,7 +2055,6 @@ private fun GoldenSessionCard(
     session: SessionRow,
     onClick: () -> Unit,
     onEdit: () -> Unit,
-    onCancel: () -> Unit,
     onArchive: () -> Unit,
     onRestore: () -> Unit,
     onDelete: () -> Unit,
@@ -2091,13 +2084,17 @@ private fun GoldenSessionCard(
                     buildList {
                         add(session.date)
                         add(sessionTypeAr(session.type))
-                        add(if (session.archived) "مؤرشفة" else if (session.status == "open") "مفتوحة" else session.status)
                     }.joinToString(" · "),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
+                val (stateBg, stateFg) = com.mohammedsamir.halaqati.ui.theme.statusColors(if (session.status == "open" && !session.archived) "success" else "neutral")
+                Surface(color = stateBg, shape = RoundedCornerShape(8.dp)) {
+                    Text(if (session.archived) "مؤرشفة" else SessionWorkflowRules.statusLabel(session.status),
+                        Modifier.padding(horizontal = 8.dp, vertical = 3.dp), color = stateFg, style = MaterialTheme.typography.labelSmall)
+                }
                 if (session.notes.isNotBlank()) {
                     Text(session.notes, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -2121,7 +2118,6 @@ private fun GoldenSessionCard(
                         )
                     } else {
                         DropdownMenuItem(text = { Text("أرشفة الجلسة") }, leadingIcon = { Icon(Icons.Default.Archive, null) }, onClick = { menuExpanded = false; onArchive() })
-                        DropdownMenuItem(text = { Text("إلغاء الجلسة") }, leadingIcon = { Icon(Icons.Default.Cancel, null) }, onClick = { menuExpanded = false; onCancel() })
                     }
                     DropdownMenuItem(text = { Text("حذف الجلسة") }, leadingIcon = { Icon(Icons.Default.Delete, null) }, onClick = { menuExpanded = false; onDelete() })
                 }
@@ -2151,7 +2147,7 @@ private fun NewSessionDialog(
     val halaqaOptions = halaqas.filter { it.optBoolean("active", true) }
         .map { it.optString("id") to it.optString("name").ifBlank { "حلقة" } }
     var halaqaId by remember(halaqas, initialHalaqaId) {
-        mutableStateOf(initialHalaqaId?.takeIf { id -> halaqaOptions.any { it.first == id } } ?: halaqaOptions.singleOrNull()?.first.orEmpty())
+        mutableStateOf(if (initialHalaqaId != null) initialHalaqaId.takeIf { id -> halaqaOptions.any { it.first == id } }.orEmpty() else halaqaOptions.singleOrNull()?.first.orEmpty())
     }
     var date by remember { mutableStateOf(LocalDate.now()) }
     var preferredType by remember { mutableStateOf<String?>(null) }
@@ -2170,7 +2166,7 @@ private fun NewSessionDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 HalaqatiLazySelectField(
-                    label = "الحلقة",
+                    label = "الحلقة / البرنامج",
                     selectedKey = halaqaId,
                     options = halaqaOptions,
                     onSelected = { halaqaId = it; preferredType = null },
@@ -2186,9 +2182,12 @@ private fun NewSessionDialog(
                     singleLine = true,
                 )
                 Text("نوع الجلسة", style = MaterialTheme.typography.labelLarge)
-                ResponsiveChipGrid(items = types, minItemWidth = 105.dp, maxColumns = 3) { value, itemModifier ->
+                Text(if (com.mohammedsamir.halaqati.plans.WorkModeRules.isProgramType(selectedHalaqaType))
+                    "أنشطة البرنامج مستقلة عن خطة التحفيظ." else "اختر نشاطًا من أنشطة الحلقة.", style = MaterialTheme.typography.bodySmall)
+                ResponsiveChipGrid(items = types, minItemWidth = 125.dp, maxColumns = 2) { value, itemModifier ->
                     ProFilterChip(type == value, { preferredType = value }, sessionTypeAr(value), itemModifier.fillMaxWidth(), showCheckIcon = false)
                 }
+                if (date != LocalDate.now()) StateNotice(if (date.isAfter(LocalDate.now())) "تاريخ مستقبلي؛ تُحفظ الجلسة في السجل وفق حالة الخادم." else "جلسة بتاريخ سابق؛ راجع التاريخ قبل الحفظ.", "info")
             }
         },
         confirmButton = {
@@ -2214,7 +2213,10 @@ private fun EditSessionDialog(
     var title by remember(session.id) { mutableStateOf(session.title) }
     var notes by remember(session.id) { mutableStateOf(session.notes) }
     var showDatePicker by remember(session.id) { mutableStateOf(false) }
-    val types = SessionWorkflowRules.manualSessionTypes.filterNot { it == "tajweed" }
+    val selectedType = halaqas.firstOrNull { it.optString("id") == halaqaId }?.optString("halaqa_type")
+    val baseTypes = SessionWorkflowRules.manualTypesForScope(selectedType)
+    val types = if (halaqaId == session.halaqaId) (baseTypes + session.type).distinct() else baseTypes
+    val selectedTypeValue = type.takeIf { it in types } ?: types.first()
     val halaqaOptions = halaqas.filter { it.optBoolean("active", true) || it.optString("id") == session.halaqaId }
         .map { it.optString("id") to it.optString("name").ifBlank { "حلقة" } }
 
@@ -2226,18 +2228,18 @@ private fun EditSessionDialog(
                 Modifier.fillMaxWidth().heightIn(max = 600.dp).verticalScroll(rememberScrollState()).imePadding(),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                HalaqatiLazySelectField("الحلقة", halaqaId, halaqaOptions, { halaqaId = it }, Modifier.fillMaxWidth(), searchable = halaqaOptions.size > 8)
+                HalaqatiLazySelectField("الحلقة / البرنامج", halaqaId, halaqaOptions, { halaqaId = it }, Modifier.fillMaxWidth(), searchable = halaqaOptions.size > 8)
                 HalaqatiDateField("تاريخ الجلسة", date, { showDatePicker = true }, Modifier.fillMaxWidth())
                 Text("نوع الجلسة", style = MaterialTheme.typography.labelLarge)
-                ResponsiveChipGrid(items = types, minItemWidth = 105.dp, maxColumns = 3) { value, itemModifier ->
-                    ProFilterChip(type == value, { type = value }, sessionTypeAr(value), itemModifier.fillMaxWidth(), showCheckIcon = false)
+                ResponsiveChipGrid(items = types, minItemWidth = 125.dp, maxColumns = 2) { value, itemModifier ->
+                    ProFilterChip(selectedTypeValue == value, { type = value }, sessionTypeAr(value), itemModifier.fillMaxWidth(), showCheckIcon = false)
                 }
                 OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("عنوان الجلسة") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text("ملاحظات الجلسة") }, modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp, max = 180.dp), minLines = 3, maxLines = 6)
-                StateNotice("إذا غيّرت تاريخ الجلسة، يعيد النظام ربط التسميعات بالخطة والمرحلة الصحيحة وتحديث أرشيف الشهر والشارات.", kind = "info")
+                StateNotice("تغيير نوع الجلسة أو نشاطها بعد تسجيل بيانات يحتاج مراجعة الخادم. لا تُنقل بيانات الطلاب تلقائيًا إلى نشاط آخر.", kind = "info")
             }
         },
-        confirmButton = { Button(onClick = { save(halaqaId, date.toString(), type, title.trim(), notes.trim()) }, enabled = halaqaId.isNotBlank()) { Text("حفظ التعديلات") } },
+        confirmButton = { Button(onClick = { save(halaqaId, date.toString(), selectedTypeValue, title.trim(), notes.trim()) }, enabled = halaqaId.isNotBlank()) { Text("حفظ التعديلات") } },
         dismissButton = { TextButton(onClick = close) { Text("إلغاء") } },
     )
     if (showDatePicker) {
@@ -2272,6 +2274,9 @@ private fun SessionRosterScreen(
 ) {
     // RC27.9: the halaqa decides the kind of session; programs never offer hifz/sard/review or smart plans.
     val isProgramSession = programSession || session.type in setOf("tajweed", "tilawah")
+    val editable = session.status == "open" && !session.archived
+    val activityDoneLabel = if (isProgramSession) "نشاط مسجل" else "سُمّع"
+    val activityMissingLabel = if (isProgramSession) "لم يسجل نشاطًا" else "لم يُسمّع"
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var selected by remember { mutableStateOf<SessionRecitationTarget?>(null) }
@@ -2290,6 +2295,8 @@ private fun SessionRosterScreen(
     var refreshing by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var closeConfirm by remember { mutableStateOf(false) }
+    var transitionTarget by remember(session.id) { mutableStateOf<String?>(null) }
+    var transitioning by remember(session.id) { mutableStateOf(false) }
     var expandedStudentId by remember { mutableStateOf<String?>(null) }
     var sessionFiltersOpen by remember { mutableStateOf(false) }
     var deleteRecitationTarget by remember { mutableStateOf<Pair<Student, RecitationRow>?>(null) }
@@ -2307,6 +2314,7 @@ private fun SessionRosterScreen(
                     val sessionDay = runCatching { LocalDate.parse(session.date) }.getOrDefault(LocalDate.now())
                     runCatching { AppGraph.repo.planSnapshots(sessionDay, forceRefresh = false) }
                         .getOrDefault(emptyList())
+                        .filter { !isProgramSession && it.plan.halaqaId == session.halaqaId }
                         .groupBy { it.student.id }
                 } else emptyMap()
                 SessionRosterLoad(a, n, r, q, plans)
@@ -2472,7 +2480,7 @@ private fun SessionRosterScreen(
     fun snapshotForActivity(studentId: String, activityType: String): PlanSnapshot? {
         // Tilawah is an independent quality assessment. It must never inherit a Hifz/Tathbit
         // assignment merely because the student also has an active smart plan.
-        if (activityType == "tilawah") return null
+        if (isProgramSession || activityType == "tilawah") return null
         val key = when (activityType) {
             "sard" -> "sard"
             "review_near", "review_far", "review" -> "review"
@@ -2489,7 +2497,7 @@ private fun SessionRosterScreen(
 
     val queryNormalized = query.trim()
     val trackAndQuery = students.filter { student ->
-        (track == "all" || student.track == track) &&
+        (isProgramSession || track == "all" || student.track == track) &&
             (queryNormalized.isBlank() || SessionWorkflowRules.matchesSearch(student.fullName, queryNormalized) || student.id.contains(queryNormalized, ignoreCase = true))
     }
     // RC27.24: the priority order (not yet marked first...) is frozen when the roster loads or the sort changes. Before, marking
@@ -2505,7 +2513,7 @@ private fun SessionRosterScreen(
                 else -> list.sortedWith(compareBy<Student> { frozenRank[it.id] ?: SessionWorkflowRules.priority(stateFor(it)) }.thenBy { it.fullName })
             }
         }
-    val sessionSummary = SessionWorkflowRules.summary(trackAndQuery.map(::stateFor))
+    val sessionSummary = SessionWorkflowRules.summary(students.map(::stateFor))
     val present = sessionSummary.present
     val absent = sessionSummary.absent
     val recited = sessionSummary.recited
@@ -2526,6 +2534,7 @@ private fun SessionRosterScreen(
                     Column(Modifier.weight(1f)) {
                         Text(session.title.ifBlank { sessionTypeAr(session.type) }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text("${session.date} · ${sessionTypeAr(session.type)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(SessionWorkflowRules.statusLabel(session.status), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                     }
                     IconButton(onClick = { onEditSession(session) }, modifier = Modifier.size(HalaqatiUiTokens.TouchTarget)) {
                         Icon(Icons.Default.Edit, contentDescription = "تعديل بيانات الجلسة")
@@ -2533,7 +2542,8 @@ private fun SessionRosterScreen(
                 }
             }
 
-            if (refreshing) LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(2.dp))
+            if (refreshing || transitioning) LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(2.dp))
+            if (!editable) StateNotice("هذه الجلسة للعرض فقط. ابدأها أو أعد فتحها من الزر أدناه لتسجيل البيانات.", "info", modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
 
             OutlinedTextField(
                 value = query,
@@ -2556,12 +2566,18 @@ private fun SessionRosterScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    // RC90: four colour tiles on one row instead of a single wrapped line of text.
-                    Row(Modifier.weight(1f).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        SessionMiniTile(recited, "سُمّع", "success", Modifier.weight(1f))
-                        SessionMiniTile(notRecited, "لم يُسمّع", "warning", Modifier.weight(1f))
-                        SessionMiniTile(absent, "غائب", "danger", Modifier.weight(1f))
-                        SessionMiniTile(unmarked, "غير مرصود", "neutral", Modifier.weight(1f))
+                    Column(Modifier.weight(1f).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("ملخص الجلسة · ${sessionSummary.total} طالب", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            SessionMiniTile(present, "حاضر / متأخر", "success", Modifier.weight(1f))
+                            SessionMiniTile(absent, "غائب", "danger", Modifier.weight(1f))
+                            SessionMiniTile(sessionSummary.excused, "معذور", "warning", Modifier.weight(1f))
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            SessionMiniTile(recited, activityDoneLabel, "success", Modifier.weight(1f))
+                            SessionMiniTile(notRecited, activityMissingLabel, "warning", Modifier.weight(1f))
+                            SessionMiniTile(unmarked, "غير مرصود", "neutral", Modifier.weight(1f))
+                        }
                     }
                     IconButton(onClick = { sessionFiltersOpen = true }, modifier = Modifier.size(HalaqatiUiTokens.TouchTarget)) {
                         Icon(Icons.Default.Tune, contentDescription = "تصفية وترتيب")
@@ -2576,17 +2592,17 @@ private fun SessionRosterScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         Text("حالة الجلسة والفلترة", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        SessionSummaryStrip(summary = sessionSummary)
+                        SessionSummaryStrip(summary = sessionSummary, programSession = isProgramSession)
                         Text("حالة الطالب", style = MaterialTheme.typography.labelLarge)
                         ResponsiveChipGrid(
-                            items = listOf("all" to "الكل", "unmarked" to "لم يُرصد", "not_recited" to "لم يُسمّع", "present_pending" to "حاضر بلا تسميع", "recited" to "تم التسميع", "absent" to "الغياب"),
+                            items = listOf("all" to "الكل", "unmarked" to "لم يُرصد", "not_recited" to activityMissingLabel, "present_pending" to if (isProgramSession) "حاضر بلا نشاط" else "حاضر بلا تسميع", "recited" to activityDoneLabel, "absent" to "غائب", "excused" to "معذور"),
                             minItemWidth = 112.dp, maxColumns = 2,
                         ) { pair, itemModifier ->
                             ProFilterChip(statusFilter == pair.first, { statusFilter = pair.first }, pair.second, itemModifier.fillMaxWidth(), showCheckIcon = false)
                         }
-                        Text("المسار والترتيب", style = MaterialTheme.typography.labelLarge)
+                        Text(if (isProgramSession) "الترتيب" else "المسار والترتيب", style = MaterialTheme.typography.labelLarge)
                         ResponsiveChipGrid(
-                            items = listOf("track_all" to "كل المسارات", "track_hifz" to "الحفظ العام", "track_tathbit" to "التثبيت", "sort_priority" to "الأولوية", "sort_alpha" to "أبجدي"),
+                            items = (if (isProgramSession) emptyList() else listOf("track_all" to "كل المسارات", "track_hifz" to "الحفظ العام", "track_tathbit" to "التثبيت")) + listOf("sort_priority" to "الأولوية", "sort_alpha" to "أبجدي"),
                             minItemWidth = 112.dp, maxColumns = 2,
                         ) { pair, itemModifier ->
                             ProFilterChip(
@@ -2666,8 +2682,8 @@ private fun SessionRosterScreen(
                                             listOfNotNull(
                                                 when (state) {
                                                     SessionWorkflowRules.StudentState.UNMARKED -> "لم يُرصد بعد"
-                                                    SessionWorkflowRules.StudentState.NOT_RECITED -> "لم يُسمّع"
-                                                    SessionWorkflowRules.StudentState.RECITED -> "تم التسميع ${recitations[student.id].orEmpty().size}"
+                                                    SessionWorkflowRules.StudentState.NOT_RECITED -> activityMissingLabel
+                                                    SessionWorkflowRules.StudentState.RECITED -> "$activityDoneLabel ${recitations[student.id].orEmpty().size}"
                                                     SessionWorkflowRules.StudentState.ABSENT -> "غائب"
                                                     SessionWorkflowRules.StudentState.EXCUSED -> "غائب بعذر"
                                                     SessionWorkflowRules.StudentState.LATE -> "متأخر"
@@ -2722,7 +2738,7 @@ private fun SessionRosterScreen(
                                     exit = motionExit(fadeOut() + shrinkVertically()),
                                 ) {
                                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if (editable && !transitioning) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     SessionChoiceMenu(
                                         label = "الحضور",
                                         selected = status ?: "unmarked",
@@ -2752,11 +2768,11 @@ private fun SessionRosterScreen(
                                 }
 
                                 planSnapshotsByStudent[student.id]?.takeIf { it.isNotEmpty() }?.let { snapshots ->
-                                    if (!isProgramSession) {
+                                    if (!isProgramSession && editable && !transitioning) {
                                         SessionSmartPlanCard(snapshots, session.date) { activity, snapshot ->
                                             selected = SessionRecitationTarget(student, activity, snapshot)
                                         }
-                                    } else {
+                                    } else if (isProgramSession) {
                                         StateNotice("جلسة ${sessionTypeAr(session.type)} مستقلة عن تقدم خطة الحفظ الأساسية.", "info")
                                     }
                                 }
@@ -2784,7 +2800,7 @@ private fun SessionRosterScreen(
                                                     overflow = TextOverflow.Ellipsis,
                                                 )
                                             }
-                                            IconButton(
+                                            if (editable && !transitioning) IconButton(
                                                 onClick = {
                                                     val snapshot = planSnapshotsByStudent[student.id]?.firstOrNull { it.plan.id == rec.smartPlanId }
                                                         ?: planSnapshotsByStudent[student.id]?.firstOrNull()
@@ -2792,7 +2808,7 @@ private fun SessionRosterScreen(
                                                 },
                                                 modifier = Modifier.size(HalaqatiUiTokens.TouchTarget),
                                             ) { Icon(Icons.Default.Edit, contentDescription = "تعديل التسميع") }
-                                            IconButton(
+                                            if (editable && !transitioning) IconButton(
                                                 onClick = { deleteRecitationTarget = student to rec },
                                                 modifier = Modifier.size(HalaqatiUiTokens.TouchTarget),
                                             ) { Icon(Icons.Default.DeleteOutline, contentDescription = "حذف التسميع", tint = MaterialTheme.colorScheme.error) }
@@ -2800,7 +2816,7 @@ private fun SessionRosterScreen(
                                     }
                                 }
 
-                                OutlinedButton(
+                                if (editable && !transitioning) OutlinedButton(
                                     onClick = { quickActionsOpen = true },
                                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                                 ) {
@@ -2808,7 +2824,7 @@ private fun SessionRosterScreen(
                                     Spacer(Modifier.width(8.dp))
                                     Text("إجراءات الطالب السريعة")
                                 }
-                                if (quickActionsOpen) {
+                                if (quickActionsOpen && editable && !transitioning) {
                                     QuickActionSheet(onDismissRequest = { quickActionsOpen = false }) {
                                         Column(
                                             Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
@@ -2841,7 +2857,7 @@ private fun SessionRosterScreen(
                                                     ) {
                                                         Icon(Icons.Default.VoiceOverOff, null, Modifier.size(18.dp))
                                                         Spacer(Modifier.width(4.dp))
-                                                        Text("لم يُسمّع")
+                                                        Text(activityMissingLabel)
                                                     }
                                                 }
                                                 FilledTonalButton(
@@ -2868,10 +2884,21 @@ private fun SessionRosterScreen(
             }
             }
 
-            OutlinedButton(
-                onClick = { closeConfirm = true },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp).heightIn(min = HalaqatiUiTokens.TouchTarget),
-            ) { Icon(Icons.Default.DoneAll, null); Spacer(Modifier.width(6.dp)); Text("الخروج من الجلسة") }
+            Surface(shadowElevation = 4.dp, tonalElevation = 2.dp) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (editable || SessionWorkflowRules.canTransition(session.status, "open")) {
+                        Button(onClick = { transitionTarget = if (editable) "closed" else "open" },
+                            enabled = rosterReady && !transitioning,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = HalaqatiUiTokens.TouchTarget)) {
+                            if (transitioning) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                            else Icon(Icons.Default.DoneAll, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (editable) "إغلاق الجلسة نهائيًا" else if (session.status == "planned") "بدء الجلسة" else "إعادة فتح الجلسة")
+                        }
+                    }
+                    TextButton(onClick = { closeConfirm = true }, enabled = !transitioning, modifier = Modifier.fillMaxWidth()) { Text(if (editable) "خروج مؤقت" else "الرجوع إلى الجلسات") }
+                }
+            }
         }
 
         SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp))
@@ -2916,15 +2943,48 @@ private fun SessionRosterScreen(
         )
     }
 
+    transitionTarget?.let { target ->
+        HalaqatiAlertDialog(
+            onDismissRequest = { if (!transitioning) transitionTarget = null },
+            title = { Text(if (target == "closed") "إغلاق الجلسة" else "فتح الجلسة") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(if (target == "closed") "سيتم تغيير حالة الجلسة بعد تأكيد الخادم فقط. يبقى غير المرصود غير مرصود، ولا تُسجل غيابات تلقائيًا." else "ستصبح الجلسة قابلة لتسجيل الحضور والأنشطة مجددًا.")
+                    if (target == "closed") SessionSummaryStrip(summary = sessionSummary, programSession = isProgramSession)
+                    Text("تحتاج هذه العملية اتصالًا بالإنترنت وإتمام مزامنة عمليات هذه الجلسة.", style = MaterialTheme.typography.bodySmall)
+                    message?.let { StateNotice(it, "warning") }
+                }
+            },
+            confirmButton = {
+                Button(enabled = !transitioning, onClick = {
+                    transitioning = true
+                    message = null
+                    scope.launch {
+                        try {
+                            withContext(Dispatchers.IO) { AppGraph.repo.transitionSession(session, target) }
+                            transitionTarget = null
+                            if (target == "closed") HalaqatiMotionEvents.celebrate()
+                            onChanged()
+                            close()
+                        } catch (e: CancellationException) { throw e }
+                        catch (e: Exception) { message = e.message ?: "تعذر تغيير حالة الجلسة" }
+                        finally { transitioning = false }
+                    }
+                }) { Text(if (transitioning) "جارٍ التأكيد…" else "تأكيد") }
+            },
+            dismissButton = { TextButton(onClick = { transitionTarget = null }, enabled = !transitioning) { Text("إلغاء") } },
+        )
+    }
+
     if (closeConfirm) {
         val unmarkedCount = students.count { stateFor(it) == SessionWorkflowRules.StudentState.UNMARKED }
         HalaqatiAlertDialog(
             onDismissRequest = { closeConfirm = false },
-            title = { Text("الخروج من الجلسة") },
+            title = { Text("خروج دون تغيير الحالة") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (unmarkedCount > 0) Text("عدد الطلاب الذين لم يُرصد حضورهم: $unmarkedCount. ستبقى حالتهم غير مرصودة.")
-                    SessionSummaryStrip(summary = sessionSummary)
+                    SessionSummaryStrip(summary = sessionSummary, programSession = isProgramSession)
                 }
             },
             confirmButton = {
@@ -3495,14 +3555,16 @@ private fun TilawahRatingRow(label: String, value: Int, onValue: (Int) -> Unit) 
 private fun SessionSummaryStrip(
     summary: SessionWorkflowRules.Summary,
     modifier: Modifier = Modifier,
+    programSession: Boolean = false,
 ) {
     ResponsiveChipGrid(
         items = listOf(
             Triple("غير مرصود", summary.unmarked.toString(), Icons.Default.PendingActions),
-            Triple("لم يُسمّع", summary.notRecited.toString(), Icons.Default.VoiceOverOff),
-            Triple("سمّع", summary.recited.toString(), Icons.Default.Mic),
-            Triple("حاضر", summary.present.toString(), Icons.Default.CheckCircle),
+            Triple(if (programSession) "بلا نشاط" else "لم يُسمّع", summary.notRecited.toString(), Icons.Default.VoiceOverOff),
+            Triple(if (programSession) "نشاط مسجل" else "سمّع", summary.recited.toString(), Icons.Default.Mic),
+            Triple("حاضر / متأخر", summary.present.toString(), Icons.Default.CheckCircle),
             Triple("غائب", summary.absent.toString(), Icons.Default.Cancel),
+            Triple("معذور", summary.excused.toString(), Icons.Default.Info),
         ),
         minItemWidth = 108.dp,
         maxColumns = 3,
@@ -6921,6 +6983,6 @@ private fun SessionMiniTile(value: Int, label: String, kind: String, modifier: M
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(value.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = fg)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = fg, maxLines = 1)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = fg, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
 }

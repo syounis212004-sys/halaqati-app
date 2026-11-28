@@ -26,6 +26,7 @@ import com.mohammedsamir.halaqati.quran.QuranRangeRequest
 import com.mohammedsamir.halaqati.quran.QuranSelection
 import com.mohammedsamir.halaqati.quran.QuranTraversalDirection
 import com.mohammedsamir.halaqati.ui.sessions.SessionWorkflowRules
+import com.mohammedsamir.halaqati.ui.sessions.SessionScheduleRules
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
@@ -5638,10 +5639,18 @@ class HalaqatiRepository(
             if (existing != null) return SessionRow.from(existing).also(::cacheSession)
         }
 
-        // Saturday is the fixed halaqa off-day. Reading/opening today's workflow must
-        // never create a phantom session. Existing exceptional sessions were returned above.
-        if (SmartPlanEngine.weekday(sessionDate) == 6) {
-            error("اليوم السبت إجازة حسب نظام الحلقة. لا يتم إنشاء جلسة تلقائيًا في يوم الإجازة.")
+        // Existing exceptional sessions were returned above. Schedule is independent of smart-plan days.
+        val group = table("halaqas", "select=*&id=eq.$halaqaId&limit=1").optJSONObject(0)
+            ?: error("تعذر التحقق من جدول النشاط. أنشئ جلسة يدويًا بعد اختيار النشاط.")
+        require(group.optBoolean("active", false)) { "النشاط غير مفعل" }
+        val program = com.mohammedsamir.halaqati.plans.WorkModeRules.isProgramType(group.optString("halaqa_type"))
+        val configuredDays = group.optJSONArray("session_weekdays")?.let { a ->
+            (0 until a.length()).map { a.optInt(it, -1) }.toSet()
+        }
+        val configuredAuto = if (group.has("auto_session_enabled") && !group.isNull("auto_session_enabled"))
+            group.optBoolean("auto_session_enabled") else null
+        check(SessionScheduleRules.allowsAutomatic(sessionDate, program, configuredDays, configuredAuto)) {
+            "لا توجد جلسة تلقائية حسب جدول النشاط. يمكنك إنشاء جلسة مخصصة يدويًا."
         }
 
         val title = when (sessionType) {
@@ -5911,6 +5920,30 @@ class HalaqatiRepository(
         patch("sessions", "id=eq.$sessionId", JSONObject().put("status", "cancelled"), dedupe = "session-cancel:$sessionId")
         removeSessionFromLocalCache(sessionId)
         invalidateSessionDerivedCaches()
+    }
+
+    /** Only status changes; never manufacture attendance during finalization. */
+    fun transitionSession(session: SessionRow, to: String): SessionRow {
+        requireConfirmedMutationConnection()
+        require(!session.archived && SessionWorkflowRules.canTransition(session.status, to)) { "انتقال حالة الجلسة غير صالح" }
+        val owner = currentUserId() ?: error("الجلسة غير صالحة")
+        return synchronized(pushLock) {
+            val pending = queue.snapshot(owner, 2000)
+            check(pending.size < 2000 && pending.none { item ->
+                val body = item.body?.let { runCatching { JSONObject(it) }.getOrNull() }
+                SessionScheduleRules.pendingFor(session.id, item.dedupe, item.path, body?.optString("session_id"))
+                    || item.entityTable == "sessions" && item.entityId == session.id
+            }) { "توجد عمليات معلقة لهذه الجلسة. أتمم المزامنة وعالج الأخطاء أولًا." }
+            val result = rpcObject("rc_transition_session_v12", JSONObject()
+                .put("p_session_id", session.id).put("p_expected_status", session.status).put("p_status", to))
+            check(result.optBoolean("ok")) { result.optString("error").ifBlank { "لم يؤكد الخادم تغيير حالة الجلسة" } }
+            val row = result.optJSONObject("session") ?: error("لم يرجع الخادم بيانات الجلسة")
+            val updated = SessionRow.from(row)
+            check(updated.id == session.id && updated.status == to) { "حالة الجلسة غير متطابقة" }
+            cacheSession(updated)
+            invalidateSessionDerivedCaches()
+            updated
+        }
     }
 
     fun archiveSession(sessionId: String) {

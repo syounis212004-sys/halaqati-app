@@ -46,6 +46,8 @@ Source base for knowledge setup: `e900ccb` (RC114 / 2.91.14); code is in `source
 - Phase two remains on the same development branch. Scope-specific student detail avoids cross-program statistics and personal edits from a secondary membership. New online enrollment uses proposed invoker RPC 20261128120400, atomic with additional program memberships; stage before release. Existing offline student creation still uses legacy outbox pending full reconciliation. See [phase two plan](superpowers/plans/2026-11-28-v12-phase-two-enrollment.md).
 - Graphify 0.9.121 on main matches main's source tree; never copy a graph generated against a different source tree.
 
+- Phase three: weekly session days (ISO Mon=1..Sun=7) and automatic/manual policy, distinct absent/excused, roster summary independent of search, confirmed close/reopen without creating attendance, read-only closed roster in new Android client. Proposed 20261128120500 migration; not applied. Existing direct cancellation shortcut removed from session list (server cancelled trigger is destructive). Old-client/server-wide immutability, atomic deletion and full restore remain pending. See [phase three plan](superpowers/plans/2026-11-28-v12-phase-three-sessions.md).
+
 ## Known limitations / unfinished work
 - External CircleCI reports "No configuration was found"; this already occurs
   on baseline `e900ccb`. The independent knowledge GitHub Actions job is the

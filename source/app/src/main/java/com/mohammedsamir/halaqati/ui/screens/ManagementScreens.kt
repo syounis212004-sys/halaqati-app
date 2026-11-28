@@ -3,6 +3,7 @@
 package com.mohammedsamir.halaqati.ui.screens
 
 import com.mohammedsamir.halaqati.plans.ProgramKindRules
+import com.mohammedsamir.halaqati.ui.sessions.SessionScheduleRules
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -370,7 +371,7 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
             saving = halaqaSaving,
             errorText = halaqaDialogError,
             close = { if (!halaqaSaving) { addHalaqa = false; editHalaqa = null; halaqaDialogError = null } },
-            save = { name, location, schedule, description, halaqaType, programKind, specialization, programLevel, assessmentType, programStage, affectsPrimaryPlan, startsOn, endsOn, logo ->
+            save = { name, location, schedule, description, halaqaType, programKind, specialization, programLevel, assessmentType, programStage, affectsPrimaryPlan, startsOn, endsOn, logo, sessionWeekdays, automaticSessions ->
                 scope.launch {
                     halaqaSaving = true
                     halaqaDialogError = null
@@ -393,6 +394,8 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
                                 .put("active", true)
                             // Older servers remain compatible until a stage is explicitly selected.
                             if (programStage != null || editHalaqa?.has("program_stage") == true) obj.put("program_stage", programStage ?: JSONObject.NULL)
+                            if (sessionWeekdays != null) obj.put("session_weekdays", org.json.JSONArray(sessionWeekdays.sorted()))
+                            if (automaticSessions != null) obj.put("auto_session_enabled", automaticSessions)
                             val oldLogo = editHalaqa?.mgmtStr("logo_path")?.ifBlank { null }
                             if (logo != oldLogo) obj.put("logo_path", logo ?: JSONObject.NULL)
                             val id = editHalaqa?.optString("id")
@@ -818,7 +821,7 @@ private fun HalaqaDialog(
     saving: Boolean = false,
     errorText: String? = null,
     close: () -> Unit,
-    save: (String, String, String, String, String, String, String, String, String, String?, Boolean, LocalDate?, LocalDate?, String?) -> Unit,
+    save: (String, String, String, String, String, String, String, String, String, String?, Boolean, LocalDate?, LocalDate?, String?, Set<Int>?, Boolean?) -> Unit,
 ) {
     var name by remember(current) { mutableStateOf(current?.optString("name").orEmpty()) }
     var logo by remember(current) { mutableStateOf(current?.mgmtStr("logo_path")?.ifBlank { null }) }
@@ -843,6 +846,10 @@ private fun HalaqaDialog(
     var programLevel by remember(current) { mutableStateOf(current?.mgmtStr("program_level")?.takeIf { value -> levelOptions.any { it.first == value } } ?: "open") }
     var assessmentType by remember(current) { mutableStateOf(current?.mgmtStr("assessment_type")?.takeIf { value -> assessmentOptions.any { it.first == value } } ?: "none") }
     val program = halaqaType != "regular"
+    var configuredDays by remember(current) { mutableStateOf(current?.optJSONArray("session_weekdays")?.let { a -> (0 until a.length()).map { a.optInt(it, -1) }.toSet() }) }
+    var configuredAuto by remember(current) { mutableStateOf(current?.takeIf { it.has("auto_session_enabled") && !it.isNull("auto_session_enabled") }?.optBoolean("auto_session_enabled")) }
+    val sessionDays = SessionScheduleRules.days(program, configuredDays)
+    val autoSessions = SessionScheduleRules.automaticEnabled(program, configuredAuto)
     val selectedKind = if (!program) "continuous" else programKind.takeIf { value -> kindOptions.any { it.first == value } }
         ?: if (halaqaType == "course" || halaqaType == "training") "course" else "continuous"
     val allowedSpecializations = when (halaqaType) {
@@ -930,7 +937,24 @@ private fun HalaqaDialog(
                     HalaqatiDateField("نهاية البرنامج", endsOn, { pickEnd = true }, Modifier.fillMaxWidth())
                 }
                 OutlinedTextField(location, { location = it }, label = { Text("المكان") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(schedule, { schedule = it }, label = { Text("البرنامج") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                ElevatedCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("جدول الجلسات الأسبوعي", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("حدد أيام العمل لهذا النشاط. الجلسة اليدوية ممكنة حتى في يوم الإجازة.", style = MaterialTheme.typography.bodySmall)
+                        ResponsiveChipGrid(items = SessionScheduleRules.weekdayLabels, minItemWidth = 95.dp, maxColumns = 3) { day, itemModifier ->
+                            ProFilterChip(day.first in sessionDays, { configuredDays = if (day.first in sessionDays) sessionDays - day.first else sessionDays + day.first }, day.second, itemModifier.fillMaxWidth(), showCheckIcon = true)
+                        }
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Column(Modifier.weight(1f)) {
+                                Text("إنشاء تلقائي حسب الجدول", fontWeight = FontWeight.SemiBold)
+                                Text(if (autoSessions) "عند طلب جلسة اليوم من مسار العمل" else "إنشاء الجلسات يدويًا فقط", style = MaterialTheme.typography.bodySmall)
+                            }
+                            Switch(checked = autoSessions, onCheckedChange = { configuredAuto = it })
+                        }
+                        if (autoSessions && sessionDays.isEmpty()) Text("اختر يوم عمل واحدًا على الأقل.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                OutlinedTextField(schedule, { schedule = it }, label = { Text("وصف الموعد / الجدول") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(description, { description = it }, label = { Text("الوصف") }, minLines = 2, maxLines = 5, modifier = Modifier.fillMaxWidth())
                 if (halaqaType != "regular") StateNotice("طلاب هذه الدورة يمكن إضافتهم كعضوية إضافية دون نقلهم من حلقتهم الأساسية.", "info")
                 errorText?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
@@ -938,8 +962,8 @@ private fun HalaqaDialog(
         },
         confirmButton = {
             Button(
-                onClick = { save(name.trim(), location.trim(), schedule.trim(), description.trim(), halaqaType, selectedKind, selectedSpecialization, if (program) programLevel else "open", if (program) assessmentType else "attendance", ProgramKindRules.validStage(halaqaType, selectedSpecialization, programStage), affectsPrimaryPlan && !recitationFamily, startsOn.takeIf { halaqaType != "regular" }, endsOn.takeIf { halaqaType != "regular" }, logo) },
-                enabled = !saving && name.trim().length >= 2 && (halaqaType == "regular" || !endsOn.isBefore(startsOn)),
+                onClick = { save(name.trim(), location.trim(), schedule.trim(), description.trim(), halaqaType, selectedKind, selectedSpecialization, if (program) programLevel else "open", if (program) assessmentType else "attendance", ProgramKindRules.validStage(halaqaType, selectedSpecialization, programStage), affectsPrimaryPlan && !recitationFamily, startsOn.takeIf { halaqaType != "regular" }, endsOn.takeIf { halaqaType != "regular" }, logo, configuredDays, configuredAuto) },
+                enabled = !saving && name.trim().length >= 2 && (!autoSessions || sessionDays.isNotEmpty()) && (halaqaType == "regular" || !endsOn.isBefore(startsOn)),
             ) {
                 if (saving) { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)) }
                 Text(if (saving) "جاري الحفظ" else "حفظ")
