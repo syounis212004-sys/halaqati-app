@@ -18,3 +18,10 @@ Repository Halaqati UI/UX contract, Android design, Frontend Design, UI/UX Pro M
 
 ## Pending
 Atomic delete/restore, server-wide closure enforcement, scheduling future sessions, start/end times, web parity, staged migrations, device previews and release checks.
+
+## Verified evidence and review
+- 16 standalone Kotlin assertions against byte-identical SessionScheduleRules.kt (Git blob 5a45d76d224b17e5b8b5d44f5b3137d7c235544c) passed: schedule defaults/explicit Saturday/empty days and exact pending-session IDs.
+- Previous combined phase 1/2 Android run 46141876527 passed; narrow RTL date regression resolved in that revision.
+- Live database inspection (read-only): sessions already has planned/open/closed/cancelled status, but cancelled triggers deletion. Existing edit RPC omits tilawah; 20261128120600 proposes to add tilawah, reject changing scope/type of a used session, retain explicit same-association checks, and avoid program date changes rebinding memorization. Full staging SQL validation still required.
+- Knowledge integrity run 46142455248 generated a fresh graph but failed the committed graph checksum gate. Keep the gate; a restricted development-only refresh workflow can produce the portable graph files. Main remains unchanged until all gates pass.
+- Incomplete: creation of future planned rows, optional clock times, server-wide closed-session write guards, full atomic deletion/restore, Web parity and real-device verification. No database changes in this phase.

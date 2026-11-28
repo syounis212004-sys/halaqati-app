@@ -48,6 +48,8 @@ Source base for knowledge setup: `e900ccb` (RC114 / 2.91.14); code is in `source
 
 - Phase three: weekly session days (ISO Mon=1..Sun=7) and automatic/manual policy, distinct absent/excused, roster summary independent of search, confirmed close/reopen without creating attendance, read-only closed roster in new Android client. Proposed 20261128120500 migration; not applied. Existing direct cancellation shortcut removed from session list (server cancelled trigger is destructive). Old-client/server-wide immutability, atomic deletion and full restore remain pending. See [phase three plan](superpowers/plans/2026-11-28-v12-phase-three-sessions.md).
 
+- Phase-three review found that the existing edit RPC rejects tilawah; proposed 20261128120600 keeps the signature and prohibits changing scope/type with dependent rows; stage-test before deployment. Prior phase 1/2 Android validation 46141876527 passed. Current phase-three tests pending; graph checksum gate still required.
+
 ## Known limitations / unfinished work
 - External CircleCI reports "No configuration was found"; this already occurs
   on baseline `e900ccb`. The independent knowledge GitHub Actions job is the

@@ -5640,8 +5640,12 @@ class HalaqatiRepository(
         }
 
         // Existing exceptional sessions were returned above. Schedule is independent of smart-plan days.
-        val group = table("halaqas", "select=*&id=eq.$halaqaId&limit=1").optJSONObject(0)
-            ?: error("تعذر التحقق من جدول النشاط. أنشئ جلسة يدويًا بعد اختيار النشاط.")
+        val group = table("halaqas", "select=*&id=eq.$halaqaId&limit=1", forceRefresh = online()).optJSONObject(0)
+            ?: if (!online()) {
+                val rows = table("halaqas", "select=*&order=created_at.asc&limit=200")
+                (0 until rows.length()).mapNotNull { rows.optJSONObject(it) }.firstOrNull { it.optString("id") == halaqaId }
+            } else null
+        requireNotNull(group) { "تعذر التحقق من جدول النشاط. أنشئ جلسة يدويًا بعد اختيار النشاط." }
         require(group.optBoolean("active", false)) { "النشاط غير مفعل" }
         val program = com.mohammedsamir.halaqati.plans.WorkModeRules.isProgramType(group.optString("halaqa_type"))
         val configuredDays = group.optJSONArray("session_weekdays")?.let { a ->

@@ -27,8 +27,8 @@ begin
     if coalesce((s.activity_data->>'archived')::boolean,false) then
         raise exception 'استعد الجلسة المؤرشفة أولًا' using errcode='22023';
     end if;
-    if not ((p_expected_status='open' and p_status='closed') or
-       (p_expected_status in ('planned','closed') and p_status='open')) then
+    if not coalesce(((p_expected_status='open' and p_status='closed') or
+       (p_expected_status in ('planned','closed') and p_status='open')),false) then
         raise exception 'انتقال حالة الجلسة غير صالح' using errcode='22023';
     end if;
     if s.status=p_status then return jsonb_build_object('ok',true,'session',to_jsonb(s)); end if;

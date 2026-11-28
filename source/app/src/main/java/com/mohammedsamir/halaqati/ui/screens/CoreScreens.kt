@@ -2528,7 +2528,7 @@ private fun SessionRosterScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    IconButton(onClick = close, modifier = Modifier.size(HalaqatiUiTokens.TouchTarget)) {
+                    IconButton(onClick = close, enabled = !transitioning, modifier = Modifier.size(HalaqatiUiTokens.TouchTarget)) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "رجوع")
                     }
                     Column(Modifier.weight(1f)) {
@@ -2536,7 +2536,7 @@ private fun SessionRosterScreen(
                         Text("${session.date} · ${sessionTypeAr(session.type)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(SessionWorkflowRules.statusLabel(session.status), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                     }
-                    IconButton(onClick = { onEditSession(session) }, modifier = Modifier.size(HalaqatiUiTokens.TouchTarget)) {
+                    IconButton(onClick = { onEditSession(session) }, enabled = !transitioning, modifier = Modifier.size(HalaqatiUiTokens.TouchTarget)) {
                         Icon(Icons.Default.Edit, contentDescription = "تعديل بيانات الجلسة")
                     }
                 }
@@ -2952,11 +2952,12 @@ private fun SessionRosterScreen(
                     Text(if (target == "closed") "سيتم تغيير حالة الجلسة بعد تأكيد الخادم فقط. يبقى غير المرصود غير مرصود، ولا تُسجل غيابات تلقائيًا." else "ستصبح الجلسة قابلة لتسجيل الحضور والأنشطة مجددًا.")
                     if (target == "closed") SessionSummaryStrip(summary = sessionSummary, programSession = isProgramSession)
                     Text("تحتاج هذه العملية اتصالًا بالإنترنت وإتمام مزامنة عمليات هذه الجلسة.", style = MaterialTheme.typography.bodySmall)
+                    if (!AppGraph.repo.online()) StateNotice("أنت غير متصل. لا تُغلق الجلسة محليًا حتى لا تختلف حالتها بين الأجهزة.", "warning")
                     message?.let { StateNotice(it, "warning") }
                 }
             },
             confirmButton = {
-                Button(enabled = !transitioning, onClick = {
+                Button(enabled = !transitioning && AppGraph.repo.online(), onClick = {
                     transitioning = true
                     message = null
                     scope.launch {
