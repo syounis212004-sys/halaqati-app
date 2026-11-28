@@ -25,12 +25,12 @@ checks={
     'compileSdk = 36':'compileSdk',
     'minSdk = 23':'minSdk',
     'targetSdk = 36':'targetSdk',
-    'versionCode = 29115':'versionCode',
-    'versionName = "2.91.14"':'versionName',
+    'versionCode = 29116':'versionCode',
+    'versionName = "2.91.15"':'versionName',
 }
 for token,label in checks.items():
     if token not in build: errors.append(f'build contract missing {label}: {token}')
-if contract.get('native_version')!='2.91.14': errors.append('source contract native_version mismatch')
+if contract.get('native_version')!='2.91.15': errors.append('source contract native_version mismatch')
 if not release_note: errors.append('RC24 release note missing')
 if 'PDF' not in release_note or 'محلي' not in release_note or 'لا تُرفع إلى Supabase' not in release_note: errors.append('RC24 release note does not state local binary asset policy')
 if '20261009_v2600_rc24_certificate_archive_rendering_core.sql' not in release_note or not rc24_migration: errors.append('RC24 migration/release-note contract missing')
@@ -102,4 +102,4 @@ if errors:
     print('Release contract FAILED')
     for e in errors: print(' -',e)
     sys.exit(1)
-print('Release contract passed (2.91.14, Native runtime + RC26 Plan Range & Daily Duty)')
+print('Release contract passed (2.91.15, Native runtime + RC26 Plan Range & Daily Duty)')
