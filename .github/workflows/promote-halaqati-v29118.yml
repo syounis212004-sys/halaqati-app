@@ -1,0 +1,46 @@
+name: Promote verified Halaqati v2.91.18
+
+on:
+  push:
+    branches: [fix/v12-phase-one-ui]
+    paths:
+      - '.github/workflows/promote-halaqati-v29118.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: halaqati-v29118-signed-release
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Verify signed build provenance and promote existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/46154447785" > run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/46154447785/jobs?per_page=100" > jobs.json
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v2.91.18" > release.json
+          python3 - <<'PY'
+          import json
+          run=json.load(open('run.json'))
+          assert run['conclusion']=='success'
+          assert run['head_sha']=='dc5846a62a7a1e6656f1663264f8a6543ef67456'
+          jobs=json.load(open('jobs.json'))['jobs']
+          assert len(jobs)>=7 and all(j['conclusion']=='success' for j in jobs)
+          assert {'signed','publish'}<={j['name'] for j in jobs}
+          release=json.load(open('release.json'))
+          assert release['tag_name']=='v2.91.18' and not release['draft']
+          assert release['target_commitish']==run['head_sha']
+          assets={a['name']:a['digest'] for a in release['assets']}
+          assert assets['Halaqati-v2.91.18-release.apk']=='sha256:05f360a7e15c2e51cbda2a9a9773324305bb9bbe5997c123981cb4d34585b177'
+          assert assets['Halaqati-v2.91.18-publish-update.zip']=='sha256:b20417f34bad0bbf75d341f36ca4d06cefd4dfd8399eb46ca647c6baf22362bd'
+          PY
+          gh release edit v2.91.18 --repo "$GITHUB_REPOSITORY" --prerelease=false --latest --title "Halaqati v2.91.18 — التحديث الموحد" --notes "إصدار موقّع بنفس شهادة الإصدار السابق، بعد نجاح اختبارات البناء وSQL وتطبيق ترحيلات Supabase. تحديث اختياري. لم يكتمل اختبار الترقية الفعلي على جهاز مستخدم أو اختبار التكامل الكامل على بيئة معزولة."
+          gh release view v2.91.18 --repo "$GITHUB_REPOSITORY" --json isPrerelease,isDraft,tagName,url
