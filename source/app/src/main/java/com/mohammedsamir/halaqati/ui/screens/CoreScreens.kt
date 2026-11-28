@@ -67,6 +67,7 @@ import com.mohammedsamir.halaqati.plans.SmartPlanHealthRules
 import com.mohammedsamir.halaqati.plans.SmartPlanActivityRules
 import com.mohammedsamir.halaqati.ui.components.*
 import com.mohammedsamir.halaqati.ui.sessions.SessionWorkflowRules
+import com.mohammedsamir.halaqati.ui.sessions.EducationScoreRules
 import com.mohammedsamir.halaqati.ui.sessions.SessionScheduleRules
 import com.mohammedsamir.halaqati.ui.theme.HalaqatiUiTokens
 import kotlinx.coroutines.CancellationException
@@ -2275,14 +2276,20 @@ private fun SessionRosterScreen(
     val today = LocalDate.now(GazaTime.zone)
     val displayStatus = SessionWorkflowRules.displayStatus(session.status, session.date, session.archived, today)
     val editable = SessionWorkflowRules.canRecord(session.status, session.archived, session.date, today)
-    val activityDoneLabel = if (isProgramSession) "نشاط مسجل" else "سُمّع"
-    val activityMissingLabel = if (isProgramSession) "لم يسجل نشاطًا" else "لم يُسمّع"
+    val activityDoneLabel = if (educational) "تم تقييمه" else if (isProgramSession) "نشاط مسجل" else "سُمّع"
+    val activityMissingLabel = if (educational) "بانتظار التقييم" else if (isProgramSession) "لم يسجل نشاطًا" else "لم يُسمّع"
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var selected by remember { mutableStateOf<SessionRecitationTarget?>(null) }
     var noteStudent by remember { mutableStateOf<Student?>(null) }
     var attendanceDetails by remember { mutableStateOf<Pair<Student, String>?>(null) }
     var attendance by remember { mutableStateOf<Map<String, AttendanceRow>>(emptyMap()) }
+    var educationScores by remember(session.id) { mutableStateOf<Map<String, Map<String, Int>>>(emptyMap()) }
+    var educationReady by remember(session.id) { mutableStateOf(false) }
+    var educationError by remember(session.id) { mutableStateOf<String?>(null) }
+    var savingEducation by remember(session.id) { mutableStateOf<Set<String>>(emptySet()) }
+    var bulkEducationIds by remember(session.id) { mutableStateOf<Set<String>?>(null) }
+    var bulkEducationScore by remember(session.id) { mutableStateOf<Int?>(null) }
     var notes by remember { mutableStateOf<Map<String, DailyNoteRow>>(emptyMap()) }
     var recitations by remember { mutableStateOf<Map<String, List<RecitationRow>>>(emptyMap()) }
     var planSnapshotsByStudent by remember { mutableStateOf<Map<String, List<PlanSnapshot>>>(emptyMap()) }
@@ -2329,6 +2336,7 @@ private fun SessionRosterScreen(
                     d.startsWith("attendance:${session.id}:") -> d.substringAfter("attendance:${session.id}:").substringBefore(':')
                     d.startsWith("note:${session.id}:") -> d.substringAfter("note:${session.id}:").substringBefore(':')
                     d.startsWith("recitation:${session.id}:") -> d.substringAfter("recitation:${session.id}:").substringBefore(':')
+                    d.startsWith("education:${session.id}:") -> d.substringAfter("education:${session.id}:").substringBefore(':')
                     else -> ""
                 }
                 if (studentId.isNotBlank()) {
@@ -2470,10 +2478,54 @@ private fun SessionRosterScreen(
     val rosterSyncEpoch by AppGraph.connectivity.syncEpoch.collectAsState()
     LaunchedEffect(rosterSyncEpoch) { if (rosterSyncEpoch > 0L) loadRosterLocal(includePlans = false) }
 
+    suspend fun refreshEducation() {
+        if (!educational) return
+        try {
+            educationScores = withContext(Dispatchers.IO) { AppGraph.repo.educationScores(session.id, refresh = AppGraph.repo.online()) }
+            educationReady = true
+            educationError = null
+        } catch (e: CancellationException) { throw e }
+        catch (e: Exception) {
+            educationReady = false
+            educationError = "تعذر تحميل التقييمات التربوية. حدّث الجلسة بعد التحقق من اتصال الخادم."
+        }
+    }
+
+    LaunchedEffect(session.id, rosterSyncEpoch) { refreshEducation() }
+
+    fun saveEducation(ids: Set<String>, metric: String, score: Int, onlyUnrated: Boolean = false) {
+        if (!educational || !editable || !educationReady || transitioning) return
+        val eligible = ids.filter { EducationScoreRules.eligible(attendance[it]?.status) &&
+            "$it:$metric" !in savingEducation &&
+            (!onlyUnrated || educationScores[it]?.containsKey(metric) != true) }.toSet()
+        if (eligible.isEmpty()) return
+        val keys = eligible.map { "$it:$metric" }.toSet()
+        savingEducation = savingEducation + keys
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    eligible.forEach { AppGraph.repo.saveEducationScore(session.id, it, metric, score, onlyUnrated) }
+                }
+                val updated = educationScores.toMutableMap()
+                eligible.forEach { id -> updated[id] = updated[id].orEmpty() + (metric to score) }
+                educationScores = updated
+                queuedStudents = queuedStudents + eligible
+                onChanged()
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) {
+                educationError = e.message ?: "تعذر حفظ التقييم"
+                refreshEducation()
+            } finally { savingEducation = savingEducation - keys }
+        }
+    }
+
     fun stateFor(student: Student): SessionWorkflowRules.StudentState = SessionWorkflowRules.studentState(
         attendanceStatus = attendance[student.id]?.status,
-        participation = notes[student.id]?.participation.takeIf { usesRecitation },
-        hasRecitations = usesRecitation && recitations[student.id].orEmpty().any { it.id !in hiddenRecitationIds },
+        participation = if (educational && EducationScoreRules.eligible(attendance[student.id]?.status) &&
+            educationScores[student.id]?.containsKey(EducationScoreRules.GENERAL) != true) SessionWorkflowRules.NOT_RECITED_MARKER
+            else notes[student.id]?.participation.takeIf { usesRecitation },
+        hasRecitations = if (educational) educationScores[student.id]?.containsKey(EducationScoreRules.GENERAL) == true
+            else usesRecitation && recitations[student.id].orEmpty().any { it.id !in hiddenRecitationIds },
     )
 
     // The session editor exits without assigning a status to students who have not been observed.
@@ -2569,7 +2621,7 @@ private fun SessionRosterScreen(
                         SessionMiniTile(present, "حاضر", "success", Modifier.weight(1f))
                         SessionMiniTile(absent, "غائب", "danger", Modifier.weight(1f))
                         SessionMiniTile(sessionSummary.excused, "معذور", "warning", Modifier.weight(1f))
-                        SessionMiniTile(if (usesRecitation) recited else unmarked, if (usesRecitation) "نشاط" else "غير مرصود", "neutral", Modifier.weight(1f))
+                        SessionMiniTile(if (educational || usesRecitation) recited else unmarked, if (educational) "مقيّم" else if (usesRecitation) "نشاط" else "غير مرصود", "neutral", Modifier.weight(1f))
                     }
                     IconButton(onClick = { sessionFiltersOpen = true }, modifier = Modifier.size(HalaqatiUiTokens.TouchTarget)) {
                         Icon(Icons.Default.Tune, contentDescription = "تصفية وترتيب")
@@ -2584,11 +2636,12 @@ private fun SessionRosterScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         Text("حالة الجلسة والفلترة · ${sessionSummary.total} طالب", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        SessionSummaryStrip(summary = sessionSummary, programSession = isProgramSession)
+                        SessionSummaryStrip(summary = sessionSummary, programSession = isProgramSession, educational = educational)
                         Text("حالة الطالب", style = MaterialTheme.typography.labelLarge)
                         ResponsiveChipGrid(
                             items = listOf("all" to "الكل", "unmarked" to "لم يُرصد", "absent" to "غائب", "excused" to "معذور") +
-                                (if (usesRecitation) listOf("not_recited" to activityMissingLabel, "present_pending" to (if (isProgramSession) "حاضر بلا نشاط" else "حاضر بلا تسميع"), "recited" to activityDoneLabel) else emptyList()),
+                                (if (educational) listOf("not_recited" to activityMissingLabel, "recited" to activityDoneLabel)
+                                    else if (usesRecitation) listOf("not_recited" to activityMissingLabel, "present_pending" to (if (isProgramSession) "حاضر بلا نشاط" else "حاضر بلا تسميع"), "recited" to activityDoneLabel) else emptyList()),
                             minItemWidth = 112.dp, maxColumns = 2,
                         ) { pair, itemModifier ->
                             ProFilterChip(statusFilter == pair.first, { statusFilter = pair.first }, pair.second, itemModifier.fillMaxWidth(), showCheckIcon = false)
@@ -2603,6 +2656,15 @@ private fun SessionRosterScreen(
                                 onClick = { when (pair.first) { "track_all" -> track = "all"; "track_hifz" -> track = "general_hifz"; "track_tathbit" -> track = "tathbit"; "sort_priority" -> sortMode = "priority"; else -> sortMode = "alpha" } },
                                 label = pair.second, modifier = itemModifier.fillMaxWidth(), showCheckIcon = false,
                             )
+                        }
+                        if (educational && editable && educationReady) {
+                            val candidates = EducationScoreRules.bulkCandidates(attendance.mapValues { it.value.status }, educationScores)
+                                .intersect(filtered.map { it.id }.toSet())
+                            OutlinedButton(onClick = {
+                                bulkEducationIds = candidates; bulkEducationScore = null; sessionFiltersOpen = false
+                            }, enabled = candidates.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
+                                Text("تقييم الحاضرين غير المقيّمين (${candidates.size})")
+                            }
                         }
                         Button(onClick = { sessionFiltersOpen = false }, modifier = Modifier.fillMaxWidth()) { Text("تطبيق وعرض الطلاب") }
                         Spacer(Modifier.height(10.dp))
@@ -2619,6 +2681,7 @@ private fun SessionRosterScreen(
                 )
             }
             message?.let { StateNotice(it, kind = if (it.startsWith("تم")) "success" else "warning", modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
+            educationError?.let { StateNotice(it, "warning", modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
 
             PullToRefreshBox(
                 isRefreshing = refreshing,
@@ -2626,6 +2689,7 @@ private fun SessionRosterScreen(
                     scope.launch {
                         refreshRosterInBackground()
                         loadRosterLocal(includePlans = true)
+                        refreshEducation()
                     }
                 },
                 modifier = Modifier.weight(1f),
@@ -2676,13 +2740,13 @@ private fun SessionRosterScreen(
                                                 when (state) {
                                                     SessionWorkflowRules.StudentState.UNMARKED -> "لم يُرصد بعد"
                                                     SessionWorkflowRules.StudentState.NOT_RECITED -> activityMissingLabel
-                                                    SessionWorkflowRules.StudentState.RECITED -> "$activityDoneLabel ${recitations[student.id].orEmpty().size}"
+                                                    SessionWorkflowRules.StudentState.RECITED -> if (educational) "$activityDoneLabel · ${educationScores[student.id]?.get(EducationScoreRules.GENERAL) ?: "—"}/5" else "$activityDoneLabel ${recitations[student.id].orEmpty().size}"
                                                     SessionWorkflowRules.StudentState.ABSENT -> "غائب"
                                                     SessionWorkflowRules.StudentState.EXCUSED -> "غائب بعذر"
                                                     SessionWorkflowRules.StudentState.LATE -> "متأخر"
                                                     SessionWorkflowRules.StudentState.PRESENT -> "حاضر"
                                                 },
-                                                behaviorLabel(behavior), syncLabel,
+                                                behaviorLabel(behavior).takeUnless { educational }, syncLabel,
                                             ).joinToString(" · "),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = if (student.id in blockedStudents) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -2702,6 +2766,15 @@ private fun SessionRosterScreen(
                                             contentDescription = if (expandedStudentId == student.id) "طي تفاصيل الطالب" else "فتح تفاصيل الطالب",
                                         )
                                     }
+                                }
+
+                                if (educational && EducationScoreRules.eligible(status)) {
+                                    EducationRatingSlider(
+                                        label = "التقييم العام",
+                                        score = educationScores[student.id]?.get(EducationScoreRules.GENERAL),
+                                        enabled = editable && educationReady && !transitioning && "${student.id}:general" !in savingEducation,
+                                        onCommit = { saveEducation(setOf(student.id), EducationScoreRules.GENERAL, it) },
+                                    )
                                 }
 
                                 // RC58: an open card already shows the last recitation inside the smart-plan block, so it is not repeated here.
@@ -2750,7 +2823,7 @@ private fun SessionRosterScreen(
                                         },
                                         modifier = Modifier.weight(1f),
                                     )
-                                    SessionChoiceMenu(
+                                    if (!educational) SessionChoiceMenu(
                                         label = "السلوك",
                                         selected = behavior,
                                         options = listOf("excellent" to "ممتاز", "good" to "جيد", "normal" to "طبيعي", "needs_attention" to "يحتاج انتباه", "warning" to "تنبيه"),
@@ -2758,6 +2831,14 @@ private fun SessionRosterScreen(
                                         onSelected = { saveBehavior(student, it) },
                                         modifier = Modifier.weight(1f),
                                     )
+                                }
+
+                                if (educational && EducationScoreRules.eligible(status)) {
+                                    EducationScoreRules.detailed.forEach { (metric, label) ->
+                                        EducationRatingSlider(label, educationScores[student.id]?.get(metric),
+                                            editable && educationReady && !transitioning && "${student.id}:$metric" !in savingEducation,
+                                            onCommit = { saveEducation(setOf(student.id), metric, it) })
+                                    }
                                 }
 
                                 planSnapshotsByStudent[student.id]?.takeIf { it.isNotEmpty() }?.let { snapshots ->
@@ -2881,7 +2962,7 @@ private fun SessionRosterScreen(
                 Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     if ((session.status == "open" && editable) || (session.status == "planned" && session.date == today.toString() && !session.archived)) {
                         Button(onClick = { transitionTarget = if (session.status == "open") "closed" else "open" },
-                            enabled = rosterReady && !transitioning,
+                            enabled = rosterReady && !transitioning && savingEducation.isEmpty(),
                             modifier = Modifier.weight(1f).heightIn(min = HalaqatiUiTokens.TouchTarget)) {
                             if (transitioning) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                             else Icon(Icons.Default.DoneAll, null, Modifier.size(18.dp))
@@ -2895,6 +2976,26 @@ private fun SessionRosterScreen(
         }
 
         SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp))
+    }
+
+    bulkEducationIds?.let { ids ->
+        HalaqatiAlertDialog(
+            onDismissRequest = { bulkEducationIds = null },
+            title = { Text("تقييم جماعي · ${ids.size} طالب") },
+            text = {
+                Column {
+                    Text("يشمل الحاضرين والمتأخرين غير المقيّمين ضمن القائمة المعروضة. لن يستبدل درجة موجودة على الخادم.")
+                    EducationRatingSlider("الدرجة العامة", bulkEducationScore, true, onCommit = { bulkEducationScore = it })
+                }
+            },
+            confirmButton = {
+                Button(enabled = bulkEducationScore != null, onClick = {
+                    bulkEducationScore?.let { saveEducation(ids, EducationScoreRules.GENERAL, it, onlyUnrated = true) }
+                    bulkEducationIds = null
+                }) { Text("تأكيد التقييم") }
+            },
+            dismissButton = { TextButton(onClick = { bulkEducationIds = null }) { Text("إلغاء") } },
+        )
     }
 
     deleteRecitationTarget?.let { (student, recitation) ->
@@ -2943,7 +3044,7 @@ private fun SessionRosterScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(if (target == "closed") "ستصبح الجلسة منتهية بعد تأكيد الخادم. يمكنك تعديل بياناتها لاحقًا، ولن تُسجل غيابات تلقائيًا." else "ستصبح الجلسة قابلة لتسجيل الحضور والأنشطة مجددًا.")
-                    if (target == "closed") SessionSummaryStrip(summary = sessionSummary, programSession = isProgramSession)
+                    if (target == "closed") SessionSummaryStrip(summary = sessionSummary, programSession = isProgramSession, educational = educational)
                     Text("تحتاج هذه العملية اتصالًا بالإنترنت وإتمام مزامنة عمليات هذه الجلسة.", style = MaterialTheme.typography.bodySmall)
                     if (!AppGraph.repo.online()) StateNotice("أنت غير متصل. لا تُغلق الجلسة محليًا حتى لا تختلف حالتها بين الأجهزة.", "warning")
                     message?.let { StateNotice(it, "warning") }
@@ -2978,7 +3079,7 @@ private fun SessionRosterScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (unmarkedCount > 0) Text("عدد الطلاب الذين لم يُرصد حضورهم: $unmarkedCount. ستبقى حالتهم غير مرصودة.")
-                    SessionSummaryStrip(summary = sessionSummary, programSession = isProgramSession)
+                    SessionSummaryStrip(summary = sessionSummary, programSession = isProgramSession, educational = educational)
                 }
             },
             confirmButton = {
@@ -3550,12 +3651,13 @@ private fun SessionSummaryStrip(
     summary: SessionWorkflowRules.Summary,
     modifier: Modifier = Modifier,
     programSession: Boolean = false,
+    educational: Boolean = false,
 ) {
     ResponsiveChipGrid(
         items = listOf(
             Triple("غير مرصود", summary.unmarked.toString(), Icons.Default.PendingActions),
-            Triple(if (programSession) "بلا نشاط" else "لم يُسمّع", summary.notRecited.toString(), Icons.Default.VoiceOverOff),
-            Triple(if (programSession) "نشاط مسجل" else "سمّع", summary.recited.toString(), Icons.Default.Mic),
+            Triple(if (educational) "بانتظار التقييم" else if (programSession) "بلا نشاط" else "لم يُسمّع", summary.notRecited.toString(), Icons.Default.PendingActions),
+            Triple(if (educational) "تم تقييمه" else if (programSession) "نشاط مسجل" else "سمّع", summary.recited.toString(), Icons.Default.CheckCircle),
             Triple("حاضر / متأخر", summary.present.toString(), Icons.Default.CheckCircle),
             Triple("غائب", summary.absent.toString(), Icons.Default.Cancel),
             Triple("معذور", summary.excused.toString(), Icons.Default.Info),
