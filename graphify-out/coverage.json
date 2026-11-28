@@ -2,7 +2,7 @@
   "nodes": 7037,
   "relationships": 18581,
   "source_files": 777,
-  "source_tree": "e181a16046a64ca639771727d161fb9ff562e63c",
+  "source_tree": "572e14cc5fae06f8a1145923da47c301d33d9ab2",
   "graphify_version": "0.9.121",
   "directed": true,
   "documentation_mode": "native sections/links for all supported docs; selected semantic decisions",
