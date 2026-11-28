@@ -17,6 +17,13 @@ Source base for knowledge setup: `e900ccb` (RC114 / 2.91.14); code is in `source
   updating source alone does not publish an application release.
 
 ## Implemented / documented fixes
+- Mushaf word marks stay in `MushafEngine.Session`. The Compose renderer must
+  draw from the ID-indexed snapshot derived from `session` and `tick` in
+  `MushafScreenContent`. Keep the mark data out of DigitalKhatt bitmap cache
+  keys and page-loading effects. Per-word positions are session-only.
+  Android instrumentation reproduced zero stroke pixels after a registered touch
+  with the old mutable renderer. Direct bitmap redraws can hide that regression.
+  Keep the prompt underline dashed and use the dedicated high-contrast dark blue.
 - Knowledge bootstrap resolves pipx Python shebang flags (`-E`) separately from
   interpreter paths; guarded by `test_pipx_python_shebang_options`.
 - RC100 documents device-bound auth callbacks, preservation of pending writes,
