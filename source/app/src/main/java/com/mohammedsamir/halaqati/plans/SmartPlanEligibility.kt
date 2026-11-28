@@ -35,7 +35,7 @@ object ProgramKindRules {
     )
     fun isRecitationFamily(type: String?, spec: String?): Boolean {
         val family = canonical(type)
-        return family != "regular" && (isTilawahTajweed(type) ||
+        return family !in setOf("regular", "training") && (isTilawahTajweed(type) ||
             specialization(spec) in setOf("tilawah", "tajweed_theory", "tajweed_practical", "noorania", "reading_remedial", "ijazah", "qiraat"))
     }
     fun stageLabel(stage: String?): String = recitationStages.firstOrNull { it.first == stage }?.second.orEmpty()

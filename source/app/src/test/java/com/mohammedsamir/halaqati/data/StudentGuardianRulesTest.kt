@@ -30,6 +30,8 @@ class StudentGuardianRulesTest {
         val result = StudentGuardianRules.linkedOptions(listOf("2", "1", "3", "2"), guardians)
         assertEquals(listOf("2", "1", "3"), result.map { it.id })
         assertEquals("ولي أمر مرتبط", result.last().fullName)
+        org.junit.Assert.assertFalse(result.last().metadataAvailable)
+        assertTrue(result.first().metadataAvailable)
         assertEquals("محمد سمير", result.first().fullName)
     }
 }

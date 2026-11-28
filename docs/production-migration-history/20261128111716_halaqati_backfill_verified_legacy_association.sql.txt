@@ -1,0 +1,61 @@
+
+set local lock_timeout = '5s';
+lock table public.associations, public.halaqas, public.students, public.profiles, public.student_guardians in share row exclusive mode;
+create table halaqati_repair_private.legacy_association_backfill_20261128 (
+  entity_table text not null check (entity_table in ('halaqas','students','profiles')),
+  entity_id uuid not null,
+  previous_association_id uuid,
+  assigned_association_id uuid not null,
+  saved_at timestamptz not null default now(),
+  primary key (entity_table, entity_id)
+);
+alter table halaqati_repair_private.legacy_association_backfill_20261128 enable row level security;
+revoke all on table halaqati_repair_private.legacy_association_backfill_20261128 from public, anon, authenticated;
+do $repair$
+declare
+  v_association uuid;
+  v_halaqas integer;
+  v_students integer;
+  v_staff integer;
+begin
+  if (select count(*) from public.associations) <> 1 then
+    raise exception 'Expected exactly one association; review mapping manually';
+  end if;
+  select id into strict v_association from public.associations where status='active';
+  if v_association is distinct from public.default_association() then
+    raise exception 'Default association changed';
+  end if;
+  if exists(select 1 from public.halaqas where center_id is not null or (association_id is not null and association_id is distinct from v_association))
+     or exists(select 1 from public.students s left join public.halaqas h on h.id=s.halaqa_id where h.id is null or (s.association_id is not null and s.association_id is distinct from v_association))
+     or exists(select 1 from public.profiles where (association_id is not null and association_id is distinct from v_association) or (association_id is null and not coalesce(is_platform_owner,false) and role::text not in ('teacher','supervisor')))
+     or exists(select 1 from public.student_guardians sg join public.profiles p on p.id=sg.guardian_id where p.association_id is distinct from v_association) then
+    raise exception 'Ambiguous legacy mapping; no changes made';
+  end if;
+  if (select count(*) from public.halaqas where association_id is null) <> 2
+     or (select count(*) from public.students where association_id is null) <> 66
+     or (select count(*) from public.profiles where association_id is null and role::text in ('teacher','supervisor') and not coalesce(is_platform_owner,false)) <> 5 then
+    raise exception 'Legacy scope counts changed; inspect before backfill';
+  end if;
+  insert into halaqati_repair_private.legacy_association_backfill_20261128(entity_table,entity_id,previous_association_id,assigned_association_id)
+  select 'halaqas',id,association_id,v_association from public.halaqas where association_id is null
+  union all select 'students',id,association_id,v_association from public.students where association_id is null
+  union all select 'profiles',id,association_id,v_association from public.profiles where association_id is null and role::text in ('teacher','supervisor') and not coalesce(is_platform_owner,false);
+  -- Existing rc90 trigger propagates the parent scope to primary students.
+  update public.halaqas set association_id=v_association where association_id is null;
+  get diagnostics v_halaqas=row_count;
+  update public.students set association_id=v_association where association_id is null;
+  -- Migration-only bypass for existing protected-profile trigger, never exposed to clients.
+  perform set_config('halaqati.review_ok','1',true);
+  update public.profiles set association_id=v_association
+    where association_id is null and role::text in ('teacher','supervisor') and not coalesce(is_platform_owner,false);
+  get diagnostics v_staff=row_count;
+  perform set_config('halaqati.review_ok','',true);
+  select count(*) into v_students from public.students s join halaqati_repair_private.legacy_association_backfill_20261128 b on b.entity_table='students' and b.entity_id=s.id where s.association_id=v_association;
+  if v_halaqas<>2 or v_students<>66 or v_staff<>5
+    or (select count(*) from halaqati_repair_private.legacy_association_backfill_20261128)<>73
+    or exists(select 1 from public.students s join public.halaqas h on h.id=s.halaqa_id where s.association_id is distinct from h.association_id)
+    or exists(select 1 from public.student_guardians sg join public.students s on s.id=sg.student_id join public.profiles p on p.id=sg.guardian_id where s.association_id is distinct from p.association_id)
+    or (select count(*) from public.profiles where is_platform_owner and association_id is null)<>1 then
+    raise exception 'Post-backfill invariant failed; rollback';
+  end if;
+end $repair$;

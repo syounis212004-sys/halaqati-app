@@ -6669,7 +6669,8 @@ private fun GuardianLinkDialog(close: () -> Unit, onSaved: () -> Unit, initialSt
     LaunchedEffect(initialStudentId) {
         try {
             students = withContext(Dispatchers.IO) { AppGraph.repo.students() }
-            studentId = initialStudentId?.takeIf { id -> students.any { it.id == id } } ?: students.firstOrNull()?.id
+            studentId = if (initialStudentId != null) initialStudentId.takeIf { id -> students.any { it.id == id } } else students.singleOrNull()?.id
+            if (initialStudentId != null && studentId == null) error = "الطالب غير متاح ضمن صلاحياتك"
         } catch (e: CancellationException) { throw e }
         catch (e: Exception) { error = e.message ?: "تعذر تحميل الطلاب" }
         finally { loading = false }
@@ -6699,7 +6700,7 @@ private fun GuardianLinkDialog(close: () -> Unit, onSaved: () -> Unit, initialSt
                 if (loading) LoadingSkeleton(rows = 2)
                 error?.let { StateNotice(it, "error") }
                 if (!loading && error == null && loadedFor == studentId && studentId != null) {
-                    if (links.isEmpty()) Text("لا توجد ارتباطات معتمدة لهذا الطالب.")
+                    if (links.isEmpty()) Text(if (AppGraph.repo.online()) "لا توجد ارتباطات معتمدة لهذا الطالب." else "لا توجد بيانات ارتباطات محفوظة.")
                     links.forEach { link ->
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Column(Modifier.weight(1f)) {
@@ -6707,11 +6708,12 @@ private fun GuardianLinkDialog(close: () -> Unit, onSaved: () -> Unit, initialSt
                                 val contact = listOfNotNull(link.phone, link.email).joinToString(" · ")
                                 if (contact.isNotBlank()) Text(contact, style = MaterialTheme.typography.bodySmall)
                             }
-                            if (admin && AppGraph.repo.online()) TextButton(onClick = { removing = link }, enabled = !saving) { Text("إزالة") }
+                            if (admin && AppGraph.repo.online() && link.metadataAvailable) TextButton(onClick = { removing = link }, enabled = !saving) { Text("إزالة") }
                         }
                         HorizontalDivider()
                     }
                 }
+                if (links.any { !it.metadataAvailable }) Text("تعذر إظهار بيانات بعض الحسابات؛ حدّث البيانات قبل إزالة أي ارتباط غير محدد.", style = MaterialTheme.typography.bodySmall)
                 if (!AppGraph.repo.online()) Text("اتصل بالإنترنت للتحقق من الارتباطات وإدارتها.", style = MaterialTheme.typography.bodySmall)
             }
         },

@@ -8,11 +8,12 @@ object StudentGuardianRules {
         val fullName: String,
         val email: String? = null,
         val phone: String? = null,
+        val metadataAvailable: Boolean = true,
     )
 
     fun linkedOptions(ids: List<String>, accounts: List<GuardianOption>): List<GuardianOption> {
         val byId = accounts.associateBy { it.id }
-        return ids.filter { it.isNotBlank() }.distinct().map { id -> byId[id] ?: GuardianOption(id, "ولي أمر مرتبط") }
+        return ids.filter { it.isNotBlank() }.distinct().map { id -> byId[id] ?: GuardianOption(id, "ولي أمر مرتبط", metadataAvailable = false) }
     }
 
     private fun normalize(value: String): String = Normalizer.normalize(value.trim().lowercase(), Normalizer.Form.NFD)

@@ -18,6 +18,7 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.onRoot
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.mohammedsamir.halaqati.reminders.ReminderPrefs
@@ -139,7 +140,7 @@ class ReminderAndDateUiTest {
         rule.setContent {
             androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Rtl) {
                 MaterialTheme(lightColorScheme()) {
-                    androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.padding(16.dp).then(androidx.compose.ui.Modifier.fillMaxSize())) {
+                    androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.width(180.dp)) {
                         com.mohammedsamir.halaqati.ui.components.HalaqatiDateField("بداية البرنامج", java.time.LocalDate.of(2026, 10, 4), {}, androidx.compose.ui.Modifier)
                     }
                 }

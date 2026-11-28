@@ -845,7 +845,12 @@ private fun HalaqaDialog(
     val program = halaqaType != "regular"
     val selectedKind = if (!program) "continuous" else programKind.takeIf { value -> kindOptions.any { it.first == value } }
         ?: if (halaqaType == "course" || halaqaType == "training") "course" else "continuous"
-    val selectedSpecialization = if (!program) "hifz" else specialization.takeIf { value -> specializationOptions.any { it.first == value } }
+    val allowedSpecializations = when (halaqaType) {
+        "tilawah" -> specializationOptions.filter { ProgramKindRules.isRecitationFamily("course", it.first) }
+        "training" -> specializationOptions.filter { it.first == "teacher_training" }
+        else -> specializationOptions
+    }
+    val selectedSpecialization = if (!program) "hifz" else specialization.takeIf { value -> allowedSpecializations.any { it.first == value } }
         ?: when (halaqaType) { "tilawah" -> "tilawah"; "training" -> "teacher_training"; else -> "general" }
     var programStage by remember(current) { mutableStateOf(current?.mgmtStr("program_stage").orEmpty()) }
     val recitationFamily = ProgramKindRules.isRecitationFamily(halaqaType, selectedSpecialization)
@@ -884,13 +889,14 @@ private fun HalaqaDialog(
                     HalaqatiLazySelectField(
                         label = "التخصص",
                         selectedKey = selectedSpecialization,
-                        options = specializationOptions,
+                        options = allowedSpecializations,
                         onSelected = { specialization = it },
                         modifier = Modifier.fillMaxWidth(),
                         searchable = true,
                     )
                     HalaqatiLazySelectField("نوع التنفيذ", selectedKind, kindOptions, { programKind = it }, Modifier.fillMaxWidth(), searchable = false)
                     if (recitationFamily) {
+                        if (halaqaType != "tilawah") Text("للدورات القرآنية اختر مجال التلاوة والتجويد ونوع التنفيذ: دورة. التصنيف الحالي محفوظ حتى تغيّره صراحة.", style = MaterialTheme.typography.bodySmall)
                         HalaqatiLazySelectField(
                             label = "المرحلة التعليمية للتلاوة والتجويد",
                             selectedKey = ProgramKindRules.validStage(halaqaType, selectedSpecialization, programStage),

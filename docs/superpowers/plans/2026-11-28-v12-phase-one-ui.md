@@ -25,3 +25,12 @@ Read and apply repository Ponytail, Ponytail-review, Halaqati development/UI/QA,
 - https://quran.iugaza.edu.ps/ (recitation and qiraat courses, levels including advanced and sanad)
 - https://quranpedia.net/book-attachment/26088/83588 (Palestinian Dar al-Quran study documenting introductory, qualifying, advanced)
 These support the distinction; the detailed configurable stage sequence reflects the user's institutional policy, not a universal curriculum.
+
+## Execution ledger
+- [x] Tests and plan committed first (2377ff9c).
+- [x] Android implementation committed (5940a7ef); scope-specific review: separate legacy routes from menu entry, no unapproved link writes, dates given full width, stage independent of generic level.
+- [x] Review follow-up: missing requested student never falls back to a different student; unavailable guardian metadata cannot be used to remove a relationship; date icon no longer consumes the date line; distinguish teacher-training specialization from recitation; archive the two applied production migrations as nonexecutable text.
+- [ ] Run actual red/green Android tests and complete CI; local Gradle/Android SDK and clone are unavailable. No test success claimed.
+- [ ] Refresh Graphify graph/manifest in full checkout and verify. No bypass.
+- [ ] Apply 20261128120300 to staging, run cross-role tests and confirm old-client compatibility before production. Current production does not have program_stage.
+- [ ] Web parity, full client scope testing, signed new candidate, user approval before distribution.

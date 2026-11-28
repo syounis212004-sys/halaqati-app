@@ -210,11 +210,13 @@ fun HalaqatiDateField(
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(androidx.compose.material.icons.Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))
+            }
             Text(value.toString(), style = MaterialTheme.typography.bodyMedium.copy(textDirection = androidx.compose.ui.text.style.TextDirection.Ltr),
                 fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
         }
-        Icon(androidx.compose.material.icons.Icons.Default.CalendarMonth, contentDescription = null)
     }
 }
 

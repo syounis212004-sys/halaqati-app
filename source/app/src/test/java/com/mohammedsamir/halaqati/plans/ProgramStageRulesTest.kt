@@ -9,6 +9,7 @@ class ProgramStageRulesTest {
         assertTrue(ProgramKindRules.isRecitationFamily("course", "tajweed_practical"))
         assertTrue(ProgramKindRules.isRecitationFamily("course", "noorania"))
         assertFalse(ProgramKindRules.isRecitationFamily("training", "teacher_training"))
+        assertFalse(ProgramKindRules.isRecitationFamily("training", "tilawah"))
         assertFalse(ProgramKindRules.isRecitationFamily("regular", "hifz"))
         assertEquals("تأهيلية", ProgramKindRules.stageLabel("qualifying"))
         assertEquals("تهيئة السند", ProgramKindRules.stageLabel("sanad_preparation"))
