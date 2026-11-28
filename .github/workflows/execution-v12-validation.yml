@@ -95,12 +95,8 @@ jobs:
             settings.dependencyResolutionManagement.repositories.maven { url = uri(mirror) }
           }
           GRADLE
-          # Run 46170855424 stalled in app Kotlin compilation with 8 GiB heap
-          # and ~5.8 GiB available host RAM. Test a bounded larger heap and retain GC evidence.
-          available_kib=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)
-          heap_mib=$((available_kib / 1024 - 4096))
-          if [ "$heap_mib" -gt 10240 ]; then heap_mib=10240; fi
-          if [ "$heap_mib" -lt 4608 ]; then heap_mib=4608; fi
+          # Match the heap of successful run 46152193061; fix source complexity, not heap.
+          heap_mib=4096
           free -h
           echo "Gradle heap: ${heap_mib} MiB"
           jvm="-Xmx${heap_mib}m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError -Dfile.encoding=UTF-8 -Xlog:gc*:file=$RUNNER_TEMP/gradle-gc.log:time,level,tags:filecount=2,filesize=8m -XX:ErrorFile=$RUNNER_TEMP/gradle-crash-%p.log"
