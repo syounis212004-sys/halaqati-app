@@ -61,11 +61,12 @@ import org.json.JSONObject
     val todayWard: String? = null,
     val lastDay: GuardianLastDay? = null,
     val childPhoto: String? = null,
+    val program: Boolean = false,
 ) {
     val planComplete: Boolean get() = planActivities.isNotEmpty() && planActivities.filter { it.hasTarget }.let { it.isNotEmpty() && it.all(GuardianPlanActivity::complete) }
 
     companion object {
-        fun activityLabel(raw: String, tathbit: Boolean): String = if (tathbit && raw != "test") "تثبيت" else when (raw) {
+        fun activityLabel(raw: String, tathbit: Boolean): String = if (tathbit && raw in setOf("review", "review_near", "review_far")) "تثبيت" else when (raw) {
             "new_hifz", "hifz" -> "حفظ"; "review_near", "review_far", "review" -> "مراجعة"
             "sard" -> "سرد"; "tilawah" -> "تلاوة"; "tathbit" -> "تثبيت"; "test" -> "اختبار"; else -> "تسميع"
         }
@@ -125,10 +126,11 @@ import org.json.JSONObject
 
         fun parse(json: JSONObject): GuardianOverview? {
             val student = json.optJSONObject("student") ?: return null
-            val tathbit = student.optString("track") == "tathbit"
+            val program = com.mohammedsamir.halaqati.plans.WorkModeRules.isProgramType(student.text("halaqa_type"))
+            val tathbit = !program && student.optString("track") == "tathbit"
             val today = json.optJSONObject("today") ?: JSONObject()
             val month = json.optJSONObject("month") ?: JSONObject()
-            val plan = json.optJSONObject("plan")
+            val plan = json.optJSONObject("plan").takeUnless { program }
             val todayRanges = today.optJSONArray("ranges")
             val todayRange = (0 until (todayRanges?.length() ?: 0)).mapNotNull { todayRanges?.optJSONObject(it)?.let { o -> range(o) } }
                 .distinct().joinToString(" · ").ifBlank { null }
@@ -146,7 +148,8 @@ import org.json.JSONObject
                 childName = student.text("full_name") ?: "طالب",
                 childPhoto = student.text("photo_path"),
                 tathbit = tathbit,
-                trackLabel = if (tathbit) "التثبيت" else "الحفظ العام",
+                trackLabel = if (program) "" else if (tathbit) "التثبيت" else "الحفظ العام",
+                program = program,
                 subtitle = listOfNotNull(student.text("halaqa_name"), student.text("category_name")).joinToString(" · "),
                 todayAttendance = today.text("attendance"),
                 todaySessionExists = if (today.has("session_exists") && !today.isNull("session_exists")) today.optBoolean("session_exists") else null,
@@ -155,7 +158,7 @@ import org.json.JSONObject
                 todayPages = today.optDouble("pages", 0.0),
                 todayRange = todayRange,
                 planTitle = plan?.let { if (tathbit) "خطة التثبيت لهذا الشهر" else "خطة هذا الشهر" },
-                planActivities = parsePlanActivities(plan, month, tathbit),
+                planActivities = if (program) emptyList() else parsePlanActivities(plan, month, tathbit),
                 monthMain = if (tathbit) month.optDouble("tathbit", 0.0) else month.optDouble("hifz", 0.0),
                 monthMainLabel = if (tathbit) "التثبيت" else "الحفظ",
                 monthPresent = month.optInt("present", 0),

@@ -1,0 +1,38 @@
+SET LOCAL lock_timeout='5s';
+CREATE TABLE IF NOT EXISTS halaqati_repair_private.plan_cleanup_backup (
+  batch text NOT NULL, source_table text NOT NULL, row_key text NOT NULL,
+  row_data jsonb NOT NULL, saved_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY(batch, source_table, row_key)
+);
+ALTER TABLE halaqati_repair_private.plan_cleanup_backup ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE halaqati_repair_private.plan_cleanup_backup FROM PUBLIC,anon,authenticated;
+LOCK TABLE public.halaqas, public.students, public.smart_plans, public.smart_plan_phases, public.smart_plan_phase_states, public.smart_plan_events, public.smart_plan_health_daily, public.smart_plan_month_archives, public.recitation_entries, public.certificates IN SHARE ROW EXCLUSIVE MODE;
+DO $clean$
+DECLARE ids uuid[]; phases uuid[]; n integer; b constant text := 'training_plans_2026_11_28';
+BEGIN
+ SELECT array_agg(p.id) INTO ids
+ FROM public.smart_plans p JOIN public.halaqas h ON h.id=p.halaqa_id JOIN public.students s ON s.id=p.student_id
+ WHERE h.halaqa_type='training' AND h.program_specialization='teacher_training' AND NOT coalesce(h.affects_primary_plan,false)
+   AND p.scope_type='student' AND p.plan_type='hifz' AND s.halaqa_id=p.halaqa_id;
+ IF coalesce(cardinality(ids),0)<>11 THEN RAISE EXCEPTION 'Unexpected training plan count; review required'; END IF;
+ SELECT coalesce(array_agg(id),'{}'::uuid[]) INTO phases FROM public.smart_plan_phases WHERE plan_id=ANY(ids);
+ IF EXISTS(SELECT 1 FROM public.recitation_entries WHERE plan_id=ANY(ids) OR phase_id=ANY(phases))
+ OR EXISTS(SELECT 1 FROM public.certificates WHERE source_plan_id=ANY(ids) OR source_phase_id=ANY(phases))
+ OR EXISTS(SELECT 1 FROM public.smart_plans WHERE parent_plan_id=ANY(ids) AND NOT(id=ANY(ids)))
+ OR EXISTS(SELECT 1 FROM public.smart_plan_events WHERE phase_id=ANY(phases) AND NOT(plan_id=ANY(ids)))
+ OR EXISTS(SELECT 1 FROM public.smart_plan_month_archives WHERE source_plan_id=ANY(ids)
+ AND (coalesce(done_pages,0)<>0 OR coalesce(sard_done_pages,0)<>0 OR coalesce(attendance_present,0)<>0 OR coalesce(attendance_absent,0)<>0))
+ THEN RAISE EXCEPTION 'Unexpected dependent learning records; cleanup aborted'; END IF;
+ INSERT INTO halaqati_repair_private.plan_cleanup_backup(batch,source_table,row_key,row_data)
+ SELECT b,'smart_plans',id::text,to_jsonb(t) FROM public.smart_plans t WHERE id=ANY(ids)
+ UNION ALL SELECT b,'smart_plan_phases',id::text,to_jsonb(t) FROM public.smart_plan_phases t WHERE id=ANY(phases)
+ UNION ALL SELECT b,'smart_plan_phase_states',id::text,to_jsonb(t) FROM public.smart_plan_phase_states t WHERE phase_id=ANY(phases)
+ UNION ALL SELECT b,'smart_plan_events',id::text,to_jsonb(t) FROM public.smart_plan_events t WHERE plan_id=ANY(ids)
+ UNION ALL SELECT b,'smart_plan_health_daily',plan_id::text||':'||student_id::text||':'||day::text,to_jsonb(t) FROM public.smart_plan_health_daily t WHERE plan_id=ANY(ids)
+ UNION ALL SELECT b,'smart_plan_month_archives',id::text,to_jsonb(t) FROM public.smart_plan_month_archives t WHERE source_plan_id=ANY(ids);
+ IF (SELECT count(*) FROM halaqati_repair_private.plan_cleanup_backup WHERE batch=b AND source_table='smart_plans')<>cardinality(ids) THEN RAISE EXCEPTION 'Backup count mismatch'; END IF;
+ DELETE FROM public.smart_plan_month_archives WHERE source_plan_id=ANY(ids);
+ DELETE FROM public.smart_plans WHERE id=ANY(ids);
+ GET DIAGNOSTICS n=ROW_COUNT;
+ IF n<>cardinality(ids) THEN RAISE EXCEPTION 'Deletion count mismatch'; END IF;
+END $clean$;

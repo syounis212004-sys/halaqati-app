@@ -111,6 +111,7 @@ fun StudentsScreen(
     var categories by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
     var snapshotsByStudent by remember { mutableStateOf<Map<String, PlanSnapshot>>(emptyMap()) }
     var monthStatsByStudent by remember { mutableStateOf<Map<String, JSONObject>>(emptyMap()) }
+    var monthStatsScope by remember { mutableStateOf<String?>(null) }
     var secondaryHalaqasByStudent by remember { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
     var studentFiltersOpen by rememberSaveable { mutableStateOf(false) }
     var expandedStudentId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -173,31 +174,52 @@ fun StudentsScreen(
         com.mohammedsamir.halaqati.data.PerfLog.record("students.reload", (System.nanoTime() - startedAt) / 1_000_000L)
     }
 
+    var recitationChoices by remember { mutableStateOf<Pair<Student, List<SessionRow>>?>(null) }
+
+    fun openStudentRecitation(student: Student, session: SessionRow) {
+        val snapshot = snapshotsByStudent[student.id]?.takeIf {
+            it.plan.halaqaId == session.halaqaId &&
+                it.progress.assignment?.kind?.let(SessionWorkflowRules::sessionTypeForAssignment) == session.type
+        }
+        directRecitation = Triple(student, session, snapshot)
+    }
+
     fun startTodayRecitation(student: Student) {
         if (student.status != "active") {
-            message = "الطالب موقوف أو غير نشط ولا يظهر في الجلسات حتى تتم إعادة تفعيله"
+            message = "الطالب غير نشط"
             return
         }
         scope.launch {
             try {
-                val snapshot = snapshotsByStudent[student.id] ?: withContext(Dispatchers.IO) {
-                    AppGraph.repo.planSnapshots(LocalDate.now()).firstOrNull { it.student.id == student.id }
+                val accessibleMemberships = secondaryHalaqasByStudent[student.id].orEmpty() + listOfNotNull(student.halaqaId)
+                val requestedScope = halaqaFilter.takeUnless { it == "all" }
+                val candidates = halaqas.filter { halaqa ->
+                    val program = com.mohammedsamir.halaqati.plans.WorkModeRules.isProgramType(halaqa.optString("halaqa_type"))
+                    halaqa.optString("id") in accessibleMemberships &&
+                        halaqa.optBoolean("active", true) &&
+                        (requestedScope != null || program == (workKind == com.mohammedsamir.halaqati.plans.WorkMode.PROGRAM))
+                }.map { it.optString("id") }
+                val halaqaId = (requestedScope ?: candidates.singleOrNull())
+                    ?.takeIf { it in candidates }
+                    ?: error("اختر حلقة أو برنامجًا يشارك فيه الطالب أولًا")
+                val today = LocalDate.now().toString()
+                val sessions = withContext(Dispatchers.IO) { AppGraph.repo.sessions() }.filter {
+                    it.halaqaId == halaqaId && it.date == today && it.status == "open" &&
+                        it.type in setOf("tasmee", "sard", "review", "test", "tilawah", "tajweed")
                 }
-                val halaqaId = student.halaqaId ?: snapshot?.plan?.halaqaId ?: error("الطالب غير مرتبط بحلقة")
-                val assignment = snapshot?.progress?.assignment
-                val session = withContext(Dispatchers.IO) {
-                    AppGraph.repo.ensureTodaySession(
-                        halaqaId = halaqaId,
-                        date = LocalDate.now().toString(),
-                        assignmentKind = assignment?.kind ?: "hifz",
-                    )
-                }
-                directRecitation = Triple(student, session, snapshot)
+                check(sessions.isNotEmpty()) { "لا توجد جلسة تسميع أو تلاوة مفتوحة اليوم في هذا النشاط" }
+                selectedStudent = null
                 message = null
+                if (sessions.size == 1) {
+                    openStudentRecitation(student, sessions.single())
+                } else {
+                    recitationChoices = student to sessions
+                }
             } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-                message = e.message ?: "تعذر تجهيز جلسة التسميع"
+                throw e
+            } catch (e: Exception) {
+                selectedStudent = null
+                message = e.message ?: "تعذر فتح جلسة اليوم"
             }
         }
     }
@@ -214,7 +236,8 @@ fun StudentsScreen(
         }
     }
 
-    LaunchedEffect(rows.map { it.id }.joinToString("|")) {
+    LaunchedEffect(rows.map { it.id }, halaqaFilter) {
+        val requestedScope = halaqaFilter
         if (rows.isEmpty()) {
             snapshotsByStudent = emptyMap()
             monthStatsByStudent = emptyMap()
@@ -223,7 +246,7 @@ fun StudentsScreen(
                 withContext(Dispatchers.IO) {
                     val snapshots = AppGraph.repo.planSnapshots(LocalDate.now()).associateBy { it.student.id }
                     val ym = YearMonth.now()
-                    val summary = AppGraph.repo.reportSummary(ym.atDay(1).toString(), LocalDate.now().toString(), "all", "all", "all")
+                    val summary = AppGraph.repo.reportSummary(ym.atDay(1).toString(), LocalDate.now().toString(), "all", requestedScope, "all")
                     val stats = buildMap<String, JSONObject> {
                         for (i in 0 until summary.length()) summary.optJSONObject(i)?.let { row ->
                             row.optString("student_id").takeIf { it.isNotBlank() }?.let { put(it, row) }
@@ -234,6 +257,7 @@ fun StudentsScreen(
             }.onSuccess { (snapshots, stats) ->
                 snapshotsByStudent = snapshots
                 monthStatsByStudent = stats
+                monthStatsScope = requestedScope
             }
         }
     }
@@ -385,7 +409,7 @@ fun StudentsScreen(
                   com.mohammedsamir.halaqati.ui.components.NourStatStrip(listOf(
                 Triple(rows.count { it.status == "active" }.toString(), "طالب نشط", false),
                 Triple(rows.count { it.status == "active" && it.track == "tathbit" }.toString(), "في التثبيت", false),
-                Triple(rows.count { it.status == "active" && (it.nationalId.isNullOrBlank() || it.dateOfBirth.isNullOrBlank()) }.toString(), "ناقص بيانات الولي", rows.any { it.status == "active" && (it.nationalId.isNullOrBlank() || it.dateOfBirth.isNullOrBlank()) }),
+                Triple(rows.count { it.status == "active" && (it.nationalId.isNullOrBlank() || it.dateOfBirth.isNullOrBlank()) }.toString(), "ناقص الهوية أو الميلاد", rows.any { it.status == "active" && (it.nationalId.isNullOrBlank() || it.dateOfBirth.isNullOrBlank()) }),
             ))
               }
               groupedStudents.forEach { (groupTitle, groupRows) ->
@@ -395,8 +419,14 @@ fun StudentsScreen(
                     }
                 }
                 items(groupRows, key = { it.id }, contentType = { "student" }) { student ->
-                    val halaqaName = halaqas.firstOrNull { it.optString("id") == student.halaqaId }?.optString("name")
-                    val categoryName = categories.firstOrNull { it.optString("id") == student.categoryId }?.optString("name")
+                    val scopeId = halaqaFilter.takeUnless { it == "all" } ?: student.halaqaId
+                    val scopedHalaqa = halaqas.firstOrNull { it.optString("id") == scopeId }
+                    val programContext = if (halaqaFilter == "all" && workKind == com.mohammedsamir.halaqati.plans.WorkMode.PROGRAM) true
+                        else com.mohammedsamir.halaqati.plans.WorkModeRules.isProgramType(scopedHalaqa?.optString("halaqa_type"))
+                    val halaqaName = scopedHalaqa?.optString("name")?.takeUnless {
+                        programContext && !com.mohammedsamir.halaqati.plans.WorkModeRules.isProgramType(scopedHalaqa?.optString("halaqa_type"))
+                    }
+                    val categoryName = categories.firstOrNull { it.optString("id") == student.categoryId && it.optString("halaqa_id") == scopeId }?.optString("name")
                     val secondaryNames = secondaryHalaqasByStudent[student.id].orEmpty()
                         .filter { it != student.halaqaId }
                         .mapNotNull { id -> halaqas.firstOrNull { it.optString("id") == id }?.optString("name") }
@@ -406,8 +436,9 @@ GoldenStudentCard(
                         halaqaName = halaqaName,
                         categoryName = categoryName,
                         secondaryHalaqaNames = secondaryNames,
-                        snapshot = snapshotsByStudent[student.id],
-                        monthStats = monthStatsByStudent[student.id],
+                        snapshot = snapshotsByStudent[student.id]?.takeIf { !programContext && it.plan.halaqaId == scopeId },
+                        monthStats = monthStatsByStudent[student.id]?.takeIf { monthStatsScope == halaqaFilter && (halaqaFilter != "all" || (!programContext && secondaryNames.isEmpty())) },
+                        programContext = programContext,
                         expanded = expandedStudentId == student.id,
                         onToggle = { expandedStudentId = if (expandedStudentId == student.id) null else student.id },
                         onOpenProfile = { openStudentProfile(student.id) },
@@ -463,6 +494,9 @@ GoldenStudentCard(
 
     if (add) {
         StudentDialog(
+            initialHalaqaId = halaqaFilter.takeUnless { it == "all" },
+            accessibleStudents = rows,
+            scopeNames = halaqas.associate { it.optString("id") to it.optString("name") },
             close = { add = false },
             onSaved = {
                 add = false
@@ -481,29 +515,25 @@ GoldenStudentCard(
                 scope.launch { reload(force = true) }
                 onRefresh()
             },
-            onStartRecitation = { snapshot ->
-                scope.launch {
-                    try {
-                        val halaqaId = student.halaqaId ?: snapshot?.plan?.halaqaId
-                            ?: error("الطالب غير مرتبط بحلقة")
-                        val assignment = snapshot?.progress?.assignment
-                        val session = withContext(Dispatchers.IO) {
-                            AppGraph.repo.ensureTodaySession(
-                                halaqaId = halaqaId,
-                                date = LocalDate.now().toString(),
-                                assignmentKind = assignment?.kind ?: "hifz",
-                            )
-                        }
-                        selectedStudent = null
-                        directRecitation = Triple(student, session, snapshot)
-                        message = null
-                    } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-                        message = e.message ?: "تعذر تجهيز جلسة التسميع"
+            onStartRecitation = { startTodayRecitation(student) },
+        )
+    }
+
+    recitationChoices?.let { (student, sessions) ->
+        HalaqatiAlertDialog(
+            onDismissRequest = { recitationChoices = null },
+            title = { Text("اختر جلسة اليوم") },
+            text = {
+                Column {
+                    sessions.forEach { session ->
+                        TextButton(onClick = {
+                            recitationChoices = null
+                            openStudentRecitation(student, session)
+                        }) { Text(session.title.ifBlank { sessionTypeAr(session.type) }) }
                     }
                 }
             },
+            confirmButton = { TextButton(onClick = { recitationChoices = null }) { Text("إلغاء") } },
         )
     }
 
@@ -931,8 +961,70 @@ private fun StudentFullEditDialog(student: Student, raw: JSONObject?, close: () 
 }
 
 @Composable
-private fun StudentDialog(close: () -> Unit, onSaved: () -> Unit) {
-    StudentEditorDialog(student = null, raw = null, close = close, onSaved = onSaved)
+private fun StudentDialog(
+    initialHalaqaId: String?,
+    accessibleStudents: List<Student>,
+    scopeNames: Map<String, String>,
+    close: () -> Unit,
+    onSaved: () -> Unit,
+) {
+    var enrollmentScope by remember { mutableStateOf<String?>(null) }
+    val halaqaId = enrollmentScope
+    if (halaqaId == null) {
+        StudentEditorDialog(
+            student = null,
+            raw = null,
+            close = close,
+            onSaved = onSaved,
+            initialHalaqaId = initialHalaqaId,
+            openExistingEnrollment = { enrollmentScope = it },
+        )
+    } else {
+        val scope = rememberCoroutineScope()
+        var selected by remember(halaqaId) { mutableStateOf<String?>(null) }
+        var saving by remember(halaqaId) { mutableStateOf(false) }
+        var error by remember(halaqaId) { mutableStateOf<String?>(null) }
+        val options = accessibleStudents.asSequence().filter { it.status == "active" && it.halaqaId != halaqaId }
+            .map { student ->
+                val maskedId = student.nationalId?.takeIf { it.length >= 5 }?.takeLast(3)?.let { "•••$it" }
+                student.id to listOfNotNull(student.fullName, scopeNames[student.halaqaId], maskedId).joinToString(" · ")
+            }.toList()
+        HalaqatiAlertDialog(
+            onDismissRequest = { if (!saving) enrollmentScope = null },
+            title = { Text("تسجيل طالب موجود في ${scopeNames[halaqaId].orEmpty()}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("اختر سجل الطالب المسموح لك بعرضه. سيظل ملفه وحلقته الأساسية كما هما.")
+                    HalaqatiLazySelectField("الطالب", selected, options, { selected = it }, Modifier.fillMaxWidth(), searchable = true)
+                    error?.let { StateNotice(it, "error") }
+                }
+            },
+            confirmButton = {
+                Button(enabled = !saving && selected != null, onClick = {
+                    val studentId = selected ?: return@Button
+                    saving = true
+                    error = null
+                    scope.launch {
+                        try {
+                            withContext(Dispatchers.IO) {
+                                AppGraph.repo.saveStudentSecondaryMemberships(
+                                    studentId, addedHalaqaIds = setOf(halaqaId), removedHalaqaIds = emptySet(),
+                                )
+                            }
+                            onSaved()
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            error = e.message ?: "تعذر تسجيل الطالب في البرنامج"
+                        } finally {
+                            saving = false
+                        }
+                    }
+                }) { Text(if (saving) "جاري التسجيل…" else "تسجيل في البرنامج") }
+            },
+            dismissButton = { TextButton(enabled = !saving, onClick = { enrollmentScope = null }) { Text("رجوع") } },
+        )
+    }
 }
 
 private data class StudentEditorMasterData(
@@ -944,7 +1036,14 @@ private data class StudentEditorMasterData(
 )
 
 @Composable
-private fun StudentEditorDialog(student: Student?, raw: JSONObject?, close: () -> Unit, onSaved: () -> Unit) {
+private fun StudentEditorDialog(
+    student: Student?,
+    raw: JSONObject?,
+    close: () -> Unit,
+    onSaved: () -> Unit,
+    initialHalaqaId: String? = null,
+    openExistingEnrollment: ((String) -> Unit)? = null,
+) {
     val scope = rememberCoroutineScope()
     var fullName by remember(student?.id) { mutableStateOf(raw?.optString("full_name").orEmpty().ifBlank { student?.fullName.orEmpty() }) }
     var nationalId by remember(student?.id) { mutableStateOf(raw?.optString("national_id").orEmpty().ifBlank { student?.nationalId.orEmpty() }) }
@@ -968,7 +1067,8 @@ private fun StudentEditorDialog(student: Student?, raw: JSONObject?, close: () -
     var photoPath by remember(student?.id) { mutableStateOf(raw?.optString("photo_path").orEmpty().ifBlank { student?.photoPath.orEmpty() }) }
     var halaqas by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
     var categories by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
-    var secondaryHalaqaIds by remember(student?.id) { mutableStateOf<Set<String>>(emptySet()) }
+    var initialSecondaryHalaqaIds by remember(student?.id) { mutableStateOf(emptySet<String>()) }
+    var secondaryHalaqaIds by remember(student?.id) { mutableStateOf(emptySet<String>()) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -1002,7 +1102,8 @@ private fun StudentEditorDialog(student: Student?, raw: JSONObject?, close: () -
         categories = master.categories
         guardians = master.guardians
         selectedGuardianId = master.currentGuardianId
-        secondaryHalaqaIds = master.currentSecondaryHalaqaIds - halaqaId
+        initialSecondaryHalaqaIds = master.currentSecondaryHalaqaIds - halaqaId
+        secondaryHalaqaIds = initialSecondaryHalaqaIds
         if (selectedGuardianId == null && guardianEmail.isNotBlank()) {
             selectedGuardianId = guardians.firstOrNull { it.email.equals(guardianEmail, true) }?.id
         }
@@ -1013,9 +1114,14 @@ private fun StudentEditorDialog(student: Student?, raw: JSONObject?, close: () -
                 guardian.email?.let { guardianEmail = it }
             }
         }
-        if (halaqaId.isBlank()) halaqaId = halaqas.firstOrNull { it.optBoolean("active", true) }?.optString("id").orEmpty()
+        if (halaqaId.isBlank() && student == null) {
+            val activeScopes = halaqas.filter { it.optBoolean("active", true) }.map { it.optString("id") }
+            halaqaId = initialHalaqaId?.takeIf { it in activeScopes } ?: activeScopes.singleOrNull().orEmpty()
+        }
     }
 
+    val currentScope = halaqas.firstOrNull { it.optString("id") == halaqaId }
+    val programScope = com.mohammedsamir.halaqati.plans.WorkModeRules.isProgramType(currentScope?.optString("halaqa_type"))
     val visibleCategories = categories.filter { it.optBoolean("active", true) && (halaqaId.isBlank() || it.optString("halaqa_id") == halaqaId) }
     LaunchedEffect(halaqaId, categories.size) {
         if (categoryId.isNotBlank() && visibleCategories.none { it.optString("id") == categoryId }) categoryId = ""
@@ -1043,6 +1149,9 @@ private fun StudentEditorDialog(student: Student?, raw: JSONObject?, close: () -
                     items = halaqas.filter { it.optBoolean("active", true) || it.optString("id") == halaqaId },
                     onSelected = { halaqaId = it; categoryId = ""; secondaryHalaqaIds = secondaryHalaqaIds - it },
                 )
+                if (programScope && currentScope?.optBoolean("allow_secondary_members", true) == true && openExistingEnrollment != null) {
+                    OutlinedButton(enabled = !saving, onClick = { openExistingEnrollment(halaqaId) }) { Text("تسجيل طالب موجود") }
+                }
                 Text("الحلقات والبرامج الإضافية", style = MaterialTheme.typography.labelLarge)
                 Text(
                     "يمكن للطالب البقاء في حلقته الأساسية والمشاركة في التجويد أو التلاوة أو الدورات الأخرى دون تكرار سجله.",
@@ -1076,9 +1185,11 @@ private fun StudentEditorDialog(student: Student?, raw: JSONObject?, close: () -
                     label = "الفئة", selectedId = categoryId, items = visibleCategories, allowEmpty = true,
                     onSelected = { categoryId = it },
                 )
-                Text("المسار", style = MaterialTheme.typography.labelLarge)
-                ResponsiveChipGrid(items = listOf("general_hifz" to "الحفظ العام", "tathbit" to "التثبيت"), minItemWidth = 130.dp, maxColumns = 2) { pair, itemModifier ->
-                    ProFilterChip(track == pair.first, { track = pair.first }, pair.second, itemModifier.fillMaxWidth(), showCheckIcon = false)
+                if (!programScope) {
+                    Text("المسار", style = MaterialTheme.typography.labelLarge)
+                    ResponsiveChipGrid(items = listOf("general_hifz" to "الحفظ العام", "tathbit" to "التثبيت"), minItemWidth = 130.dp, maxColumns = 2) { pair, itemModifier ->
+                        ProFilterChip(track == pair.first, { track = pair.first }, pair.second, itemModifier.fillMaxWidth(), showCheckIcon = false)
+                    }
                 }
                 Text("الحالة", style = MaterialTheme.typography.labelLarge)
                 ResponsiveChipGrid(items = listOf("active" to "نشط", "inactive" to "غير نشط", "suspended" to "موقوف", "withdrawn" to "منسحب"), minItemWidth = 105.dp, maxColumns = 2) { pair, itemModifier ->
@@ -1129,7 +1240,6 @@ private fun StudentEditorDialog(student: Student?, raw: JSONObject?, close: () -
                                 .putNullableUi("gender", gender)
                                 .putNullableUi("guardian_phone", guardianPhone)
                                 .putNullableUi("guardian_email", guardianEmail)
-                                .put("track_code", track)
                                 .put("halaqa_id", halaqaId)
                                 .put("category_id", categoryId.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
                                 .put("status", status)
@@ -1137,6 +1247,8 @@ private fun StudentEditorDialog(student: Student?, raw: JSONObject?, close: () -
                                 .putNullableUi("program_name", programName)
                                 .putNullableUi("address", address)
                                 .putNullableUi("notes", notes)
+                            if (!programScope) payload.put("track_code", track)
+                            else if (student == null) payload.put("track_code", JSONObject.NULL)
                             payload.put("photo_path", if (photoPath.isNotBlank()) photoPath else JSONObject.NULL)
                             withContext(Dispatchers.IO) {
                                 val studentId = student?.id ?: java.util.UUID.randomUUID().toString().also { payload.put("id", it) }
@@ -1148,7 +1260,12 @@ private fun StudentEditorDialog(student: Student?, raw: JSONObject?, close: () -
                                 if (student != null || selectedGuardianId != null) {
                                     AppGraph.repo.linkPrimaryGuardian(studentId, selectedGuardianId)
                                 }
-                                AppGraph.repo.saveStudentSecondaryMemberships(studentId, secondaryHalaqaIds - halaqaId, confirmed = student != null)
+                                AppGraph.repo.saveStudentSecondaryMemberships(
+                                    studentId,
+                                    addedHalaqaIds = secondaryHalaqaIds - initialSecondaryHalaqaIds - halaqaId,
+                                    removedHalaqaIds = initialSecondaryHalaqaIds - secondaryHalaqaIds - halaqaId,
+                                    confirmed = student != null,
+                                )
                             }
                             onSaved()
                         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -1368,22 +1485,19 @@ fun SessionsScreen(pending: Int, onRefresh: () -> Unit, openTodayOnLaunch: Boole
         }
     }
 
-    suspend fun openTodayFor(halaqaId: String) {
-        val halaqa = halaqas.firstOrNull { it.optString("id") == halaqaId }
-        val specialization = halaqa?.optString("program_specialization").orEmpty()
-        val defaultType = when (specialization) {
-            "tathbit" -> "review"
-            "tilawah", "tajweed_theory", "tajweed_applied", "noorani", "ijazah", "qiraat", "reading_support", "teacher_training" -> "tilawah"
-            "hifz", "intensive_hifz", "selected_surahs" -> "hifz"
-            else -> when (halaqa?.optString("halaqa_type", "regular")) { "tajweed", "tilawah", "training" -> "tilawah"; else -> "hifz" }
+    var todaySessionChoices by remember { mutableStateOf<List<SessionRow>>(emptyList()) }
+
+    fun openTodayFor(halaqaId: String) {
+        val today = LocalDate.now().toString()
+        val sessions = rows.filter { it.halaqaId == halaqaId && it.date == today && it.status != "cancelled" && !it.archived }
+        when (sessions.size) {
+            0 -> message = "لا توجد جلسة اليوم لهذا النشاط. اختر «جلسة جديدة» لإنشائها."
+            1 -> {
+                activeId = sessions.single().id
+                message = null
+            }
+            else -> todaySessionChoices = sessions
         }
-        val session = withContext(Dispatchers.IO) {
-            AppGraph.repo.openOrCreateTodaySession(halaqaId, LocalDate.now().toString(), defaultType).getOrThrow()
-        }
-        showArchived = false
-        rows = (listOf(session) + rows.filterNot { it.id == session.id }).sortedByDescending { it.date }
-        activeId = session.id
-        message = null
     }
 
     // RC25: work inside one halaqa, month by month.
@@ -1679,19 +1793,39 @@ GoldenSessionCard(
         )
     }
 
+    if (todaySessionChoices.isNotEmpty()) {
+        HalaqatiAlertDialog(
+            onDismissRequest = { todaySessionChoices = emptyList() },
+            title = { Text("اختر جلسة اليوم") },
+            text = {
+                Column {
+                    todaySessionChoices.forEach { session ->
+                        TextButton(onClick = {
+                            activeId = session.id
+                            todaySessionChoices = emptyList()
+                        }) { Text(session.title.ifBlank { sessionTypeAr(session.type) }) }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { todaySessionChoices = emptyList() }) { Text("إلغاء") } },
+        )
+    }
+
     if (add) {
         NewSessionDialog(
             halaqas = halaqas,
+            initialHalaqaId = currentScopeId(),
             close = { add = false },
             save = { halaqaId, date, type, title ->
                 scope.launch {
                     try {
-                        withContext(Dispatchers.IO) {
+                        val sessionId = withContext(Dispatchers.IO) {
                             AppGraph.repo.createSession(halaqaId, date, type, title)
                         }
                         add = false
                         showArchived = false
                         reload()
+                        activeId = sessionId
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         throw e
                     } catch (e: Exception) {
@@ -1733,23 +1867,20 @@ GoldenSessionCard(
         HalaqatiAlertDialog(
             onDismissRequest = { deleteCandidate = null },
             title = { Text("حذف الجلسة") },
-            text = { Text("سيتم حذف الجلسة وتسميعاتها وحضورها وملاحظاتها فورًا. استخدم الأرشفة بدل الحذف إذا كنت تريد الاحتفاظ بالسجل التاريخي.") },
+            text = { Text("تبقى الجلسة في القائمة حتى يؤكد الخادم حذفها. إذا كان فيها حضور أو تسميع أو ملاحظات محفوظة، استخدم الأرشفة.") },
             confirmButton = {
                 Button(
                     onClick = {
                         deleteCandidate = null
-                        val beforeDelete = rows
-                        rows = rows.filterNot { it.id == session.id }
-                        // RC27.5: delete right away (no waiting for an undo bar); restore the row if it fails.
                         scope.launch {
                             try {
                                 withContext(Dispatchers.IO) { AppGraph.repo.deleteSession(session.id) }
+                                message = "أُضيف طلب الحذف إلى المزامنة"
                                 onRefresh()
                             } catch (e: kotlinx.coroutines.CancellationException) {
                                 throw e
                             } catch (e: Exception) {
-                                rows = beforeDelete
-                                message = e.message ?: "تعذر حذف الجلسة"
+                                message = e.message ?: "تعذر إرسال طلب الحذف"
                             }
                         }
                     },
@@ -1769,6 +1900,7 @@ private fun GoldenStudentCard(
     secondaryHalaqaNames: List<String>,
     snapshot: PlanSnapshot?,
     monthStats: JSONObject?,
+    programContext: Boolean,
     expanded: Boolean,
     onToggle: () -> Unit,
     onOpenProfile: () -> Unit,
@@ -1806,7 +1938,7 @@ private fun GoldenStudentCard(
                             overflow = TextOverflow.Ellipsis,
                         )
                         if (missingGuardianData) {
-                            Icon(Icons.Default.Info, contentDescription = "بيانات الربط بولي الأمر غير مكتملة؛ افتح التفاصيل", tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.padding(top = 2.dp).size(20.dp))
+                            Icon(Icons.Default.Info, contentDescription = "الهوية أو تاريخ الميلاد غير مكتمل", tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.padding(top = 2.dp).size(20.dp))
                         }
                     }
                     // Same three facts as before (track · halaqa · extra programs), now split into a chip row and a quiet line.
@@ -1816,7 +1948,7 @@ private fun GoldenStudentCard(
                         Surface(color = chipBg, contentColor = chipFg, shape = RoundedCornerShape(11.dp)) {
                             Row(Modifier.padding(horizontal = 8.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Icon(if (isTathbit) Icons.Default.PushPin else Icons.Default.MenuBook, contentDescription = null, modifier = Modifier.size(14.dp))
-                                Text(if (isTathbit) "التثبيت" else "الحفظ العام", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, maxLines = 1)
+                                Text(if (programContext) "مشارك في برنامج" else if (isTathbit) "التثبيت" else "الحفظ العام", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, maxLines = 1)
                             }
                         }
                         if (secondaryHalaqaNames.isNotEmpty()) {
@@ -1880,13 +2012,18 @@ private fun GoldenStudentCard(
                         val review = stats.optDouble("review_pages", 0.0)
                         val absence = stats.optInt("absent", 0)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            StudentStatTile(if (isTathbit) "تثبيت" else "حفظ", "${plainNumber(if (isTathbit) tathbit else hifz)} ص", Modifier.weight(1f))
-                            StudentStatTile("مراجعة", "${plainNumber(review)} ص", Modifier.weight(1f))
-                            StudentStatTile("غياب", "$absence", Modifier.weight(1f))
+                            if (!programContext) {
+                                StudentStatTile(if (isTathbit) "تثبيت" else "حفظ", "${plainNumber(if (isTathbit) tathbit else hifz)} ص", Modifier.weight(1f))
+                                StudentStatTile("مراجعة", "${plainNumber(review)} ص", Modifier.weight(1f))
+                            } else {
+                                val pages = stats.optDouble("tilawah_pages", 0.0)
+                                StudentStatTile("التلاوة", if (pages > 0) "${plainNumber(pages)} ص" else "—", Modifier.weight(1f))
+                            }
+                            StudentStatTile("غياب", if (programContext && stats.optInt("sessions", 0) == 0) "—" else "$absence", Modifier.weight(1f))
                         }
                     }
                     // RC53: the supervisor only follows students; recitation and editing belong to the teacher.
-                    if (!readOnly) Button(onClick = onRecitation, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("تسميع اليوم") }
+                    if (!readOnly) Button(onClick = onRecitation, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(if (programContext) "جلسة التلاوة أو الاختبار" else "تسميع اليوم") }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         TextButton(onClick = onOpenProfile, modifier = Modifier.weight(1f)) {
@@ -1894,7 +2031,7 @@ private fun GoldenStudentCard(
                             Spacer(Modifier.width(6.dp))
                             Text("الملف الشخصي", maxLines = 1)
                         }
-                        if (!readOnly) TextButton(onClick = onPlan, modifier = Modifier.weight(1f)) {
+                        if (!readOnly && !programContext) TextButton(onClick = onPlan, modifier = Modifier.weight(1f)) {
                             Icon(Icons.Default.Assignment, contentDescription = null, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(6.dp))
                             Text("الخطة", maxLines = 1)
@@ -2044,20 +2181,22 @@ fun sessionTypeAr(type: String) = when (type) {
 @Composable
 private fun NewSessionDialog(
     halaqas: List<JSONObject>,
+    initialHalaqaId: String?,
     close: () -> Unit,
     save: (String, String, String, String) -> Unit,
 ) {
-    var halaqaId by remember(halaqas) { mutableStateOf(halaqas.firstOrNull { it.optBoolean("active", true) }?.optString("id").orEmpty()) }
+    val halaqaOptions = halaqas.filter { it.optBoolean("active", true) }
+        .map { it.optString("id") to it.optString("name").ifBlank { "حلقة" } }
+    var halaqaId by remember(halaqas, initialHalaqaId) {
+        mutableStateOf(initialHalaqaId?.takeIf { id -> halaqaOptions.any { it.first == id } } ?: halaqaOptions.singleOrNull()?.first.orEmpty())
+    }
     var date by remember { mutableStateOf(LocalDate.now()) }
-    var type by remember { mutableStateOf("tasmee") }
+    var preferredType by remember { mutableStateOf<String?>(null) }
     var title by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
-    val types = SessionWorkflowRules.manualSessionTypes.filterNot { it == "tajweed" }
-    val halaqaOptions = halaqas.filter { it.optBoolean("active", true) }.map { it.optString("id") to it.optString("name").ifBlank { "حلقة" } }
-    LaunchedEffect(halaqaId) {
-        val hType = halaqas.firstOrNull { it.optString("id") == halaqaId }?.optString("halaqa_type", "regular")
-        if (hType in setOf("tajweed", "tilawah", "training", "course")) type = "tilawah"
-    }
+    val selectedHalaqaType = halaqas.firstOrNull { it.optString("id") == halaqaId }?.optString("halaqa_type")
+    val types = SessionWorkflowRules.manualTypesForScope(selectedHalaqaType)
+    val type = preferredType?.takeIf { it in types } ?: types.first()
 
     HalaqatiAlertDialog(
         onDismissRequest = close,
@@ -2071,7 +2210,7 @@ private fun NewSessionDialog(
                     label = "الحلقة",
                     selectedKey = halaqaId,
                     options = halaqaOptions,
-                    onSelected = { halaqaId = it },
+                    onSelected = { halaqaId = it; preferredType = null },
                     modifier = Modifier.fillMaxWidth(),
                     searchable = halaqaOptions.size > 8,
                 )
@@ -2085,7 +2224,7 @@ private fun NewSessionDialog(
                 )
                 Text("نوع الجلسة", style = MaterialTheme.typography.labelLarge)
                 ResponsiveChipGrid(items = types, minItemWidth = 105.dp, maxColumns = 3) { value, itemModifier ->
-                    ProFilterChip(type == value, { type = value }, sessionTypeAr(value), itemModifier.fillMaxWidth(), showCheckIcon = false)
+                    ProFilterChip(type == value, { preferredType = value }, sessionTypeAr(value), itemModifier.fillMaxWidth(), showCheckIcon = false)
                 }
             }
         },
@@ -2366,44 +2505,7 @@ private fun SessionRosterScreen(
         hasRecitations = recitations[student.id].orEmpty().any { it.id !in hiddenRecitationIds },
     )
 
-    // RC40: closing the session settles everyone: unmarked students become absent; present/late students with no
-    // recitation are recorded as "لم يُسمّع". Runs over the whole roster (not just the filtered view).
-    fun finalizeAndClose() {
-        scope.launch {
-            try {
-                var absentCount = 0
-                var notRecitedCount = 0
-                withContext(Dispatchers.IO) {
-                    for (student in students) {
-                        when (stateFor(student)) {
-                            SessionWorkflowRules.StudentState.UNMARKED -> {
-                                AppGraph.repo.saveAttendance(session.id, student.id, "absent")
-                                absentCount++
-                            }
-                            SessionWorkflowRules.StudentState.PRESENT, SessionWorkflowRules.StudentState.LATE -> {
-                                val n = notes[student.id]
-                                AppGraph.repo.saveDailyNote(
-                                    sessionId = session.id, studentId = student.id,
-                                    behavior = n?.behavior ?: "normal", behaviorScore = n?.behaviorScore,
-                                    teacherComment = n?.teacherComment.orEmpty(), homework = n?.homework.orEmpty(),
-                                    parentVisible = n?.parentVisible ?: true,
-                                    participation = SessionWorkflowRules.NOT_RECITED_MARKER,
-                                )
-                                notRecitedCount++
-                            }
-                            else -> Unit
-                        }
-                    }
-                }
-                if (absentCount + notRecitedCount > 0) onChanged()
-                com.mohammedsamir.halaqati.ui.components.HalaqatiMotionEvents.celebrate()
-                close()
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) { message = e.message ?: "تعذر إغلاق الجلسة" }
-        }
-    }
-
+    // The session editor exits without assigning a status to students who have not been observed.
     fun snapshotForActivity(studentId: String, activityType: String): PlanSnapshot? {
         // Tilawah is an independent quality assessment. It must never inherit a Hifz/Tathbit
         // assignment merely because the student also has an active smart plan.
@@ -2806,7 +2908,7 @@ private fun SessionRosterScreen(
             OutlinedButton(
                 onClick = { closeConfirm = true },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp).heightIn(min = HalaqatiUiTokens.TouchTarget),
-            ) { Icon(Icons.Default.DoneAll, null); Spacer(Modifier.width(6.dp)); Text("إنهاء الجلسة") }
+            ) { Icon(Icons.Default.DoneAll, null); Spacer(Modifier.width(6.dp)); Text("الخروج من الجلسة") }
         }
 
         SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp))
@@ -2852,26 +2954,21 @@ private fun SessionRosterScreen(
     }
 
     if (closeConfirm) {
+        val unmarkedCount = students.count { stateFor(it) == SessionWorkflowRules.StudentState.UNMARKED }
         HalaqatiAlertDialog(
             onDismissRequest = { closeConfirm = false },
-            title = { Text("ملخص الجلسة قبل الإغلاق") },
+            title = { Text("الخروج من الجلسة") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    val autoNotRecited = students.count { stateFor(it).let { st -> st == SessionWorkflowRules.StudentState.PRESENT || st == SessionWorkflowRules.StudentState.LATE } }
-                    val autoAbsent = students.count { stateFor(it) == SessionWorkflowRules.StudentState.UNMARKED }
-                    Text(
-                        if (autoNotRecited + autoAbsent > 0)
-                            "عند الإغلاق يُعتمد تلقائيًا: $autoAbsent غائب (لم يُرصدوا) و$autoNotRecited «لم يُسمّع» (حاضرون بلا تسميع)."
-                        else "اكتمل رصد جميع الطلاب. راجع الملخص ثم أغلق الجلسة عندما تكون جاهزًا."
-                    )
+                    if (unmarkedCount > 0) Text("عدد الطلاب الذين لم يُرصد حضورهم: $unmarkedCount. ستبقى حالتهم غير مرصودة.")
                     SessionSummaryStrip(summary = sessionSummary)
                 }
             },
             confirmButton = {
                 Button(onClick = {
                     closeConfirm = false
-                    finalizeAndClose()
-                }) { Text("إنهاء الجلسة") }
+                    close()
+                }) { Text("خروج") }
             },
             dismissButton = { TextButton(onClick = { closeConfirm = false }) { Text("متابعة الرصد") } },
         )
@@ -6278,7 +6375,7 @@ fun planTypeAr(value: String) = when (value) {
 
 
 @Composable
-fun UsersScreen(pending: Int, onRefresh: () -> Unit) {
+fun UsersScreen(pending: Int, onRefresh: () -> Unit, openApprovals: () -> Unit) {
     val scope = rememberCoroutineScope()
     var rows by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
@@ -6442,10 +6539,11 @@ fun UsersScreen(pending: Int, onRefresh: () -> Unit) {
                             Text("سبب الرفض: $reason", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                         }
                         if (!isAdmin) {
+                            val guardianRequest = requested == "guardian"
                             val accountActions = buildList {
                                 when (approval) {
-                                    "pending" -> { add("approve"); add("reject") }
-                                    "rejected" -> add("approve_again")
+                                    "pending" -> if (guardianRequest) add("review_link") else { add("approve"); add("reject") }
+                                    "rejected" -> add(if (guardianRequest) "review_link" else "approve_again")
                                     else -> { add("toggle"); add("freeze"); add("role"); if (staff) add("photo") }
                                 }
                                 add("delete")
@@ -6455,6 +6553,7 @@ fun UsersScreen(pending: Int, onRefresh: () -> Unit) {
                                 OutlinedButton(
                                     onClick = {
                                         when (action) {
+                                            "review_link" -> openApprovals()
                                             "approve" -> runAccountAction(id, { AppGraph.repo.approveAccount(id, requested) }, "تم اعتماد الحساب")
                                             "reject" -> rejectUser = row
                                             "approve_again" -> runAccountAction(id, { AppGraph.repo.approveAccount(id, requested) }, "تم اعتماد الحساب من جديد")
@@ -6472,6 +6571,7 @@ fun UsersScreen(pending: Int, onRefresh: () -> Unit) {
                                     if (action == "delete") Icon(Icons.Default.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
                                     Text(
                                         when (action) {
+                                            "review_link" -> "طلبات الربط"
                                             "approve" -> if (busyId == id) "جاري…" else "اعتماد"
                                             "reject" -> "رفض"
                                             "approve_again" -> "اعتماد من جديد"

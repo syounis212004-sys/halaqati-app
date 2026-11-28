@@ -18,6 +18,12 @@ class SessionWorkflowRulesTest {
         assertTrue(SessionWorkflowRules.manualSessionTypes.containsAll(listOf("tasmee","sard","review","test","tajweed","lesson","other")))
     }
 
+    @Test fun programsOfferIndependentActivities() {
+        assertEquals(listOf("tilawah", "lesson", "test", "other"), SessionWorkflowRules.manualTypesForScope("course"))
+        assertEquals("tasmee", SessionWorkflowRules.manualTypesForScope("regular").first())
+        assertFalse("tajweed" in SessionWorkflowRules.manualTypesForScope("tilawah"))
+    }
+
     @Test fun explicitNotRecitedIsDifferentFromUnmarked() {
         assertEquals(
             SessionWorkflowRules.StudentState.UNMARKED,

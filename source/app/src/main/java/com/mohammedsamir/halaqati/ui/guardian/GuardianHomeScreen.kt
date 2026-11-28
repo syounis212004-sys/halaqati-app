@@ -49,9 +49,9 @@ fun GuardianHomeScreen(
     val overview = state.overview
 
     Column(Modifier.fillMaxSize()) {
-        AppTopBar(title = "اطمئن على رحلته", kicker = "ولي الأمر · متابعة الأبناء")
+        AppTopBar(title = "اطمئن على رحلته", kicker = "ولي الأمر · متابعة الأبناء", onRefresh = vm::refresh)
         PullToRefreshBox(
-            isRefreshing = state.refreshing && overview != null,
+            isRefreshing = state.refreshing,
             onRefresh = { vm.refresh() },
             modifier = Modifier.weight(1f).fillMaxWidth(),
         ) {
@@ -90,7 +90,7 @@ fun GuardianHomeScreen(
                 when {
                     overview == null && (state.loadingFirst || state.refreshing) ->
                         item(key = "loading", contentType = "loading") { LoadingSkeleton(rows = 3) }
-                    overview == null && state.children.isEmpty() && !state.loadingFirst ->
+                    overview == null && state.children.isEmpty() && state.message == null ->
                         item(key = "empty", contentType = "empty") { EmptyState("لا توجد ملفات طلاب مرتبطة بهذا الحساب") }
                     overview != null -> {
                         item(key = "today", contentType = "today") { TodayCard(overview) }
@@ -197,6 +197,7 @@ private fun TodayCard(o: GuardianOverview) {
                         )
                         }
                 }
+                val activity = if (o.program) "التلاوة" else if (o.tathbit) "التثبيت" else "التسميع"
                 // RC104: today's two states sit side by side under the child (they used to wrap into two tall rows beside the photo).
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Surface(Modifier.weight(1f), shape = RoundedCornerShape(50), color = onP.copy(alpha = .2f)) {
@@ -204,14 +205,14 @@ private fun TodayCard(o: GuardianOverview) {
                     }
                     Surface(Modifier.weight(1f), shape = RoundedCornerShape(50), color = onP.copy(alpha = if (o.todayRecited) .32f else .14f)) {
                         Text(
-                            if (o.todayRecited) "أتمّ ${if (o.tathbit) "التثبيت" else "التسميع"}" else "لم يُسجَّل ${if (o.tathbit) "التثبيت" else "التسميع"}",
+                            if (o.todayRecited) "أتمّ $activity" else "لم يُسجَّل $activity",
                             Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
                 // Today's ward in a clear inset panel
-                Surface(shape = RoundedCornerShape(16.dp), color = onP.copy(alpha = .14f), modifier = Modifier.fillMaxWidth()) {
+                if (!o.program) Surface(shape = RoundedCornerShape(16.dp), color = onP.copy(alpha = .14f), modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text("مقرر اليوم", style = MaterialTheme.typography.labelMedium, color = onP.copy(alpha = .92f))
                         Text(o.todayWard ?: "لا يوجد مقرر اليوم", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -346,7 +347,7 @@ private fun PlanActivityRow(activity: GuardianPlanActivity) {
 @Composable
 private fun MetricsStrip(o: GuardianOverview) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Metric(o.monthMainLabel, "${num(o.monthMain)} ص", Modifier.weight(1f))
+        if (!o.program) Metric(o.monthMainLabel, "${num(o.monthMain)} ص", Modifier.weight(1f))
         Metric("الحضور", "${o.monthPresent}/${o.monthSessions}", Modifier.weight(1f))
         Metric("الجودة", o.quality?.let { "${num(it)}٪" } ?: "—", Modifier.weight(1f))
     }

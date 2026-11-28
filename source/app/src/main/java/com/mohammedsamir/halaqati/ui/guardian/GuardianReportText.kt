@@ -26,7 +26,7 @@ object GuardianReportText {
         if (head.isNotBlank()) append(head).append('\n')
         append('\n')
         append("• الحضور: ${o.monthPresent} من ${o.monthSessions} جلسة\n")
-        append("• ${o.monthMainLabel}: ${num(o.monthMain)} صفحة\n")
+        if (!o.program) append("• ${o.monthMainLabel}: ${num(o.monthMain)} صفحة\n")
         o.quality?.let { append("• جودة التسميع: ${num(it)}٪\n") }
         val targeted = o.planActivities.filter { it.hasTarget }
         if (targeted.isNotEmpty()) {

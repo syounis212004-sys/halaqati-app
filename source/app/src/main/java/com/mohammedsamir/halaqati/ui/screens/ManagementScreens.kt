@@ -2,6 +2,7 @@
 
 package com.mohammedsamir.halaqati.ui.screens
 
+import com.mohammedsamir.halaqati.plans.ProgramKindRules
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -381,11 +382,11 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
                                 .put("schedule_text", schedule.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
                                 .put("description", description.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
                                 .put("halaqa_type", halaqaType)
-                                .put("program_kind", programKind.takeIf { halaqaType != "regular" && it.isNotBlank() } ?: JSONObject.NULL)
-                                .put("program_specialization", specialization.takeIf { halaqaType != "regular" } ?: JSONObject.NULL)
-                                .put("program_level", programLevel.takeIf { halaqaType != "regular" } ?: JSONObject.NULL)
-                                .put("assessment_type", assessmentType.takeIf { halaqaType != "regular" } ?: JSONObject.NULL)
-                                .put("affects_primary_plan", halaqaType != "regular" && affectsPrimaryPlan)
+                                .put("program_kind", programKind)
+                                .put("program_specialization", specialization)
+                                .put("program_level", programLevel)
+                                .put("assessment_type", assessmentType)
+                                .put("affects_primary_plan", halaqaType == "regular" || affectsPrimaryPlan)
                                 .put("starts_on", startsOn?.toString() ?: JSONObject.NULL)
                                 .put("ends_on", endsOn?.toString() ?: JSONObject.NULL)
                                 .put("allow_secondary_members", true)
@@ -822,11 +823,28 @@ private fun HalaqaDialog(
     var location by remember(current) { mutableStateOf(current?.mgmtStr("location").orEmpty()) }
     var schedule by remember(current) { mutableStateOf(current?.mgmtStr("schedule_text").orEmpty()) }
     var description by remember(current) { mutableStateOf(current?.mgmtStr("description").orEmpty()) }
-    var halaqaType by remember(current) { mutableStateOf(com.mohammedsamir.halaqati.plans.ProgramKindRules.canonical(current?.optString("halaqa_type", "regular"))) }
+    var halaqaType by remember(current) { mutableStateOf(ProgramKindRules.canonical(current?.optString("halaqa_type"))) }
+    val kindOptions = listOf("continuous" to "مستمر", "course" to "دورة", "intensive" to "مكثف", "workshop" to "ورشة", "competition" to "مسابقة")
+    val specializationOptions = listOf(
+        "hifz" to "حفظ", "hifz_intensive" to "حفظ مكثف", "tathbit" to "تثبيت", "tilawah" to "تلاوة",
+        "tajweed_theory" to "تجويد نظري", "tajweed_practical" to "تجويد تطبيقي", "noorania" to "القاعدة النورانية",
+        "ijazah" to "سند وإجازة", "qiraat" to "قراءات", "teacher_training" to "تأهيل محفظين",
+        "reading_remedial" to "دعم القراءة", "selected_surahs" to "سور محددة", "general" to "برنامج عام", "custom" to "مخصص",
+    )
+    val levelOptions = listOf("beginner" to "مبتدئ", "intermediate" to "متوسط", "advanced" to "متقدم", "open" to "مفتوح")
+    val assessmentOptions = listOf(
+        "none" to "بدون تقييم", "attendance" to "حضور والتزام", "score" to "درجة", "practical" to "تقييم عملي",
+        "units" to "وحدات", "pass_fail" to "اجتياز", "mixed" to "مختلط",
+    )
     var programKind by remember(current) { mutableStateOf(current?.mgmtStr("program_kind").orEmpty()) }
-    var specialization by remember(current) { mutableStateOf(current?.mgmtStr("program_specialization").orEmpty()) }
-    var programLevel by remember(current) { mutableStateOf(current?.optString("program_level", "mixed")?.ifBlank { "mixed" } ?: "mixed") }
-    var assessmentType by remember(current) { mutableStateOf(current?.optString("assessment_type", "none")?.ifBlank { "none" } ?: "none") }
+    var specialization by remember(current) { mutableStateOf(ProgramKindRules.specialization(current?.mgmtStr("program_specialization"))) }
+    var programLevel by remember(current) { mutableStateOf(current?.mgmtStr("program_level")?.takeIf { value -> levelOptions.any { it.first == value } } ?: "open") }
+    var assessmentType by remember(current) { mutableStateOf(current?.mgmtStr("assessment_type")?.takeIf { value -> assessmentOptions.any { it.first == value } } ?: "none") }
+    val program = halaqaType != "regular"
+    val selectedKind = if (!program) "continuous" else programKind.takeIf { value -> kindOptions.any { it.first == value } }
+        ?: if (halaqaType == "course" || halaqaType == "training") "course" else "continuous"
+    val selectedSpecialization = if (!program) "hifz" else specialization.takeIf { value -> specializationOptions.any { it.first == value } }
+        ?: when (halaqaType) { "tilawah" -> "tilawah"; "training" -> "teacher_training"; else -> "general" }
     var affectsPrimaryPlan by remember(current) { mutableStateOf(current?.optBoolean("affects_primary_plan", false) ?: false) }
     var startsOn by remember(current) { mutableStateOf(current?.optString("starts_on")?.takeIf { it.isNotBlank() && it != "null" }?.let { runCatching { LocalDate.parse(it.take(10)) }.getOrNull() } ?: LocalDate.now()) }
     var endsOn by remember(current) { mutableStateOf(current?.optString("ends_on")?.takeIf { it.isNotBlank() && it != "null" }?.let { runCatching { LocalDate.parse(it.take(10)) }.getOrNull() } ?: LocalDate.now().plusMonths(1)) }
@@ -844,7 +862,7 @@ private fun HalaqaDialog(
                 OutlinedTextField(name, { name = it }, label = { Text("اسم الحلقة") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Text("نوع الحلقة / البرنامج", style = MaterialTheme.typography.labelLarge)
                 ResponsiveChipGrid(
-                    items = listOf("regular" to "أساسية", "tilawah" to com.mohammedsamir.halaqati.plans.ProgramKindRules.TILAWAH_TAJWEED_LABEL, "training" to "تأهيلية", "course" to "دورة"),
+                    items = listOf("regular" to "أساسية", "tilawah" to com.mohammedsamir.halaqati.plans.ProgramKindRules.TILAWAH_TAJWEED_LABEL, "training" to "تأهيل محفظين", "course" to "دورة", "other" to "أخرى"),
                     minItemWidth = 105.dp, maxColumns = 2,
                 ) { pair, itemModifier ->
                     ProFilterChip(halaqaType == pair.first, { halaqaType = pair.first }, pair.second, itemModifier.fillMaxWidth(), showCheckIcon = false)
@@ -853,26 +871,21 @@ private fun HalaqaDialog(
                     Text("تخصص البرنامج", style = MaterialTheme.typography.labelLarge)
                     HalaqatiLazySelectField(
                         label = "التخصص",
-                        selectedKey = specialization.ifBlank { when (halaqaType) { "tajweed" -> "tajweed_applied"; "tilawah" -> "tilawah"; "training" -> "teacher_training"; else -> "general" } },
-                        options = listOf(
-                            "hifz" to "حفظ", "intensive_hifz" to "حفظ مكثف", "tathbit" to "تثبيت", "tilawah" to "تلاوة",
-                            "tajweed_theory" to "تجويد نظري", "tajweed_applied" to "تجويد تطبيقي", "noorani" to "القاعدة النورانية",
-                            "ijazah" to "إجازة", "qiraat" to "قراءات", "teacher_training" to "تأهيل محفظين",
-                            "reading_support" to "علاج ضعف القراءة", "selected_surahs" to "سور/أجزاء محددة", "general" to "برنامج عام"
-                        ),
+                        selectedKey = selectedSpecialization,
+                        options = specializationOptions,
                         onSelected = { specialization = it },
                         modifier = Modifier.fillMaxWidth(),
                         searchable = true,
                     )
-                    OutlinedTextField(programKind, { programKind = it }, label = { Text("طبيعة البرنامج / ملاحظة تعريفية") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    HalaqatiLazySelectField("نوع التنفيذ", selectedKind, kindOptions, { programKind = it }, Modifier.fillMaxWidth(), searchable = false)
                     Text("المستوى", style = MaterialTheme.typography.labelLarge)
-                    ResponsiveChipGrid(items = listOf("beginner" to "مبتدئ", "intermediate" to "متوسط", "advanced" to "متقدم", "mixed" to "مختلط"), minItemWidth = 105.dp, maxColumns = 2) { pair, itemModifier ->
+                    ResponsiveChipGrid(items = levelOptions, minItemWidth = 105.dp, maxColumns = 2) { pair, itemModifier ->
                         ProFilterChip(programLevel == pair.first, { programLevel = pair.first }, pair.second, itemModifier.fillMaxWidth(), showCheckIcon = false)
                     }
                     Text("نمط التقييم", style = MaterialTheme.typography.labelLarge)
                     HalaqatiLazySelectField(
                         label = "التقييم", selectedKey = assessmentType,
-                        options = listOf("none" to "بدون تقييم", "attendance" to "حضور والتزام", "rubric" to "تقييم مهاري", "exam" to "اختبار", "ijazah" to "إجازة/سند"),
+                        options = assessmentOptions,
                         onSelected = { assessmentType = it }, modifier = Modifier.fillMaxWidth(), searchable = false,
                     )
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
@@ -896,7 +909,7 @@ private fun HalaqaDialog(
         },
         confirmButton = {
             Button(
-                onClick = { save(name.trim(), location.trim(), schedule.trim(), description.trim(), halaqaType, programKind.trim(), specialization.ifBlank { "general" }, programLevel, assessmentType, affectsPrimaryPlan, startsOn.takeIf { halaqaType != "regular" }, endsOn.takeIf { halaqaType != "regular" }, logo) },
+                onClick = { save(name.trim(), location.trim(), schedule.trim(), description.trim(), halaqaType, selectedKind, selectedSpecialization, if (program) programLevel else "open", if (program) assessmentType else "attendance", affectsPrimaryPlan, startsOn.takeIf { halaqaType != "regular" }, endsOn.takeIf { halaqaType != "regular" }, logo) },
                 enabled = !saving && name.trim().length >= 2 && (halaqaType == "regular" || !endsOn.isBefore(startsOn)),
             ) {
                 if (saving) { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)) }

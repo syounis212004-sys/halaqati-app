@@ -3,6 +3,7 @@ package com.mohammedsamir.halaqati.ui.guardian
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mohammedsamir.halaqati.data.AppGraph
+import com.mohammedsamir.halaqati.ui.runCatchingCancellable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,67 +13,85 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * RC17 guardian home: stale-while-revalidate.
- * Children are loaded once; switching child shows its cached overview instantly (memory, then disk)
- * and refreshes only that child with ONE RPC. The screen never drops to a skeleton when data exists.
- */
 class GuardianHomeViewModel : ViewModel() {
     private val _state = MutableStateFlow(GuardianHomeUiState())
     val state: StateFlow<GuardianHomeUiState> = _state.asStateFlow()
     private val memory = HashMap<String, GuardianOverview>()
-    private var childrenLoaded = false
-    private var refreshJob: Job? = null
+    private var childrenJob: Job? = null
+    private var overviewJob: Job? = null
 
-    fun start() {
-        if (childrenLoaded) return
-        childrenLoaded = true
-        viewModelScope.launch {
-            val children = com.mohammedsamir.halaqati.ui.runCatchingCancellable {
+    fun start() = loadChildren(explicitRefresh = false)
+
+    fun refresh() = loadChildren(explicitRefresh = true)
+
+    private fun loadChildren(explicitRefresh: Boolean) {
+        if (childrenJob?.isActive == true) return
+        childrenJob = viewModelScope.launch {
+            _state.update { it.copy(refreshing = explicitRefresh, message = null) }
+            val online = AppGraph.repo.online()
+            val children = runCatchingCancellable {
                 withContext(Dispatchers.IO) {
-                    AppGraph.repo.guardianChildren().filter { it.status == "active" }
+                    AppGraph.repo.guardianChildren(forceRefresh = online || explicitRefresh, requireFresh = online || explicitRefresh)
+                        .filter { it.status == "active" }
                         .map { GuardianChild(it.id, it.fullName, it.track == "tathbit") }
-                        .sortedBy { it.name }
                 }
-            }.getOrElse { e ->
-                _state.update { it.copy(loadingFirst = false, message = e.message ?: "تعذر تحميل الأبناء") }
-                childrenLoaded = false
+            }.getOrElse {
+                _state.update {
+                    it.copy(
+                        loadingFirst = false,
+                        refreshing = false,
+                        stale = true,
+                        message = if (online) "تعذر تحديث قائمة الأبناء" else "تحديث قائمة الأبناء يحتاج اتصالًا بالإنترنت",
+                    )
+                }
                 return@launch
             }
-            _state.update { it.copy(children = children) }
-            val first = children.firstOrNull()?.id
-            if (first == null) _state.update { it.copy(loadingFirst = false) } else select(first)
+            val allowedIds = children.map { it.id }.toSet()
+            memory.keys.retainAll(allowedIds)
+            val previous = _state.value.selectedId
+            val next = previous?.takeIf { it in allowedIds } ?: children.firstOrNull()?.id
+            overviewJob?.cancel()
+            _state.update {
+                it.copy(
+                    children = children,
+                    selectedId = next,
+                    overview = if (next == previous) it.overview else next?.let(memory::get),
+                    loadingFirst = next != null && it.loadingFirst,
+                    refreshing = false,
+                    message = if (!online && children.isEmpty()) "اتصل بالإنترنت للتحقق من ارتباط الأبناء" else null,
+                )
+            }
+            if (next != null) select(next)
         }
     }
 
     fun select(studentId: String) {
-        val cachedInMemory = memory[studentId]
-        _state.update { it.copy(selectedId = studentId, overview = cachedInMemory, message = null) }
-        refreshJob?.cancel()
-        viewModelScope.launch {
-            if (cachedInMemory == null) {
+        if (_state.value.children.none { it.id == studentId }) return
+        overviewJob?.cancel()
+        val cached = memory[studentId]
+        _state.update {
+            it.copy(
+                selectedId = studentId,
+                overview = cached,
+                refreshing = true,
+                message = null,
+            )
+        }
+        overviewJob = viewModelScope.launch {
+            if (cached == null) {
                 val disk = withContext(Dispatchers.IO) {
                     AppGraph.repo.cachedGuardianChildOverview(studentId)?.let { GuardianOverview.parse(it) }
                 }
-                if (disk != null && _state.value.selectedId == studentId && _state.value.overview == null) {
+                if (disk != null) {
                     memory[studentId] = disk
                     _state.update { it.copy(overview = disk, loadingFirst = false, stale = true) }
                 }
             }
-        }
-        refresh(studentId)
-    }
-
-    fun refresh(studentId: String? = _state.value.selectedId) {
-        val id = studentId ?: return
-        refreshJob = viewModelScope.launch {
-            _state.update { it.copy(refreshing = true) }
             val online = AppGraph.repo.online()
-            val fresh = com.mohammedsamir.halaqati.ui.runCatchingCancellable {
-                withContext(Dispatchers.IO) { AppGraph.repo.guardianChildOverview(id)?.let { GuardianOverview.parse(it) } }
+            val fresh = runCatchingCancellable {
+                withContext(Dispatchers.IO) { AppGraph.repo.guardianChildOverview(studentId)?.let { GuardianOverview.parse(it) } }
             }.getOrNull()
-            if (_state.value.selectedId != id) return@launch
-            if (fresh != null) memory[id] = fresh
+            if (fresh != null) memory[studentId] = fresh
             _state.update {
                 it.copy(
                     overview = fresh ?: it.overview,
