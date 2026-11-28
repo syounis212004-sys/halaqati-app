@@ -377,12 +377,12 @@ internal fun MushafScreenContent(
                         }
                         if (landscape) {
                             // landscape: a vertical rail on the start edge, the page takes the rest of the width
-                            Row(Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(Modifier.fillMaxSize().padding(horizontal = 2.dp, vertical = 1.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 if (!readOnly) dock(true, Modifier)
                                 pageArea(Modifier.weight(1f).fillMaxHeight())
                             }
                         } else {
-                            Column(Modifier.fillMaxSize().padding(horizontal = 4.dp).padding(bottom = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Column(Modifier.fillMaxSize().padding(horizontal = 1.dp).padding(bottom = 2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                 pageArea(Modifier.weight(1f).fillMaxWidth())
                                 if (!readOnly) dock(false, Modifier)
                             }
@@ -488,7 +488,7 @@ private fun MushafPage(
 ) {
     Box(
         Modifier.width(pageW).height(pageH).background(pal.pageBg, RoundedCornerShape(6.dp))
-            .border(2.dp, pal.frame, RoundedCornerShape(5.dp)).padding(2.dp).border(1.dp, pal.rule, RoundedCornerShape(4.dp)).padding(horizontal = 2.dp, vertical = 1.dp),
+            .border(1.dp, pal.frame, RoundedCornerShape(5.dp)).padding(1.dp).border(1.dp, pal.rule, RoundedCornerShape(4.dp)).padding(1.dp),
     ) {
         when (state) {
             is PageState.Loading -> Text("جارٍ تحميل صفحة ${digits(page)}…", color = pal.pageInk, modifier = Modifier.align(Alignment.Center).semantics { role = Role.Image })

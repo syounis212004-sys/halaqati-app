@@ -3812,12 +3812,12 @@ private fun RecitationDialog(
     var resolvedActivityType by remember(student.id, session.id, activityTypeOverride, existing?.id) {
         mutableStateOf(existing?.activityType?.let { old -> runCatching { com.mohammedsamir.halaqati.data.TrackActivityPolicy.recitationActivityFor(student.track, old) }.getOrDefault(old) }
             ?: activityTypeOverride?.let { runCatching { com.mohammedsamir.halaqati.data.TrackActivityPolicy.recitationActivityFor(student.track, it) }.getOrNull() }
-            ?: if (com.mohammedsamir.halaqati.data.TrackActivityPolicy.isTathbit(student.track)) "tathbit" else when (session.type) {
+            ?: when (session.type) {
             "sard" -> "sard"
-            "review" -> "review_near"
+            "review" -> if (com.mohammedsamir.halaqati.data.TrackActivityPolicy.isTathbit(student.track)) "tathbit" else "review_near"
             "test" -> "test"
             "tajweed", "tilawah" -> "tilawah"
-            else -> "new_hifz"
+            else -> if (com.mohammedsamir.halaqati.data.TrackActivityPolicy.isTathbit(student.track)) "tathbit" else "new_hifz"
         })
     }
 
@@ -3835,9 +3835,14 @@ private fun RecitationDialog(
         mutableStateOf(if (arr == null) emptySet<String>() else (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) }.toSet())
     }
     var previousLoading by remember(student.id, session.id, existing?.id) { mutableStateOf(false) }
-    LaunchedEffect(student.id, session.id, existing?.id, resolvedActivityType) {
+    var previousUnavailable by remember(student.id, session.id, existing?.id) { mutableStateOf(existingTilawah?.optString("previous_lookup_status") == "unavailable") }
+    var previousAcknowledged by remember(student.id, session.id, existing?.id) { mutableStateOf(existing != null) }
+    var previousRetry by remember(student.id, session.id, existing?.id) { mutableIntStateOf(0) }
+    LaunchedEffect(student.id, session.id, existing?.id, resolvedActivityType, previousRetry) {
         if (resolvedActivityType == "tilawah" && existing == null) {
             previousLoading = true
+            previousUnavailable = false
+            previousAcknowledged = false
             try {
                 // Narrow, account-scoped cached projection, one lookup on entry, never on a rating change.
                 val validIds = listOf(student.id, session.halaqaId).all { id ->
@@ -3849,12 +3854,15 @@ private fun RecitationDialog(
                         AppGraph.repo.table(
                             "recitation_entries",
                             "select=selection_data,sessions!inner(session_date,halaqa_id,status)&student_id=eq.${student.id}&activity_type=eq.tilawah&sessions.halaqa_id=eq.${session.halaqaId}&sessions.session_date=lt.$date&sessions.status=neq.cancelled&order=sessions(session_date).desc,created_at.desc&limit=1",
+                            requireKnownResult = true,
                         )
                     }
                     val arr = rows.optJSONObject(0)?.optJSONObject("selection_data")?.optJSONObject("tilawah_assessment")?.optJSONArray("issue_keys")
                     previousIssues = if (arr == null) emptySet() else (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) }.toSet()
-                }
-            } finally {
+                } else previousUnavailable = true
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { previousUnavailable = true }
+            finally {
                 previousLoading = false
             }
         }
@@ -3949,12 +3957,14 @@ private fun RecitationDialog(
                 error?.let { StateNotice(it, kind = "error") }
                 Text("نوع التسميع", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
 
-                val recitationTypes = if (com.mohammedsamir.halaqati.data.TrackActivityPolicy.isTathbit(student.track)) listOf(
+                val recitationTypes = (if (com.mohammedsamir.halaqati.data.TrackActivityPolicy.isTathbit(student.track)) listOf(
                     Triple("tathbit", "تثبيت", Icons.Default.Replay), Triple("tilawah", "تلاوة", Icons.Default.AutoStories),
                 ) else listOf(
                     Triple("new_hifz", "حفظ", Icons.Default.MenuBook), Triple("review_near", "مراجعة", Icons.Default.Replay),
                     Triple("sard", "سرد", Icons.Default.RecordVoiceOver), Triple("tilawah", "تلاوة", Icons.Default.AutoStories),
-                )
+                )).plus(Triple("test", "اختبار", Icons.Default.CheckCircle)).filter { option ->
+                    option.first == resolvedActivityType || SessionWorkflowRules.matchesRecitation(session.type, option.first)
+                }
                 ResponsiveChipGrid(items = recitationTypes, minItemWidth = 105.dp, maxColumns = 4) { option, itemModifier ->
                     val (value, label, icon) = option
                     ProFilterChip(
@@ -4064,7 +4074,14 @@ private fun RecitationDialog(
                                 Text("التصحيحات السابقة", style = MaterialTheme.typography.labelLarge)
                                 when {
                                     previousLoading -> Text("جارٍ تحميل التصحيحات السابقة…", style = MaterialTheme.typography.bodySmall)
-                                    previousIssues.isEmpty() -> Text("لم تتوفر تصحيحات سابقة · لا يدخل المعيار في النسبة", style = MaterialTheme.typography.bodySmall)
+                                    previousUnavailable -> {
+                                        Text("تعذر التحقق من التصحيحات السابقة. لا يعني ذلك عدم وجود تصحيحات.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                                        if (existing == null) {
+                                            TextButton(onClick = { previousRetry++ }) { Text("إعادة المحاولة") }
+                                            ProFilterChip(previousAcknowledged, { previousAcknowledged = !previousAcknowledged }, "متابعة دون التحقق", Modifier.fillMaxWidth(), showCheckIcon = true)
+                                        }
+                                    }
+                                    previousIssues.isEmpty() -> Text("لم تتوفر تصحيحات سابقة في البيانات المتاحة · لا يدخل المعيار في النسبة", style = MaterialTheme.typography.bodySmall)
                                     else -> {
                                         Text(previousIssues.map { key -> issueOptions.firstOrNull { it.first == key }?.second ?: key }.joinToString("، "), style = MaterialTheme.typography.bodyMedium)
                                         Text("مدى الالتزام بتصحيحات الشيخ السابقة", style = MaterialTheme.typography.labelLarge)
@@ -4153,7 +4170,7 @@ private fun RecitationDialog(
                     modifier = Modifier.weight(.8f).heightIn(min = 52.dp),
                 ) { Text("إلغاء") }
                 Button(
-                    enabled = !saving && pageValue > 0.0 && (!isTilawah || legacyTilawah || (wardReviewed != null && !previousLoading && (previousIssues.isEmpty() || correctionAdherence != null))),
+                    enabled = !saving && pageValue > 0.0 && (!isTilawah || legacyTilawah || (wardReviewed != null && !previousLoading && (!previousUnavailable || previousAcknowledged) && (previousIssues.isEmpty() || correctionAdherence != null))),
                     modifier = Modifier.weight(1.4f).heightIn(min = 52.dp),
                     onClick = {
                         saving = true
@@ -4207,7 +4224,7 @@ private fun RecitationDialog(
                                             selectedJuz = authoritativeQuranRange?.selectedJuz.orEmpty(),
                                             traversalDirection = authoritativeQuranRange?.resolvedTraversal?.name,
                                             quranSegments = authoritativeQuranRange?.orderedSegments?.map { it.compactKey() }.orEmpty(),
-                                            tilawahAssessment = if (isTilawah && legacyTilawah) JSONObject()
+                                            tilawahAssessment = if (isTilawah && legacyTilawah) JSONObject(existingTilawah?.toString() ?: "{}")
                                                 .put("version", 1)
                                                 .put("riwayah", tilawahRiwayah)
                                                 .put("lahn_jali", lahnJali)
@@ -4232,6 +4249,7 @@ private fun RecitationDialog(
                                                 .put("waqf_ibtida", waqfRating)
                                                 .put("ward_reviewed", wardReviewed == true)
                                                 .put("correction_adherence", correctionAdherence.takeIf { previousIssues.isNotEmpty() } ?: JSONObject.NULL)
+                                                .put("previous_lookup_status", if (previousUnavailable) "unavailable" else "available")
                                                 .put("previous_issue_keys", org.json.JSONArray(previousIssues.sorted()))
                                                 .put("issue_keys", org.json.JSONArray(tilawahIssues.sorted()))
                                                 .put("overall_score", kotlin.math.round(tilawahScore * 10.0) / 10.0)

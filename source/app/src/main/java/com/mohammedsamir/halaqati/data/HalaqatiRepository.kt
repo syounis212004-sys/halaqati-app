@@ -2898,8 +2898,9 @@ class HalaqatiRepository(
         query: String = "select=*&order=created_at.desc&limit=250",
         forceRefresh: Boolean = false,
         preferCache: Boolean = false,
+        requireKnownResult: Boolean = false,
     ): JSONArray {
-        val owner = currentUserId() ?: return JSONArray()
+        val owner = currentUserId() ?: if (requireKnownResult) error("لا يوجد حساب نشط") else return JSONArray()
         if (sessionCachesDirty && online()) {
             sessionCachesDirty = false
             invalidateSessionDerivedCaches()
@@ -2926,10 +2927,10 @@ class HalaqatiRepository(
         }
         // RC79: callers that follow the once-per-cycle gate (student profile) accept the stored copy even past the 90 s window.
         if (!forceRefresh && preferCache && cached != null) return cached
-        if (!online()) return cached ?: JSONArray()
+        if (!online()) return cached ?: if (requireKnownResult) error("لا توجد نسخة محلية لهذه البيانات") else JSONArray()
         return runCatching { withAuthRetry { api.select(table, query) } }
             .onSuccess { cache.put(owner, key, it.toString()) }
-            .getOrElse { cached ?: JSONArray() }
+            .getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it; cached ?: if (requireKnownResult) throw it else JSONArray() }
     }
 
     /**
