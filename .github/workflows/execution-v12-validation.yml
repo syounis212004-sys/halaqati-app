@@ -3,7 +3,7 @@ name: Execution v1.2 validation
 on:
   workflow_call:
   push:
-    branches: [fix/execution-v1-2]
+    branches: [fix/execution-v1-2, main]
   pull_request:
     paths:
       - 'source/**'
@@ -15,7 +15,7 @@ permissions:
 jobs:
   android:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v6
         with:
@@ -75,7 +75,18 @@ jobs:
             settings.dependencyResolutionManagement.repositories.maven { url = uri(mirror) }
           }
           GRADLE
-          gradle --no-daemon --console=plain --init-script "$RUNNER_TEMP/central-mirror.gradle" :app:assembleDebug :app:testDebugUnitTest
+          # The in-process Kotlin compiler and Compose IR need more than 4 GiB.
+          # Size the heap to the actual runner, reserving memory for OS and native tooling.
+          available_kib=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)
+          heap_mib=$((available_kib / 1024 - 2304))
+          if [ "$heap_mib" -gt 8192 ]; then heap_mib=8192; fi
+          if [ "$heap_mib" -lt 4608 ]; then heap_mib=4608; fi
+          free -h
+          echo "Gradle heap: ${heap_mib} MiB"
+          jvm="-Xmx${heap_mib}m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError -Dfile.encoding=UTF-8"
+          gradle --no-daemon --max-workers=1 --console=plain "-Dorg.gradle.jvmargs=$jvm" --init-script "$RUNNER_TEMP/central-mirror.gradle" :app:assembleDebug
+          # Fresh daemon for Robolectric, rather than keeping the large compiler heap resident.
+          gradle --no-daemon --max-workers=1 --console=plain "-Dorg.gradle.jvmargs=$jvm" --init-script "$RUNNER_TEMP/central-mirror.gradle" :app:testDebugUnitTest
       - uses: actions/upload-artifact@v4
         if: always()
         with:

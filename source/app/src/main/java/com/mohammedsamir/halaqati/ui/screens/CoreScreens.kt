@@ -3841,6 +3841,7 @@ private fun RecitationDialog(
     }
 
     val existingTilawah = existing?.tilawahAssessment
+    val baseTilawahRevision = existingTilawah?.optString("revision")?.takeIf { it.isNotBlank() && it != "null" }
     // Do not silently convert old assessments to the new scoring contract during an edit.
     val legacyTilawah = existing != null && (existingTilawah?.optInt("version", 1) ?: 1) < 2
     var tilawahMarkOriginal by remember(student.id, session.id, existing?.id) { mutableStateOf(existingTilawah?.optJSONArray("marks")) }
@@ -3968,7 +3969,8 @@ private fun RecitationDialog(
     }
 
     fun formPayload(marks: List<TilawahMark> = tilawahMarks): JSONObject = JSONObject()
-        .put("client_id", tilawahClientId).put("start", start).put("end", end)
+        .put("client_id", tilawahClientId).put("base_revision", baseTilawahRevision ?: JSONObject.NULL)
+        .put("start", start).put("end", end)
         .put("range", markRange?.let(TilawahDraftJson::encodeRange) ?: JSONObject.NULL)
         .put("lines", org.json.JSONArray(effectiveQcfLineKeys))
         .put("marks", TilawahMarkJson.encode(marks, tilawahMarkOriginal))
@@ -4010,6 +4012,9 @@ private fun RecitationDialog(
                 val rows = cached.getJSONArray("marks")
                 val restoredId = java.util.UUID.fromString(cached.getString("client_id")).toString()
                 require(existing == null || restoredId == existing.id) { "معرف المسودة غير مطابق" }
+                require(cached.optString("base_revision").takeIf { it.isNotBlank() && it != "null" } == baseTilawahRevision) {
+                    "تغير تقييم الخادم منذ إنشاء المسودة. المسودة محفوظة؛ راجع مركز المزامنة قبل الاستبدال."
+                }
                 val range = cached.optJSONObject("range")?.let(TilawahDraftJson::decodeRange)
                 start = cached.optString("start"); end = cached.optString("end")
                 selectedQuranRange = range
@@ -4443,6 +4448,8 @@ private fun RecitationDialog(
                                                 .put("manual_teacher_assessment", true)
                                             else if (isTilawah) JSONObject(existingTilawah?.toString() ?: "{}")
                                                 .put("version", 2)
+                                                .put("revision", java.util.UUID.randomUUID().toString())
+                                                .put("base_revision", baseTilawahRevision ?: JSONObject.NULL)
                                                 .put("riwayah", "hafs")
                                                 .put("lahn_jali", majorErrors)
                                                 .put("lahn_khafi", markedMinorCount)

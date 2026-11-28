@@ -6397,7 +6397,9 @@ class HalaqatiRepository(
             .put("penalty_units", penaltyUnits)
             .put("penalty_per_page", penaltyPerPage)
             .put("points", points)
-            .put("scoring_version", if (draft.activityType == "tilawah") "TILAWAH_V1" else "V7")
+            .put("scoring_version", if (draft.activityType == "tilawah") {
+                if (draft.tilawahAssessment?.optInt("version") == 2) "TILAWAH_V2" else "TILAWAH_V1"
+            } else "V7")
             .put("selection_data", selectionData)
         // RC15.2: tathbit recitations belong to the monthly plan, never to a phase. The server
         // trigger resolves plan_id from the session date, so no schema-dependent column is sent.
@@ -6412,12 +6414,21 @@ class HalaqatiRepository(
         if (draft.selectedSurahs.isNotEmpty()) obj.put("selected_surahs", JSONArray(draft.selectedSurahs))
         store.load()?.userId?.let { obj.put("created_by", it) }
 
-        queued(
-            "POST",
-            "/rest/v1/recitation_entries?on_conflict=id",
-            obj,
-            "recitation:${draft.sessionId}:${draft.studentId}:$id",
-        )
+        val recitationDedupe = "recitation:${draft.sessionId}:${draft.studentId}:$id"
+        // If this exact entry has an unsent earlier edit, preserve its server base rather than
+        // replacing it with the optimistic local revision. A racing upload is rejected safely.
+        val assessment = obj.optJSONObject("selection_data")?.optJSONObject("tilawah_assessment")
+        if (assessment?.optInt("version") == 2) {
+            val pending = queueSnapshot(2000).firstOrNull { it.dedupe == recitationDedupe }
+            if (pending != null) {
+                require(!pending.conflict && !pending.blocked) { "يوجد تعديل متعارض محفوظ؛ راجع مركز المزامنة أولًا" }
+                val prior = pending.body?.let { JSONObject(it) }?.optJSONObject("selection_data")?.optJSONObject("tilawah_assessment")
+                if (prior?.optString("revision") == assessment.optString("base_revision"))
+                    assessment.put("base_revision", prior.opt("base_revision") ?: JSONObject.NULL)
+            }
+        }
+        queued("POST", "/rest/v1/recitation_entries?on_conflict=id", obj, recitationDedupe,
+            entityTable = "recitation_entries", entityId = id)
         val cachedRow = JSONObject(obj.toString()).put("created_at", draft.createdAt?.takeIf { it.isNotBlank() } ?: java.time.Instant.now().toString())
         upsertSessionScopedCache(CACHE_SESSION_RECITATIONS_PREFIX, draft.sessionId, cachedRow)
         upsertPlanRecitationCacheRow(cachedRow, draft.sessionId)
@@ -6762,6 +6773,11 @@ class HalaqatiRepository(
                 val status = (e as? SupabaseException)?.status ?: 0
                 val sqlState = (e as? SupabaseException)?.sqlState
                 val kind = if (e is SupabaseException) SyncErrorRules.classify(status, sqlState) else SyncErrorRules.Kind.TRANSIENT
+                if (sqlState == "PT409" && item.entityTable == "recitation_entries") {
+                    queue.markBlocked(item.id, owner, "تعارض تقييم التلاوة أو نسخة قديمة. بقي التعديل محفوظًا محليًا؛ لا يُستبدل سجل الخادم تلقائيًا. راجع السجل ومركز المزامنة.")
+                    signalLocalMutation()
+                    continue
+                }
                 if (sqlState == "23503" && item.entityTable in sessionChildTables) {
                     queue.markBlocked(item.id, owner, "تعذر العثور على جلسة السجل في الخادم. راجع الجلسة قبل إعادة المحاولة؛ بياناتك ما زالت محفوظة على الجهاز.")
                     signalLocalMutation()
