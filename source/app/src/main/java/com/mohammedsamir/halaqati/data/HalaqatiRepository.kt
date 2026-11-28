@@ -6683,7 +6683,11 @@ class HalaqatiRepository(
                         .put("id", "$student:$metric").put("session_id", sid).put("student_id", student)
                         .put("metric", metric).put("score", actual))
                 } else {
-                    withAuthRetry { api.raw(item.method, item.path, body) }
+                    val expectedId = MutationAcknowledgementRules.expectedPatchId(item.method,item.path)
+                    val response = withAuthRetry { api.raw(item.method, item.path, body, confirmRow = expectedId != null) }
+                    if (expectedId != null && !MutationAcknowledgementRules.confirmed(expectedId,response)) {
+                        throw SupabaseException("لم يؤكد الخادم تعديل السجل؛ بقيت العملية محفوظة للمراجعة", status = 403, sqlState = "42501")
+                    }
                 }
                 if (item.entityTable == "students" && !item.entityId.isNullOrBlank()) {
                     val server = runCatching { fetchServerStudent(item.entityId) }.getOrNull()

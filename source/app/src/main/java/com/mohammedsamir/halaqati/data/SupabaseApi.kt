@@ -423,15 +423,18 @@ class SupabaseApi(private val sessionStore: SecureSessionStore) {
      * amplified latency on weak mobile links. `return=minimal` keeps the request idempotent while
      * making foreground queue flushes substantially lighter.
      */
-    fun raw(method: String, path: String, body: String?): String {
+    fun raw(method: String, path: String, body: String?, confirmRow: Boolean = false): String {
         val normalized = method.uppercase()
+        val representation = if (confirmRow) "return=representation" else "return=minimal"
         val prefer = when {
-            normalized == "POST" && path.contains("on_conflict=") -> "resolution=merge-duplicates,return=minimal"
-            normalized in setOf("POST", "PATCH", "DELETE") -> "return=minimal"
+            normalized == "POST" && path.contains("on_conflict=") -> "resolution=merge-duplicates,$representation"
+            normalized in setOf("POST", "PATCH", "DELETE") -> representation
             else -> null
         }
+        val target = if (confirmRow && !path.substringAfter('?', "").split('&').any { it.startsWith("select=") })
+            path + (if ('?' in path) "&" else "?") + "select=id" else path
         return call(
-            "${BuildConfig.SUPABASE_URL}$path",
+            "${BuildConfig.SUPABASE_URL}$target",
             normalized,
             body,
             prefer = prefer,
