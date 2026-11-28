@@ -54,7 +54,8 @@ begin
     perform halaqati_lifecycle_private.retire_association(a);
     raise exception 'cross-scope assignment retirement permitted';
   exception when check_violation then null; end;
-  if (select association_id from public.centers where id=center) is distinct from a then raise exception 'partial retirement'; end if;
+  if (select association_id from public.centers where id=center) is distinct from a
+     or exists(select 1 from halaqati_lifecycle_private.association_retirement_ledger where association_id=a) then raise exception 'partial retirement'; end if;
   delete from public.halaqa_teachers where teacher_id=other_teacher;
   result:=halaqati_lifecycle_private.retire_association(a);
   if (result->>'payments_preserved')::int is distinct from 1
@@ -70,12 +71,20 @@ begin
      or not exists(select 1 from public.recitation_entries where session_id=sess and student_id=child and pages=3)
      or not exists(select 1 from public.association_payments where id=payment and association_id=a and amount=100)
   then raise exception 'retirement failed to preserve hierarchy or records'; end if;
+  if not exists(select 1 from halaqati_lifecycle_private.association_retirement_ledger l
+      where l.association_id=a and l.actor_id=owner and l.center_ids=array[center]
+      and l.halaqa_ids @> array[h,program] and cardinality(l.halaqa_ids)=2
+      and l.student_ids=array[child] and l.profile_ids @> array[teacher,supervisor,guardian]
+      and cardinality(l.profile_ids)=3 and l.payment_ids=array[payment]) then
+    raise exception 'original association ownership not preserved in audit ledger';
+  end if;
   if (halaqati_lifecycle_private.retire_association(a)->>'already_retired')::boolean is distinct from true then
     raise exception 'retirement is not idempotent';
   end if;
   if has_schema_privilege('authenticated','halaqati_lifecycle_private','usage')
      or has_function_privilege('authenticated','halaqati_lifecycle_private.retire_association(uuid)','execute')
-     or has_function_privilege('anon','halaqati_lifecycle_private.retire_association(uuid)','execute') then
+     or has_function_privilege('anon','halaqati_lifecycle_private.retire_association(uuid)','execute')
+     or has_table_privilege('authenticated','halaqati_lifecycle_private.association_retirement_ledger','SELECT') then
     raise exception 'retirement exposed before authorization review';
   end if;
 end $test$;

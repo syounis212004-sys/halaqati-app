@@ -9,6 +9,21 @@ comment on column public.associations.retired_at is 'Retired organization; retai
 create schema if not exists halaqati_lifecycle_private;
 revoke all on schema halaqati_lifecycle_private from public,anon,authenticated;
 
+-- The original scope IDs are kept for audit and a reviewed, conflict-aware restoration.
+-- No client can read this ledger, and retirement never silently overwrites an existing snapshot.
+create table halaqati_lifecycle_private.association_retirement_ledger (
+  association_id uuid primary key references public.associations(id) on delete restrict,
+  retired_at timestamptz not null default now(),
+  actor_id uuid not null,
+  center_ids uuid[] not null,
+  halaqa_ids uuid[] not null,
+  student_ids uuid[] not null,
+  profile_ids uuid[] not null,
+  payment_ids uuid[] not null
+);
+alter table halaqati_lifecycle_private.association_retirement_ledger enable row level security;
+revoke all on halaqati_lifecycle_private.association_retirement_ledger from public,anon,authenticated;
+
 create function halaqati_lifecycle_private.retire_association(p_association uuid)
 returns jsonb language plpgsql security invoker set search_path=''
 as $retire$
@@ -79,6 +94,16 @@ begin
   select count(*) into n_profiles from public.profiles where association_id=p_association;
   select count(*) into n_payments from public.association_payments where association_id=p_association;
 
+  insert into halaqati_lifecycle_private.association_retirement_ledger(
+    association_id,actor_id,center_ids,halaqa_ids,student_ids,profile_ids,payment_ids
+  ) values (
+    p_association,auth.uid(),
+    array(select id from public.centers where association_id=p_association order by id),
+    array(select id from public.halaqas where association_id=p_association order by id),
+    array(select id from public.students where association_id=p_association order by id),
+    array(select id from public.profiles where association_id=p_association order by id),
+    array(select id from public.association_payments where association_id=p_association order by id)
+  );
   -- Preserve center_id, halaqa_id, roles, all assignments, membership IDs and guardian links.
   update public.centers set association_id=null where association_id=p_association;
   update public.halaqas set association_id=null where association_id=p_association;
