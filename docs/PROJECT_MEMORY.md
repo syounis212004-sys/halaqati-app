@@ -43,6 +43,9 @@ Source base for knowledge setup: `e900ccb` (RC114 / 2.91.14); code is in `source
 - Phase-one Android follow-up: unified admin accounts/approval hub keeps old approval route for deep links; teachers and supervisors retain scoped inboxes. Guardian relationship list uses student_guardians, not primary or email. Legacy single-guardian writes removed from student editor; selective unlink requires acknowledged RPC and reason.
 - Production migrations 20261128111716 (legacy association backfill) and 20261128112140 (explicit equal guardian links) are already applied. Never replay them. Proposed program_stage migration 20261128120300 is separate and not applied by Android development. See [phase-one plan](superpowers/plans/2026-11-28-v12-phase-one-ui.md).
 
+- Phase two remains on the same development branch. Scope-specific student detail avoids cross-program statistics and personal edits from a secondary membership. New online enrollment uses proposed invoker RPC 20261128120400, atomic with additional program memberships; stage before release. Existing offline student creation still uses legacy outbox pending full reconciliation. See [phase two plan](superpowers/plans/2026-11-28-v12-phase-two-enrollment.md).
+- Graphify 0.9.121 on main matches main's source tree; never copy a graph generated against a different source tree.
+
 ## Known limitations / unfinished work
 - External CircleCI reports "No configuration was found"; this already occurs
   on baseline `e900ccb`. The independent knowledge GitHub Actions job is the

@@ -945,6 +945,40 @@ class HalaqatiRepository(
         invalidateTableCache("student_halaqa_memberships")
     }
 
+
+    /** New online enrollment is acknowledged as one transaction, not a chain of optimistic writes. */
+    fun registerStudentConfirmed(payload: JSONObject, additionalProgramIds: Set<String>) {
+        requireConfirmedMutationConnection()
+        val owner = currentUserId() ?: error("الجلسة غير صالحة")
+        val studentId = payload.optString("id")
+        val scopeId = payload.optString("halaqa_id")
+        require(studentId.isNotBlank() && scopeId.isNotBlank())
+        val args = JSONObject().put("p_student_id", studentId).put("p_halaqa_id", scopeId)
+            .put("p_student", StudentSchemaContract.sanitize(payload))
+            .put("p_program_ids", JSONArray(additionalProgramIds.toList()))
+        val result = rpcObject("rc_enroll_student_v12", args)
+        check(result.optBoolean("ok")) { result.optString("error").ifBlank { "تعذر تسجيل الطالب" } }
+        val row = result.optJSONObject("student") ?: error("لم يؤكد الخادم حفظ الطالب")
+        check(row.optString("id") == studentId) { "استجابة التسجيل غير متطابقة" }
+        upsertStudentLocal(owner, row, dirty = false)
+        cache.put(owner, CACHE_STUDENTS, localStudentsJson(owner).toString())
+        invalidateTableCache("students")
+        invalidateTableCache("student_halaqa_memberships")
+    }
+
+    /** Existing record enrollment never overwrites personal data or other memberships. */
+    fun enrollExistingStudent(studentId: String, halaqaId: String) {
+        require(studentId.isNotBlank() && halaqaId.isNotBlank())
+        val args = JSONObject().put("p_student_id", studentId).put("p_halaqa_id", halaqaId)
+        if (online()) {
+            val result = rpcObject("rc_enroll_student_v12", args)
+            check(result.optBoolean("ok")) { result.optString("error").ifBlank { "تعذر التسجيل في البرنامج" } }
+            invalidateTableCache("student_halaqa_memberships")
+        } else {
+            queued("POST", "/rest/v1/rpc/rc_enroll_student_v12", args, "enroll-existing:$studentId:$halaqaId")
+        }
+    }
+
     fun saveStudentSecondaryMemberships(
         studentId: String,
         addedHalaqaIds: Set<String>,

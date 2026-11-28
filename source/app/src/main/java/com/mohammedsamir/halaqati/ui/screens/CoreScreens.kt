@@ -50,6 +50,7 @@ import com.mohammedsamir.halaqati.data.AppGraph
 import com.mohammedsamir.halaqati.data.PlanSnapshot
 import com.mohammedsamir.halaqati.data.SafetyScoring
 import com.mohammedsamir.halaqati.data.StudentGuardianRules
+import com.mohammedsamir.halaqati.data.StudentEnrollmentRules
 import com.mohammedsamir.halaqati.data.OfflineQueue
 import com.mohammedsamir.halaqati.model.*
 import com.mohammedsamir.halaqati.quran.QuranCore
@@ -508,8 +509,26 @@ GoldenStudentCard(
 
 
     selectedStudent?.let { student ->
+        val visibleScopes = halaqas.map(::enrollmentScopeOf)
+        val detailScopeId = StudentEnrollmentRules.detailScope(
+            student.halaqaId, halaqaFilter.takeUnless { it == "all" }, secondaryHalaqasByStudent[student.id].orEmpty(),
+            visibleScopes, workKind == com.mohammedsamir.halaqati.plans.WorkMode.PROGRAM,
+        )
+        if (detailScopeId == null) {
+            HalaqatiAlertDialog(
+                onDismissRequest = { selectedStudent = null },
+                title = { Text("حدد الحلقة أو البرنامج") },
+                text = { Text("اختر نشاطًا محددًا من شريط النطاق قبل عرض تفاصيل الطالب؛ لن تُجمع إحصاءات عضويات مختلفة.") },
+                confirmButton = { TextButton(onClick = { selectedStudent = null }) { Text("حسنًا") } },
+            )
+        } else {
+        val detailProgram = visibleScopes.firstOrNull { it.id == detailScopeId }?.program == true
         StudentDetailSheet(
             student = student,
+            detailScopeId = detailScopeId,
+            programScope = detailProgram,
+            canEditPrimary = role in setOf("admin", "teacher", "supervisor") &&
+                StudentEnrollmentRules.canEditPrimary(student.halaqaId, detailScopeId, visibleScopes.map { it.id }.toSet()),
             onDismiss = { selectedStudent = null },
             onChanged = {
                 scope.launch { reload(force = true) }
@@ -517,6 +536,7 @@ GoldenStudentCard(
             },
             onStartRecitation = { startTodayRecitation(student) },
         )
+        }
     }
 
     recitationChoices?.let { (student, sessions) ->
@@ -572,6 +592,9 @@ GoldenStudentCard(
 @Composable
 private fun StudentDetailSheet(
     student: Student,
+    detailScopeId: String,
+    programScope: Boolean,
+    canEditPrimary: Boolean,
     onDismiss: () -> Unit,
     onChanged: () -> Unit,
     onStartRecitation: (PlanSnapshot?) -> Unit,
@@ -602,7 +625,7 @@ private fun StudentDetailSheet(
             online = withContext(Dispatchers.IO) { AppGraph.repo.online() }
             monthRow = com.mohammedsamir.halaqati.ui.runCatchingCancellable {
                 withContext(Dispatchers.IO) {
-                    val summary = AppGraph.repo.reportSummary(from, to, "all", "all", "all")
+                    val summary = AppGraph.repo.reportSummary(from, to, "all", detailScopeId, "all")
                     (0 until summary.length()).mapNotNull { summary.optJSONObject(it) }.firstOrNull { it.optString("student_id") == student.id }
                 }
             }.getOrNull()
@@ -611,14 +634,14 @@ private fun StudentDetailSheet(
                 recitations = emptyList()
                 attendance = emptyList()
                 snapshot = com.mohammedsamir.halaqati.ui.runCatchingCancellable {
-                    withContext(Dispatchers.IO) { AppGraph.repo.planSnapshots(today).firstOrNull { it.student.id == student.id } }
+                    withContext(Dispatchers.IO) { if (programScope) null else AppGraph.repo.planSnapshots(today).firstOrNull { it.student.id == student.id && it.plan.halaqaId == detailScopeId } }
                 }.getOrNull()
                 error = null
                 track = raw?.optString("track_code").orEmpty().ifBlank { student.track }
                 status = raw?.optString("status").orEmpty().ifBlank { student.status }
                 return
             }
-            val gateKey = "student:${student.id}"
+            val gateKey = "student:${student.id}:$detailScopeId"
             val netDue = com.mohammedsamir.halaqati.data.RefreshGate.due(gateKey)
             val result = withContext(Dispatchers.IO) {
                 val studentRaw = AppGraph.repo.table(
@@ -628,22 +651,22 @@ private fun StudentDetailSheet(
                 val recitationArray = AppGraph.repo.table(
                     "recitation_entries",
                     "select=id,activity_type,start_page,end_page,pages_count,evaluation,points,mistakes,prompts,created_at," +
-                        "sessions!inner(session_date,session_type,title)" +
-                        "&student_id=eq.${student.id}&sessions.session_date=gte.$from&sessions.session_date=lte.$to" +
+                        "sessions!inner(session_date,session_type,title,halaqa_id)" +
+                        "&student_id=eq.${student.id}&sessions.halaqa_id=eq.$detailScopeId&sessions.session_date=gte.$from&sessions.session_date=lte.$to" +
                         "&order=created_at.desc&limit=1000",
                     forceRefresh = netDue, preferCache = !netDue,
                 )
                 val attendanceArray = AppGraph.repo.table(
                     "attendance_records",
-                    "select=status,arrival_minutes_late,excuse_reason,recorded_at,sessions!inner(session_date)" +
-                        "&student_id=eq.${student.id}&sessions.session_date=gte.$from&sessions.session_date=lte.$to" +
+                    "select=status,arrival_minutes_late,excuse_reason,recorded_at,sessions!inner(session_date,halaqa_id)" +
+                        "&student_id=eq.${student.id}&sessions.halaqa_id=eq.$detailScopeId&sessions.session_date=gte.$from&sessions.session_date=lte.$to" +
                         "&order=recorded_at.desc&limit=1000",
                     forceRefresh = netDue, preferCache = !netDue,
                 )
                 if (netDue) com.mohammedsamir.halaqati.data.RefreshGate.mark(gateKey)
-                val planSnapshot = runCatching { AppGraph.repo.planSnapshots(today) }
+                val planSnapshot = if (programScope) null else runCatching { AppGraph.repo.planSnapshots(today) }
                     .getOrDefault(emptyList())
-                    .firstOrNull { it.student.id == student.id }
+                    .firstOrNull { it.student.id == student.id && it.plan.halaqaId == detailScopeId }
                 Quadruple(
                     studentRaw,
                     (0 until recitationArray.length()).mapNotNull { recitationArray.optJSONObject(it) },
@@ -667,7 +690,7 @@ private fun StudentDetailSheet(
         }
     }
 
-    LaunchedEffect(student.id) { reloadDetail() }
+    LaunchedEffect(student.id, detailScopeId) { reloadDetail() }
 
     val monthLabel = remember { YearMonth.now().let { ym -> "${listOf("يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر")[ym.monthValue - 1]} ${ym.year}" } }
     val hasMonthData = monthRow != null || recitations.isNotEmpty() || attendance.isNotEmpty()
@@ -698,7 +721,7 @@ private fun StudentDetailSheet(
                 Column(Modifier.weight(1f)) {
                     OneLineName(student.fullName, style = MaterialTheme.typography.titleLarge)
                     Text(
-                        if (track == "tathbit") "مسار التثبيت" else "مسار الحفظ العام",
+                        if (programScope) "مشارك في برنامج" else if (track == "tathbit") "مسار التثبيت" else "مسار الحفظ العام",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -737,7 +760,13 @@ private fun StudentDetailSheet(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     item {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (programScope) {
+                            val tilawah = monthRow?.optDouble("tilawah_pages", 0.0)
+                                ?: recitations.filter { it.optString("activity_type") == "tilawah" }.sumOf { it.optDouble("pages_count", 0.0) }
+                            Row(Modifier.fillMaxWidth()) {
+                                StudentMiniMetric("تلاوة الشهر", metric("${plainNumber(tilawah)} ص"), Modifier.weight(1f))
+                            }
+                        } else Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             StudentMiniMetric("حفظ الشهر", metric("${plainNumber(hifz)} ص"), Modifier.weight(1f))
                             StudentMiniMetric("مراجعة", metric("${plainNumber(review)} ص"), Modifier.weight(1f))
                             StudentMiniMetric("سرد", metric("${plainNumber(sard)} ص"), Modifier.weight(1f))
@@ -800,14 +829,15 @@ private fun StudentDetailSheet(
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     OutlinedButton(
                                         onClick = { showFullEdit = true },
+                                        enabled = canEditPrimary,
                                         modifier = Modifier.weight(1f).heightIn(min = HalaqatiUiTokens.TouchTarget),
                                     ) { Text("تعديل البيانات") }
                                     OutlinedButton(
                                         onClick = { showGuardianLink = true },
                                         modifier = Modifier.weight(1f).heightIn(min = HalaqatiUiTokens.TouchTarget),
-                                    ) { Text("ولي الأمر") }
+                                    ) { Text("أولياء الأمور") }
                                 }
-                                Button(
+                                if (canEditPrimary && !programScope) Button(
                                     onClick = { showArchiveConfirm = true },
                                     enabled = !saving,
                                     colors = if (status == "withdrawn") ButtonDefaults.buttonColors()
@@ -815,7 +845,7 @@ private fun StudentDetailSheet(
                                     modifier = Modifier.fillMaxWidth().heightIn(min = HalaqatiUiTokens.TouchTarget),
                                 ) { Text(if (status == "withdrawn") "استعادة الطالب" else "أرشفة / سحب الطالب") }
                                 Text(
-                                    "الأرشفة لا تحذف الجلسات أو التسميعات أو التقارير؛ ويمكن استعادة الطالب لاحقًا.",
+                                    if (!canEditPrimary) "إدارة الملف الأساسي متاحة من الحلقة أو البرنامج الأساسي فقط." else if (programScope) "إنهاء عضوية برنامج لا يعني أرشفة الطالب من جميع أنشطته." else "الأرشفة لا تحذف الجلسات أو التسميعات أو التقارير؛ ويمكن استعادة الطالب لاحقًا.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -824,9 +854,9 @@ private fun StudentDetailSheet(
                     }
 
                     item {
-                        Text("آخر التسميعات", style = MaterialTheme.typography.titleMedium)
+                        Text(if (programScope) "آخر أنشطة البرنامج" else "آخر التسميعات", style = MaterialTheme.typography.titleMedium)
                         if (recitations.isEmpty()) {
-                            EmptyState("لا توجد تسميعات مسجلة هذا الشهر")
+                            EmptyState(if (programScope) "لا توجد أنشطة مسجلة هذا الشهر" else "لا توجد تسميعات مسجلة هذا الشهر")
                         } else {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 recitations.take(6).forEach { row ->
@@ -854,7 +884,7 @@ private fun StudentDetailSheet(
                         }
                     }
 
-                    item {
+                    if (canEditPrimary && !programScope) item {
                         ElevatedCard(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Text("تعديل سريع", style = MaterialTheme.typography.titleMedium)
@@ -904,14 +934,14 @@ private fun StudentDetailSheet(
                     ) {
                         Icon(Icons.Default.RecordVoiceOver, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text(if (online) "بدء تسميع ${student.fullName}" else "بدء تسميع أوفلاين · ${student.fullName}")
+                        Text(if (programScope) "فتح جلسة البرنامج" else if (online) "بدء تسميع ${student.fullName}" else "بدء تسميع أوفلاين · ${student.fullName}")
                     }
                 }
             }
         }
     }
 
-    if (showFullEdit) {
+    if (showFullEdit && canEditPrimary) {
         StudentFullEditDialog(
             student = student,
             raw = raw,
@@ -926,7 +956,7 @@ private fun StudentDetailSheet(
             initialStudentId = student.id,
         )
     }
-    if (showArchiveConfirm) {
+    if (showArchiveConfirm && canEditPrimary && !programScope) {
         HalaqatiAlertDialog(
             onDismissRequest = { showArchiveConfirm = false },
             title = { Text(if (status == "withdrawn") "استعادة الطالب" else "أرشفة الطالب") },
@@ -994,7 +1024,8 @@ private fun StudentDialog(
             title = { Text("تسجيل طالب موجود في ${scopeNames[halaqaId].orEmpty()}") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("اختر سجل الطالب المسموح لك بعرضه. سيظل ملفه وحلقته الأساسية كما هما.")
+                    Text("اختر سجل الطالب المسموح لك بعرضه. سيظل ملفه ونشاطه الأساسي كما هما.")
+                    if (!AppGraph.repo.online()) StateNotice("سيُحفظ طلب التسجيل في صندوق المزامنة، ولن يصبح معتمدًا قبل تأكيد الخادم.", "warning")
                     HalaqatiLazySelectField("الطالب", selected, options, { selected = it }, Modifier.fillMaxWidth(), searchable = true)
                     error?.let { StateNotice(it, "error") }
                 }
@@ -1007,9 +1038,7 @@ private fun StudentDialog(
                     scope.launch {
                         try {
                             withContext(Dispatchers.IO) {
-                                AppGraph.repo.saveStudentSecondaryMemberships(
-                                    studentId, addedHalaqaIds = setOf(halaqaId), removedHalaqaIds = emptySet(),
-                                )
+                                AppGraph.repo.enrollExistingStudent(studentId, halaqaId)
                             }
                             onSaved()
                         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -1027,6 +1056,13 @@ private fun StudentDialog(
     }
 }
 
+private fun enrollmentScopeOf(row: JSONObject) = StudentEnrollmentRules.Scope(
+    id = row.optString("id"),
+    program = com.mohammedsamir.halaqati.plans.WorkModeRules.isProgramType(row.optString("halaqa_type")),
+    active = row.optBoolean("active", true),
+    allowSecondary = row.optBoolean("allow_secondary_members", true),
+)
+
 private data class StudentEditorMasterData(
     val halaqas: List<JSONObject>,
     val categories: List<JSONObject>,
@@ -1043,6 +1079,9 @@ private fun StudentEditorDialog(
     openExistingEnrollment: ((String) -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
+    val draftStudentId = remember(student?.id) { student?.id ?: java.util.UUID.randomUUID().toString() }
+    var masterLoading by remember { mutableStateOf(true) }
+    var masterReady by remember { mutableStateOf(false) }
     var fullName by remember(student?.id) { mutableStateOf(raw?.optString("full_name").orEmpty().ifBlank { student?.fullName.orEmpty() }) }
     var nationalId by remember(student?.id) { mutableStateOf(raw?.optString("national_id").orEmpty().ifBlank { student?.nationalId.orEmpty() }) }
     var phone by remember(student?.id) { mutableStateOf(raw?.optString("phone").orEmpty().ifBlank { student?.phone.orEmpty() }) }
@@ -1068,6 +1107,7 @@ private fun StudentEditorDialog(
     var error by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(student?.id) {
+        try {
         val master = withContext(Dispatchers.IO) {
             val h = AppGraph.repo.table("halaqas", "select=id,name,active,halaqa_type,starts_on,ends_on,allow_secondary_members&order=name.asc&limit=200")
             val c = AppGraph.repo.table("student_categories", "select=id,halaqa_id,name,active&order=name.asc&limit=500")
@@ -1083,16 +1123,19 @@ private fun StudentEditorDialog(
         initialSecondaryHalaqaIds = master.currentSecondaryHalaqaIds - halaqaId
         secondaryHalaqaIds = initialSecondaryHalaqaIds
         if (halaqaId.isBlank() && student == null) {
-            val activeScopes = halaqas.filter { it.optBoolean("active", true) }.map { it.optString("id") }
-            halaqaId = initialHalaqaId?.takeIf { it in activeScopes } ?: activeScopes.singleOrNull().orEmpty()
+            halaqaId = StudentEnrollmentRules.initialScope(initialHalaqaId, halaqas.map(::enrollmentScopeOf)).orEmpty()
         }
+        masterReady = true
+        } catch (e: CancellationException) { throw e }
+        catch (e: Exception) { error = e.message ?: "تعذر تحميل الحلقات والبرامج" }
+        finally { masterLoading = false }
     }
 
     val currentScope = halaqas.firstOrNull { it.optString("id") == halaqaId }
     val programScope = com.mohammedsamir.halaqati.plans.WorkModeRules.isProgramType(currentScope?.optString("halaqa_type"))
     val visibleCategories = categories.filter { it.optBoolean("active", true) && (halaqaId.isBlank() || it.optString("halaqa_id") == halaqaId) }
-    LaunchedEffect(halaqaId, categories.size) {
-        if (categoryId.isNotBlank() && visibleCategories.none { it.optString("id") == categoryId }) categoryId = ""
+    LaunchedEffect(halaqaId, categories.size, masterReady) {
+        if (masterReady && categoryId.isNotBlank() && visibleCategories.none { it.optString("id") == categoryId }) categoryId = ""
     }
 
     HalaqatiAlertDialog(
@@ -1101,6 +1144,7 @@ private fun StudentEditorDialog(
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 error?.let { StateNotice(it, "error") }
+                if (masterLoading) LoadingSkeleton(rows = 2)
                 if (!AppGraph.repo.online()) StateNotice("سيُحفظ التعديل على هذا الجهاز ويُرفع تلقائيًا عند عودة الإنترنت.", "warning")
                 OutlinedTextField(fullName, { fullName = it }, label = { Text("الاسم الكامل") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 OutlinedTextField(nationalId, { nationalId = it }, label = { Text("رقم الهوية") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
@@ -1111,12 +1155,12 @@ private fun StudentEditorDialog(
                 }
                 StudentDateField("تاريخ الميلاد", dateOfBirth, onDate = { dateOfBirth = it })
                 OutlinedTextField(schoolGrade, { schoolGrade = it }, label = { Text("المرحلة / الصف") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                StudentNamedDropdown(
-                    label = "الحلقة",
+                if (student == null) StudentNamedDropdown(
+                    label = "الحلقة / البرنامج",
                     selectedId = halaqaId,
-                    items = halaqas.filter { it.optBoolean("active", true) || it.optString("id") == halaqaId },
+                    items = halaqas.filter { it.optBoolean("active", true) },
                     onSelected = { halaqaId = it; categoryId = ""; secondaryHalaqaIds = secondaryHalaqaIds - it },
-                )
+                ) else Text("النشاط الأساسي: " + (currentScope?.optString("name") ?: "غير متاح"), style = MaterialTheme.typography.bodyMedium)
                 if (programScope && currentScope?.optBoolean("allow_secondary_members", true) == true && openExistingEnrollment != null) {
                     OutlinedButton(enabled = !saving, onClick = { openExistingEnrollment(halaqaId) }) { Text("تسجيل طالب موجود") }
                 }
@@ -1126,9 +1170,8 @@ private fun StudentEditorDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                val secondaryOptions = halaqas.filter { row ->
-                    row.optString("id") != halaqaId && row.optBoolean("active", true) && row.optBoolean("allow_secondary_members", true)
-                }
+                val secondaryIds = StudentEnrollmentRules.additionalScopes(halaqaId, halaqas.map(::enrollmentScopeOf)).map { it.id }.toSet()
+                val secondaryOptions = halaqas.filter { it.optString("id") in secondaryIds }
                 if (secondaryOptions.isEmpty()) {
                     Text("لا توجد برامج إضافية متاحة", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
@@ -1136,7 +1179,7 @@ private fun StudentEditorDialog(
                         val id = row.optString("id")
                         val type = when (row.optString("halaqa_type", "regular")) {
                             "tajweed", "tilawah" -> com.mohammedsamir.halaqati.plans.ProgramKindRules.TILAWAH_TAJWEED_LABEL
-                            "training" -> "تأهيلية"
+                            "training" -> "تأهيل محفظين"
                             "course" -> "دورة"
                             else -> "حلقة"
                         }
@@ -1159,9 +1202,11 @@ private fun StudentEditorDialog(
                         ProFilterChip(track == pair.first, { track = pair.first }, pair.second, itemModifier.fillMaxWidth(), showCheckIcon = false)
                     }
                 }
-                Text("الحالة", style = MaterialTheme.typography.labelLarge)
-                ResponsiveChipGrid(items = listOf("active" to "نشط", "inactive" to "غير نشط", "suspended" to "موقوف", "withdrawn" to "منسحب"), minItemWidth = 105.dp, maxColumns = 2) { pair, itemModifier ->
-                    ProFilterChip(status == pair.first, { status = pair.first }, pair.second, itemModifier.fillMaxWidth(), showCheckIcon = false)
+                if (!programScope) {
+                    Text("الحالة", style = MaterialTheme.typography.labelLarge)
+                    ResponsiveChipGrid(items = listOf("active" to "نشط", "inactive" to "غير نشط", "suspended" to "موقوف", "withdrawn" to "منسحب"), minItemWidth = 105.dp, maxColumns = 2) { pair, itemModifier ->
+                        ProFilterChip(status == pair.first, { status = pair.first }, pair.second, itemModifier.fillMaxWidth(), showCheckIcon = false)
+                    }
                 }
                 StudentDateField("تاريخ الالتحاق", enrollmentDate, onDate = { enrollmentDate = it })
                 OutlinedTextField(programName, { programName = it }, label = { Text("البرنامج") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
@@ -1183,7 +1228,7 @@ private fun StudentEditorDialog(
         },
         confirmButton = {
             Button(
-                enabled = !saving && fullName.trim().length >= 2 && halaqaId.isNotBlank(),
+                enabled = !saving && masterReady && currentScope != null && fullName.trim().length >= 2 && halaqaId.isNotBlank(),
                 onClick = {
                     saving = true
                     scope.launch {
@@ -1206,20 +1251,25 @@ private fun StudentEditorDialog(
                                 .putNullableUi("notes", notes)
                             if (!programScope) payload.put("track_code", track)
                             else if (student == null) payload.put("track_code", JSONObject.NULL)
+                                .put("target_pages_weekly", 0).put("target_review_pages_weekly", 0)
                             payload.put("photo_path", if (photoPath.isNotBlank()) photoPath else JSONObject.NULL)
                             withContext(Dispatchers.IO) {
-                                val studentId = student?.id ?: java.util.UUID.randomUUID().toString().also { payload.put("id", it) }
-                                if (student == null) {
-                                    AppGraph.repo.write("students", payload, onConflict = "id", dedupe = "student-create:$studentId")
+                                val studentId = draftStudentId
+                                val added = secondaryHalaqaIds - initialSecondaryHalaqaIds - halaqaId
+                                if (student == null && AppGraph.repo.online()) {
+                                    AppGraph.repo.registerStudentConfirmed(payload.put("id", studentId), added)
                                 } else {
-                                    AppGraph.repo.patch("students", "id=eq.${student.id}", payload, dedupe = "student-full-edit:${student.id}")
+                                    if (student == null) {
+                                        AppGraph.repo.write("students", payload.put("id", studentId), onConflict = "id", dedupe = "student-create:$studentId")
+                                    } else {
+                                        AppGraph.repo.patch("students", "id=eq.${student.id}", payload, dedupe = "student-full-edit:${student.id}")
+                                    }
+                                    AppGraph.repo.saveStudentSecondaryMemberships(
+                                        studentId, addedHalaqaIds = added,
+                                        removedHalaqaIds = initialSecondaryHalaqaIds - secondaryHalaqaIds - halaqaId,
+                                        confirmed = student != null,
+                                    )
                                 }
-                                AppGraph.repo.saveStudentSecondaryMemberships(
-                                    studentId,
-                                    addedHalaqaIds = secondaryHalaqaIds - initialSecondaryHalaqaIds - halaqaId,
-                                    removedHalaqaIds = initialSecondaryHalaqaIds - secondaryHalaqaIds - halaqaId,
-                                    confirmed = student != null,
-                                )
                             }
                             onSaved()
                         } catch (e: kotlinx.coroutines.CancellationException) {
