@@ -1857,23 +1857,20 @@ GoldenSessionCard(
         HalaqatiAlertDialog(
             onDismissRequest = { deleteCandidate = null },
             title = { Text("حذف الجلسة") },
-            text = { Text("سيتم حذف الجلسة وتسميعاتها وحضورها وملاحظاتها فورًا. استخدم الأرشفة بدل الحذف إذا كنت تريد الاحتفاظ بالسجل التاريخي.") },
+            text = { Text("تبقى الجلسة في القائمة حتى يؤكد الخادم حذفها. إذا كان فيها حضور أو تسميع أو ملاحظات محفوظة، استخدم الأرشفة.") },
             confirmButton = {
                 Button(
                     onClick = {
                         deleteCandidate = null
-                        val beforeDelete = rows
-                        rows = rows.filterNot { it.id == session.id }
-                        // RC27.5: delete right away (no waiting for an undo bar); restore the row if it fails.
                         scope.launch {
                             try {
                                 withContext(Dispatchers.IO) { AppGraph.repo.deleteSession(session.id) }
+                                message = "أُضيف طلب الحذف إلى المزامنة"
                                 onRefresh()
                             } catch (e: kotlinx.coroutines.CancellationException) {
                                 throw e
                             } catch (e: Exception) {
-                                rows = beforeDelete
-                                message = e.message ?: "تعذر حذف الجلسة"
+                                message = e.message ?: "تعذر إرسال طلب الحذف"
                             }
                         }
                     },

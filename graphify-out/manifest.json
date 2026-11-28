@@ -132,9 +132,9 @@
     "semantic_hash": ""
   },
   "source/app/src/main/java/com/mohammedsamir/halaqati/data/HalaqatiRepository.kt": {
-    "mtime": 1795861720.0078213,
-    "seen": 1795861858.9018402,
-    "ast_hash": "a7f7269c716f1547c900605529c0a2d9",
+    "mtime": 1795862116.5998719,
+    "seen": 1795862122.8234031,
+    "ast_hash": "d410bf4629b0a98b5cdaef58ba53f321",
     "semantic_hash": ""
   },
   "source/app/src/main/java/com/mohammedsamir/halaqati/data/ImportRules.kt": {
@@ -246,9 +246,9 @@
     "semantic_hash": ""
   },
   "source/app/src/main/java/com/mohammedsamir/halaqati/data/SessionPendingMerge.kt": {
-    "mtime": 1795789970.348692,
-    "seen": 1795790180.2010581,
-    "ast_hash": "73c7a055871385666348b2e6a14af70b",
+    "mtime": 1795862074.230141,
+    "seen": 1795862122.8234258,
+    "ast_hash": "9af5f82b6544fd728d30cb0d889d6940",
     "semantic_hash": ""
   },
   "source/app/src/main/java/com/mohammedsamir/halaqati/data/SmartPlanAlertRules.kt": {
@@ -1044,9 +1044,9 @@
     "semantic_hash": ""
   },
   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/CoreScreens.kt": {
-    "mtime": 1795861815.0865314,
-    "seen": 1795861858.902,
-    "ast_hash": "5ec146a16a792991b2280bdecae200e4",
+    "mtime": 1795862074.2383752,
+    "seen": 1795862122.8235762,
+    "ast_hash": "30b8d9346cfc7b71d6051fcd5d635c0e",
     "semantic_hash": ""
   },
   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/DashboardScreen.kt": {
@@ -1452,9 +1452,9 @@
     "semantic_hash": ""
   },
   "source/app/src/test/java/com/mohammedsamir/halaqati/data/SessionPendingMergeTest.kt": {
-    "mtime": 1795789970.374322,
-    "seen": 1795790180.2012422,
-    "ast_hash": "ae6227e8ded6b34670bcd78da90f7b2f",
+    "mtime": 1795862074.2389588,
+    "seen": 1795862122.8236442,
+    "ast_hash": "11b7ca32436bd4f6037c0f9e8eccdb90",
     "semantic_hash": ""
   },
   "source/app/src/test/java/com/mohammedsamir/halaqati/data/SmartPlanAlertRulesTest.kt": {
@@ -4482,9 +4482,9 @@
     "semantic_hash": ""
   },
   "docs/EXECUTION_V12.md": {
-    "mtime": 1795861852.150786,
-    "seen": 1795861858.9025517,
-    "ast_hash": "fc4adc8c177793d31c4bf911e1d471c9",
+    "mtime": 1795862116.6002245,
+    "seen": 1795862122.8239334,
+    "ast_hash": "ffaa97bf14c1e8c91cca930f91a0947c",
     "semantic_hash": ""
   },
   "docs/production-migration-history/20261128080411_halaqati_fix_teacher_multiple_program_assignments.sql.txt": {

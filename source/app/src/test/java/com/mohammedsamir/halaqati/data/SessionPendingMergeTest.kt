@@ -18,9 +18,9 @@ class SessionPendingMergeTest {
     }
 
     @Test
-    fun aPendingDeleteHidesTheSessionUntilTheServerAgrees() {
+    fun anUnconfirmedDeleteKeepsTheServerSessionVisible() {
         val plan = SessionPendingMerge.plan(setOf("a", "b"), emptyList(), listOf("a"))
-        assertEquals(setOf("a"), plan.hideIds)
+        assertTrue(plan.hideIds.isEmpty())
     }
 
     @Test

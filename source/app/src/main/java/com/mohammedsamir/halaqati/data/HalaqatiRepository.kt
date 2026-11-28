@@ -1126,7 +1126,7 @@ class HalaqatiRepository(
         return sessionsFromJson(merged.toString(), includeArchived)
     }
 
-    /** Sessions created here but not uploaded yet stay in the list; sessions deleted here but not yet deleted on the server stay hidden. */
+    /** Keep confirmed server rows visible until a queued delete is acknowledged. */
     private fun withPendingSessions(owner: String, server: JSONArray): JSONArray {
         val pending = runCatching { queue.snapshot(owner, 1_000) }.getOrDefault(emptyList())
             .filter { it.entityTable == "sessions" || it.path.contains("/rest/v1/sessions") }
@@ -4020,7 +4020,9 @@ class HalaqatiRepository(
         // RC27.23: only a queued DELETE drops the derived caches. Inserts/updates are merged into the caches by their own
         // writers; dropping them here wiped the counters and the plan progress right after every save (the rows were still
         // only in the outbox), until a manual refresh.
-        if (method.equals("DELETE", ignoreCase = true) && path.substringAfter("/rest/v1/").substringBefore('?') in SESSION_DERIVED_TABLES) invalidateSessionDerivedCaches()
+        if (method.equals("DELETE", ignoreCase = true) && entityTable != "sessions" &&
+            path.substringAfter("/rest/v1/").substringBefore('?') in SESSION_DERIVED_TABLES
+        ) invalidateSessionDerivedCaches()
         // WorkManager is the durable fallback. While the app is open and Android has already
         // validated the network, also kick the lightweight Outbox flusher immediately instead of
         // waiting for WorkManager scheduling latency.
@@ -5856,8 +5858,6 @@ class HalaqatiRepository(
         // student_daily_notes and notifications to sessions. Queue one mutation instead of four;
         // this is materially faster on weak/VPN mobile links and remains atomic on the server.
         delete("sessions", "id=eq.$sessionId", dedupe = "session-delete:$sessionId")
-        removeSessionFromLocalCache(sessionId)
-        invalidateSessionDerivedCaches()
     }
 
     /** RC8.6: one reconnect refresh warms recent rosters in three batched requests instead of
@@ -6007,23 +6007,27 @@ class HalaqatiRepository(
         return runCatching { offlineDb.students().byId(queueOwnerId(), studentId)?.asJson()?.optString("track_code") }.getOrNull()
     }
 
-    fun saveRecitationLocalFirst(draft: RecitationDraft): String = saveRecitationNormalized(
-        // RC15: a tathbit student can only receive tathbit (or test); tathbit is never stored as review_far.
-        draft.copy(activityType = TrackActivityPolicy.recitationActivityFor(studentTrackOf(draft.studentId), draft.activityType)),
-    )
+    fun saveRecitationLocalFirst(draft: RecitationDraft): String {
+        val localSession = currentUserId()?.let { cachedSessions(it, null, true) }?.firstOrNull { it.id == draft.sessionId }
+        val program = localSession?.let { session ->
+            session.type in setOf("tajweed", "tilawah") || run {
+                smartPlanIneligibleHalaqaIds()
+                !isSmartPlanEligible(session.halaqaId)
+            }
+        } == true
+        val activity = draft.activityType.trim().lowercase()
+        if (program) require(activity in setOf("tilawah", "test")) { "جلسات البرامج تقبل التلاوة والاختبار فقط" }
+        val normalized = if (program || activity == "tilawah") {
+            draft.copy(activityType = activity, smartPlanId = null, smartPlanPhaseId = null, smartPlanType = null, smartPlanDate = null)
+        } else {
+            draft.copy(activityType = TrackActivityPolicy.recitationActivityFor(studentTrackOf(draft.studentId), activity))
+        }
+        return saveRecitationNormalized(normalized)
+    }
 
     private fun saveRecitationNormalized(draft: RecitationDraft): String {
         require(draft.activityType in setOf("new_hifz", "review_near", "review_far", "sard", "tilawah", "test", "tathbit")) {
             "نوع التسميع غير صالح"
-        }
-        // RC27.9: program sessions (courses, التلاوة والتجويد, qualifying) record tilawah/test only: never hifz/sard/review.
-        if (draft.activityType in setOf("new_hifz", "review_near", "review_far", "sard", "tathbit")) {
-            val sessionHalaqa = currentUserId()
-                ?.let { cachedSessions(it, null, true) }?.firstOrNull { it.id == draft.sessionId }?.halaqaId
-            if (sessionHalaqa != null) {
-                smartPlanIneligibleHalaqaIds()
-                require(isSmartPlanEligible(sessionHalaqa)) { "جلسات البرامج والدورات تقبل التلاوة والاختبار فقط، لا الحفظ ولا السرد ولا المراجعة" }
-            }
         }
         require(draft.pages >= 0) { "عدد الصفحات غير صالح" }
         require(draft.mistakes >= 0 && draft.prompts >= 0) { "عدد الأخطاء أو التلقين غير صالح" }
@@ -6407,20 +6411,6 @@ class HalaqatiRepository(
 
     private val sessionChildTables = listOf("recitation_entries", "attendance_records", "student_daily_notes")
 
-    /** RC25: recreate a session row (same id) that vanished on the server; returns true if recreated. */
-    private fun recreateMissingParentSession(owner: String, path: String, body: String?): Boolean {
-        if (sessionChildTables.none { path.contains("/rest/v1/$it") } || body.isNullOrBlank()) return false
-        val sid = runCatching {
-            val text = body.trim()
-            val obj = if (text.startsWith("[")) JSONArray(text).optJSONObject(0) else JSONObject(text)
-            obj?.optString("session_id")?.takeIf { it.isNotBlank() }
-        }.getOrNull() ?: return false
-        val local = cachedSessions(owner, maxAge = null, includeArchived = true)?.firstOrNull { it.id == sid } ?: return false
-        return runCatching {
-            serverGetOrCreateDailySession(local.halaqaId, local.date, local.type, local.title, local.id)
-            true
-        }.getOrDefault(false)
-    }
 
     fun flushQueue(): Int {
         if (!online()) return 0
@@ -6462,25 +6452,25 @@ class HalaqatiRepository(
             try {
                 // RC24.4: a queued session DELETE must never wipe recitation/attendance that another
                 // device already uploaded. Daily session ids are deterministic, so two phones share one id.
-                if (item.method == "DELETE" && item.entityTable == "sessions") {
-                    val sid = SessionDeleteGuard.sessionIdFromPath(item.path)
-                    if (sid != null && withAuthRetry { serverSessionHasData(sid) }) {
-                        // Keep the refused delete visible in the sync centre instead of dropping it silently:
-                        // the user was told the session is gone, and it will come back on the next refresh.
+                val sessionDeleteId = if (item.method == "DELETE" && item.entityTable == "sessions")
+                    SessionDeleteGuard.sessionIdFromPath(item.path) else null
+                if (sessionDeleteId != null) {
+                    if (withAuthRetry { serverSessionHasData(sessionDeleteId) }) {
+                        // Preserve the session and the reason in the sync centre.
                         queue.markBlocked(item.id, owner, "لم تُحذف الجلسة من الخادم لأن فيها تسميعًا أو حضورًا أو ملاحظات محفوظة. أرشف الجلسة بدل حذفها، ثم تجاهل هذا العنصر.")
                         signalLocalMutation()
                         continue
                     }
                 }
-                try {
+                if (sessionDeleteId != null) {
+                    val removed = withAuthRetry { api.delete("sessions", "id=eq.$sessionDeleteId&select=id") }
+                    if (removed.optJSONObject(0)?.optString("id") != sessionDeleteId) {
+                        throw SupabaseException("لم يؤكد الخادم حذف الجلسة", status = 403, sqlState = "42501")
+                    }
+                    removeSessionFromLocalCache(sessionDeleteId)
+                    invalidateSessionDerivedCaches()
+                } else {
                     withAuthRetry { api.raw(item.method, item.path, body) }
-                } catch (fk: SupabaseException) {
-                    // RC25 self-healing: the parent session was removed on the server while this
-                    // device still holds its recitation/attendance/notes. Recreate the session with
-                    // the same id and retry once so offline work is never lost.
-                    if (fk.sqlState == "23503" && item.method != "DELETE" && recreateMissingParentSession(owner, item.path, body)) {
-                        withAuthRetry { api.raw(item.method, item.path, body) }
-                    } else throw fk
                 }
                 if (item.entityTable == "students" && !item.entityId.isNullOrBlank()) {
                     val server = runCatching { fetchServerStudent(item.entityId) }.getOrNull()
@@ -6497,6 +6487,11 @@ class HalaqatiRepository(
                 val status = (e as? SupabaseException)?.status ?: 0
                 val sqlState = (e as? SupabaseException)?.sqlState
                 val kind = if (e is SupabaseException) SyncErrorRules.classify(status, sqlState) else SyncErrorRules.Kind.TRANSIENT
+                if (sqlState == "23503" && item.entityTable in sessionChildTables) {
+                    queue.markBlocked(item.id, owner, "تعذر العثور على جلسة السجل في الخادم. راجع الجلسة قبل إعادة المحاولة؛ بياناتك ما زالت محفوظة على الجهاز.")
+                    signalLocalMutation()
+                    continue
+                }
                 val message = SyncErrorRules.label(kind, sqlState, e.message ?: e::class.java.simpleName)
                 signalLocalMutation()
                 when (kind) {
