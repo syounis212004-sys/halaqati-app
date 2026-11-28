@@ -7,7 +7,7 @@ import com.mohammedsamir.halaqati.plans.WorkModeRules
  * regression-tested without Compose or Room.
  */
 object SessionWorkflowRules {
-    val manualSessionTypes = listOf("tasmee", "sard", "review", "test", "tajweed", "tilawah", "lesson", "other")
+    val manualSessionTypes = listOf("tasmee", "sard", "test", "tajweed", "tilawah", "lesson", "other")
 
     fun manualTypesForScope(halaqaType: String?): List<String> =
         if (WorkModeRules.isProgramType(halaqaType)) listOf("tilawah", "lesson", "test", "other")
@@ -59,10 +59,40 @@ object SessionWorkflowRules {
 
     fun sessionTypeForAssignment(assignmentKind: String): String = when (assignmentKind) {
         "sard" -> "sard"
-        "review", "tathbit" -> "review"
+        "review", "review_near", "review_far", "tathbit" -> "tasmee"
         "test" -> "test"
+        "tajweed", "tilawah" -> "tilawah"
         else -> "tasmee"
     }
+
+    /** Historical review sessions are readable; new review work belongs to tasmee. */
+    fun planKeysForSession(sessionType: String): Set<String> = when (sessionType) {
+        "tasmee" -> setOf("hifz", "review", "tathbit")
+        "sard" -> setOf("sard")
+        "review" -> setOf("review", "tathbit")
+        else -> emptySet()
+    }
+
+    fun matchesRecitation(sessionType: String, activityType: String): Boolean = when (sessionType) {
+        "tasmee" -> activityType in setOf("new_hifz", "hifz", "review", "review_near", "review_far", "tathbit")
+        "sard" -> activityType == "sard"
+        "review" -> activityType in setOf("review", "review_near", "review_far", "tathbit")
+        "test" -> activityType == "test"
+        "tilawah", "tajweed" -> activityType == "tilawah"
+        else -> false
+    }
+
+    fun quickActivities(sessionType: String, program: Boolean, tathbitStudent: Boolean): List<Pair<String, String>> =
+        when {
+            sessionType == "test" -> listOf("test" to "اختبار")
+            sessionType in setOf("tilawah", "tajweed") -> listOf("tilawah" to "تلاوة")
+            program -> emptyList()
+            sessionType == "sard" && !tathbitStudent -> listOf("sard" to "سرد")
+            sessionType in setOf("tasmee", "review") && tathbitStudent -> listOf("tathbit" to "تثبيت")
+            sessionType == "tasmee" -> listOf("new_hifz" to "حفظ", "review_near" to "مراجعة")
+            sessionType == "review" -> listOf("review_near" to "مراجعة")
+            else -> emptyList()
+        }
 
     /** One halaqa can have at most one non-cancelled session of a given type per day. */
     fun dailySessionKey(halaqaId: String, date: String, sessionType: String): String =

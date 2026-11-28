@@ -2531,7 +2531,7 @@ private fun SessionRosterScreen(
     fun snapshotForActivity(studentId: String, activityType: String): PlanSnapshot? {
         // Tilawah is an independent quality assessment. It must never inherit a Hifz/Tathbit
         // assignment merely because the student also has an active smart plan.
-        if (isProgramSession || activityType == "tilawah") return null
+        if (isProgramSession || activityType == "tilawah" || !SessionWorkflowRules.matchesRecitation(session.type, activityType)) return null
         val key = when (activityType) {
             "sard" -> "sard"
             "review_near", "review_far", "review" -> "review"
@@ -2840,8 +2840,8 @@ private fun SessionRosterScreen(
                                 }
 
                                 planSnapshotsByStudent[student.id]?.takeIf { it.isNotEmpty() }?.let { snapshots ->
-                                    if (!isProgramSession && editable && !transitioning) {
-                                        SessionSmartPlanCard(snapshots, session.date) { activity, snapshot ->
+                                    if (!isProgramSession && editable && !transitioning && SessionWorkflowRules.planKeysForSession(session.type).isNotEmpty()) {
+                                        SessionSmartPlanCard(snapshots, session.date, session.type) { activity, snapshot ->
                                             selected = SessionRecitationTarget(student, activity, snapshot)
                                         }
                                     } else if (isProgramSession) {
@@ -2905,10 +2905,10 @@ private fun SessionRosterScreen(
                                         ) {
                                             Text("إجراءات الطالب السريعة", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                                             Text(student.fullName, style = MaterialTheme.typography.titleMedium)
-                                            val quickActivities = if (!usesRecitation) emptyList() else com.mohammedsamir.halaqati.plans.SessionQuickActivityRules.activities(
-                                                programSession = isProgramSession,
+                                            val quickActivities = SessionWorkflowRules.quickActivities(
+                                                sessionType = session.type,
+                                                program = isProgramSession,
                                                 tathbitStudent = com.mohammedsamir.halaqati.data.TrackActivityPolicy.isTathbit(student.track),
-                                                planActivityKeys = planSnapshotsByStudent[student.id].orEmpty().flatMap { snap -> snap.activities.map { it.key } }.toSet(),
                                             )
                                             ResponsiveChipGrid(
                                                 items = quickActivities,
@@ -3412,10 +3412,12 @@ private fun smartWeekRangeText(snapshot: PlanSnapshot): String {
 private fun SessionSmartPlanCard(
     snapshots: List<PlanSnapshot>,
     sessionDate: String,
+    sessionType: String,
     onRecite: (String, PlanSnapshot?) -> Unit,
 ) {
+    val allowedKeys = SessionWorkflowRules.planKeysForSession(sessionType)
     val activities = snapshots.flatMap { snapshot ->
-        snapshot.activities.map { activity -> snapshot to activity }
+        snapshot.activities.filter { it.key in allowedKeys }.map { activity -> snapshot to activity }
     }
     val hifz = activities.firstOrNull { (_, a) -> a.key == "hifz" && a.scheduledToday }
     val sard = activities.firstOrNull { (_, a) -> a.key == "sard" && a.scheduledToday }
@@ -3450,9 +3452,10 @@ private fun SessionSmartPlanCard(
 
             (snapshots.mapNotNull { it.lastRecitation } + activities.mapNotNull { (_, activity) -> activity.lastRecitation })
                 .distinctBy { it.id }
+                .filter { it.date <= sessionDate && SessionWorkflowRules.matchesRecitation(sessionType, it.activityType) }
                 .maxWithOrNull(compareBy<SmartPlanEngine.Recitation> { it.date }.thenBy { it.createdAt })?.let { last ->
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("آخر تسميع · ${last.date}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${if (sessionType == "sard") "آخر سرد" else "آخر تسميع"} · ${last.date}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("${assignmentKindAr(last.activityType)} · ${smartRecitationRangeText(last)}", style = MaterialTheme.typography.bodySmall)
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
@@ -3471,7 +3474,7 @@ private fun SessionSmartPlanCard(
                     onClick = { onRecite("tathbit", tSnapshot) },
                 )
             }
-            if (hifz == null && tathbit == null) {
+            if ("hifz" in allowedKeys && hifz == null && tathbit == null) {
                 Surface(
                     color = MaterialTheme.colorScheme.surface.copy(alpha = .86f),
                     shape = RoundedCornerShape(12.dp),
@@ -3563,9 +3566,9 @@ private fun SessionSmartPlanCard(
                 }
             }
 
-            if (anyScheduled.isEmpty() && hifz == null) {
+            if (anyScheduled.isEmpty()) {
                 Text(
-                    "لا توجد أنشطة أخرى مجدولة لهذا اليوم.",
+                    if (sessionType == "sard") "لا يوجد سرد مقرر اليوم." else "لا توجد أنشطة مجدولة من نوع الجلسة لهذا اليوم.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
