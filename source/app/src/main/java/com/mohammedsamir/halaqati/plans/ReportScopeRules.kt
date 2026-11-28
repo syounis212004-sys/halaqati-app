@@ -17,6 +17,10 @@ object ReportScopeRules {
         return "&sessions.halaqa_id=in.(${scopedIds.sorted().joinToString(",")})"
     }
 
+    /** The DB activity enum stores tajweed as tilawah within a tajweed session. */
+    fun reportActivity(activity: String, sessionType: String?): String =
+        if (activity == "tilawah" && sessionType == "tajweed") "tajweed" else activity
+
     fun contains(primary: String?, memberships: Collection<String>, ids: Set<String>): Boolean =
         primary in ids || memberships.any { it in ids }
 

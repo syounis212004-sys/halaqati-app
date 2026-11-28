@@ -3731,6 +3731,7 @@ class HalaqatiRepository(
             val row = recitations.optJSONObject(i) ?: continue
             val aggregate = byStudent[row.optString("student_id")] ?: continue
             val pages = row.optDouble("pages_count", 0.0).coerceAtLeast(0.0)
+            val reportActivity = com.mohammedsamir.halaqati.plans.ReportScopeRules.reportActivity(row.optString("activity_type"), row.optJSONObject("sessions")?.optString("session_type"))
             if (row.optString("activity_type") == "new_hifz" &&
                 !TrackActivityPolicy.isTathbit(aggregate.student.optString("track_code"))
             ) hifzSpanEntries.getOrPut(row.optString("student_id")) { mutableListOf() }.add(hifzSpanEntryOf(row))
@@ -3738,9 +3739,9 @@ class HalaqatiRepository(
                 !TrackActivityPolicy.isTathbit(aggregate.student.optString("track_code"))
             ) sardSpanEntries.getOrPut(row.optString("student_id")) { mutableListOf() }.add(hifzSpanEntryOf(row))
             when {
-                row.optString("activity_type") == "tilawah" -> aggregate.tilawah += pages
-                row.optString("activity_type") == "tajweed" -> aggregate.tajweed += pages
-                row.optString("activity_type") == "test" -> aggregate.testPages += pages
+                reportActivity == "tilawah" -> aggregate.tilawah += pages
+                reportActivity == "tajweed" -> aggregate.tajweed += pages
+                reportActivity == "test" -> aggregate.testPages += pages
                 row.optString("activity_type") == "tathbit" -> aggregate.tathbit += pages
                 // RC15.1: every non-test recitation of a tathbit student (incl. legacy review_far/new_hifz/sard) is tathbit.
                 TrackActivityPolicy.isTathbit(aggregate.student.optString("track_code")) && row.optString("activity_type") != "test" -> aggregate.tathbit += pages

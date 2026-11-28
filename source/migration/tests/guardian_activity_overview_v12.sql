@@ -35,7 +35,9 @@ create table public.smart_plan_phase_states (
 
 create function public.rc18_guardian_owns_student(p_student_id uuid) returns boolean language sql stable
 as $owns$ select exists(select 1 from public.student_guardians sg where sg.student_id=p_student_id and sg.guardian_id=auth.uid()) $owns$;
-alter table public.sessions add column title text;
+alter table public.sessions add column title text, add column session_type text;
+-- Match actual production recitation enum values (tajweed is a session type, not activity type).
+alter table public.recitation_entries add constraint fixture_activity_enum check(activity_type in ('new_hifz','review_near','review_far','sard','tilawah','test','tathbit'));
 create table public.student_halaqa_memberships(student_id uuid,halaqa_id uuid,status text);
 create table public.educational_assessments(session_id uuid,student_id uuid,metric text,score smallint);
 \ir ../20261128120800_guardian_activity_overview_v12.sql
@@ -51,13 +53,14 @@ insert into public.student_guardians values ('00000000-0000-0000-0000-0000000000
 insert into public.student_halaqa_memberships values
  ('00000000-0000-0000-0000-000000000021','00000000-0000-0000-0000-000000000012','active'),
  ('00000000-0000-0000-0000-000000000021','00000000-0000-0000-0000-000000000013','withdrawn');
-insert into public.sessions(id,halaqa_id,session_date,status,title) values
- ('00000000-0000-0000-0000-000000000031','00000000-0000-0000-0000-000000000011','2026-11-28','closed','Regular lesson'),
- ('00000000-0000-0000-0000-000000000032','00000000-0000-0000-0000-000000000012','2026-11-28','open','Program lesson');
+insert into public.sessions(id,halaqa_id,session_date,status,title,session_type) values
+ ('00000000-0000-0000-0000-000000000031','00000000-0000-0000-0000-000000000011','2026-11-28','closed','Regular lesson','review'),
+ ('00000000-0000-0000-0000-000000000032','00000000-0000-0000-0000-000000000012','2026-11-28','open','Program lesson','tilawah'),
+ ('00000000-0000-0000-0000-000000000033','00000000-0000-0000-0000-000000000012','2026-11-28','open','Tajweed lesson','tajweed');
 insert into public.recitation_entries(student_id,session_id,activity_type,pages_count) values
  ('00000000-0000-0000-0000-000000000021','00000000-0000-0000-0000-000000000031','tathbit',8),
  ('00000000-0000-0000-0000-000000000021','00000000-0000-0000-0000-000000000032','tilawah',3),
- ('00000000-0000-0000-0000-000000000021','00000000-0000-0000-0000-000000000032','tajweed',1),
+ ('00000000-0000-0000-0000-000000000021','00000000-0000-0000-0000-000000000033','tilawah',1),
  ('00000000-0000-0000-0000-000000000022','00000000-0000-0000-0000-000000000032','tilawah',99);
 insert into public.attendance_records values
  ('00000000-0000-0000-0000-000000000021','00000000-0000-0000-0000-000000000031','present'),
@@ -87,6 +90,7 @@ begin
   result:=public.rc_guardian_activity_overview_v12(child,p,'2026-11-28');
   if (result#>>'{today,pages}')::numeric is distinct from 4
      or (result#>>'{today,attendance}') is distinct from 'excused'
+     or not exists(select 1 from jsonb_array_elements(result->'latest') a where a->>'activity'='tajweed')
      or (result->'plan') is distinct from 'null'::jsonb
      or (result#>'{student,track}') is distinct from 'null'::jsonb
      or jsonb_array_length(result->'educational_assessments')<>1

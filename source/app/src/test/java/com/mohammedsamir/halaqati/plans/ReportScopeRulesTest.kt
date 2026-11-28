@@ -18,6 +18,12 @@ class ReportScopeRulesTest {
         assertEquals("&sessions.halaqa_id=in.($p)",ReportScopeRules.sessionFilter("all",program))
         assertNotEquals(ReportScopeRules.cachePart(regular),ReportScopeRules.cachePart(program))
     }
+    @Test fun tajweedUsesActualStoredActivityAndSessionType() {
+        assertEquals("tajweed",ReportScopeRules.reportActivity("tilawah","tajweed"))
+        assertEquals("tilawah",ReportScopeRules.reportActivity("tilawah","tilawah"))
+        assertEquals("test",ReportScopeRules.reportActivity("test","tajweed"))
+        assertEquals("tathbit",ReportScopeRules.reportActivity("tathbit","review"))
+    }
     @Test fun unknownOrMismatchedScopeFailsClosed() {
         assertTrue(ReportScopeRules.ids(WorkMode.PROGRAM,h,types).isEmpty())
         assertTrue(ReportScopeRules.ids(WorkMode.REGULAR,"all",emptyMap()).isEmpty())

@@ -82,11 +82,12 @@ begin
 
   with rec as (
     select r.*, se.session_date,
+           case when r.activity_type::text='tilawah' and se.session_type::text='tajweed' then 'tajweed' else r.activity_type::text end as report_activity,
            (lower(coalesce(r.evaluation::text,'')) not in ('repeat','weak','إعادة','ضعيف')) as accepted
       from public.recitation_entries r
       join public.sessions se on se.id = r.session_id and se.status <> 'cancelled'
      where r.student_id = p_student_id and se.halaqa_id = v_student.halaqa_id
-       and (not v_is_program or r.activity_type::text in ('tilawah', 'tajweed', 'test'))
+       and (not v_is_program or r.activity_type::text in ('tilawah', 'test'))
        and se.session_date between least(v_month_start, coalesce(v_plan.start_date, v_month_start)) and p_today
   ), att as (
     select ar.status::text as status, se.session_date
@@ -148,7 +149,7 @@ begin
       'pages', coalesce((select sum(pages_count) from rec where session_date = p_today), 0),
       'ranges', coalesce((
         select jsonb_agg(jsonb_build_object(
-          'activity', activity_type, 'start_surah', start_surah, 'start_ayah', start_ayah,
+          'activity', report_activity, 'start_surah', start_surah, 'start_ayah', start_ayah,
           'end_surah', end_surah, 'end_ayah', end_ayah, 'pages', pages_count
         ) order by created_at) from rec where session_date = p_today
       ), '[]'::jsonb)
@@ -184,7 +185,7 @@ begin
     'latest', coalesce((
       select jsonb_agg(x order by x->>'date' desc) from (
         select jsonb_build_object(
-          'date', session_date, 'activity', activity_type, 'start_surah', start_surah, 'start_ayah', start_ayah,
+          'date', session_date, 'activity', report_activity, 'start_surah', start_surah, 'start_ayah', start_ayah,
           'end_surah', end_surah, 'end_ayah', end_ayah, 'pages', pages_count, 'evaluation', evaluation,
           'mistakes', mistakes, 'prompts', prompts, 'quality', safety_percentage
         ) as x from rec order by session_date desc, created_at desc limit 5
