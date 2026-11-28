@@ -1,8 +1,8 @@
 {
-  "nodes": 6917,
-  "relationships": 18399,
+  "nodes": 6914,
+  "relationships": 18398,
   "source_files": 760,
-  "source_tree": "b6714d88f3f7390a0d99a03d0f314e1edceea6c6",
+  "source_tree": "09a766b3da7e34b3808310b2c6ea011b88ba96bf",
   "graphify_version": "0.9.121",
   "directed": true,
   "documentation_mode": "native sections/links for all supported docs; selected semantic decisions",
