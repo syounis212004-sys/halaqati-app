@@ -102,7 +102,7 @@ object ReportHtmlRenderer {
           .rm-name{width:19%;font-weight:800}.rm-total{width:8%;text-align:center!important;font-weight:800;color:var(--report-primary)}
           .rm-line{margin-bottom:2px}.nw{white-space:nowrap}.rm-arrow{color:#b08d3c;font-weight:800;padding:0 1px}
           .rm-k{display:inline-block;min-width:1.5em;text-align:center;border-radius:6px;font-weight:800;font-size:.84em;padding:0 3px;margin-inline-start:4px;color:#fff;line-height:1.5}
-          .k-hifz{background:#1f7a52}.k-review{background:#2f6fb2}.k-sard{background:#b7892b}.k-tathbit{background:#6b4fa3}.k-tilawah{background:#2a8f9a}.k-test{background:#a34a4a}.k-other{background:#7a8580}
+          .k-hifz{background:#1f7a52}.k-review{background:#2f6fb2}.k-sard{background:#b7892b}.k-tathbit{background:#6b4fa3}.k-tilawah{background:#2a8f9a}.k-tajweed{background:#536a9b}.k-test{background:#a34a4a}.k-other{background:#7a8580}
           .rm-abs{color:#8f9893;font-weight:800;text-align:center!important;font-size:1.15em}
           .rm-legend{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0 2px;font-size:calc(9.5px*var(--report-scale));color:#59645f}
           .rm-block-title{margin:12px 0 5px;font-weight:800;color:var(--report-primary);font-size:calc(11px*var(--report-scale));break-after:avoid}
@@ -260,7 +260,7 @@ object ReportHtmlRenderer {
         if (!fullRoster) emptyList() else students.filter { it.status == "active" && (track == "all" || it.track == track) }.map { it.id to it.fullName }
 
     private fun kindClass(kind: String) = when (kind) {
-        "hifz", "review", "sard", "tathbit", "tilawah", "test" -> "k-$kind"
+        "hifz", "review", "sard", "tathbit", "tilawah", "tajweed", "test" -> "k-$kind"
         else -> "k-other"
     }
 
@@ -274,7 +274,7 @@ object ReportHtmlRenderer {
             studentId = r.optString("student_id").ifBlank { st?.optString("id").orEmpty() },
             studentName = st?.let { txt(it, "full_name", "طالب") } ?: "طالب",
             date = r.optJSONObject("sessions")?.optString("session_date").orEmpty(),
-            kind = RecitationMatrix.kindOf(r.optString("activity_type")),
+            kind = RecitationMatrix.kindOf(com.mohammedsamir.halaqati.plans.ReportScopeRules.reportActivity(r.optString("activity_type"), r.optJSONObject("sessions")?.optString("session_type"))),
             range = recitationRange(r),
             pages = r.optDouble("pages_count", 0.0),
             startPage = nullableInt(r, "start_page"),
@@ -327,7 +327,7 @@ object ReportHtmlRenderer {
             val title = if (blocks.size > 1) "<div class=\"rm-block-title\">المجموعة ${index + 1} من ${blocks.size} · ${h(days.first())} — ${h(days.last())}</div>" else ""
             title + "<div class=\"pro-table-wrap\"><table class=\"pro-table rm-table\"><thead><tr>$th</tr></thead><tbody>$body</tbody></table></div>"
         }.joinToString("")
-        val legend = "<div class=\"rm-legend\"><span><span class=\"rm-k k-hifz\">ح</span>حفظ</span><span><span class=\"rm-k k-review\">م</span>مراجعة</span><span><span class=\"rm-k k-sard\">س</span>سرد</span><span><span class=\"rm-k k-tathbit\">ث</span>تثبيت</span><span><span class=\"rm-k k-tilawah\">ل</span>تلاوة</span><span><span class=\"rm-k k-test\">ا</span>اختبار</span><span><b>غ</b> غائب</span><span><b>ع</b> غائب بعذر</span><span>الخانة الفارغة: لم يُسمّع</span></div>"
+        val legend = "<div class=\"rm-legend\"><span><span class=\"rm-k k-hifz\">ح</span>حفظ</span><span><span class=\"rm-k k-review\">م</span>مراجعة</span><span><span class=\"rm-k k-sard\">س</span>سرد</span><span><span class=\"rm-k k-tathbit\">ث</span>تثبيت</span><span><span class=\"rm-k k-tilawah\">ل</span>تلاوة</span><span><span class=\"rm-k k-tajweed\">ج</span>تجويد</span><span><span class=\"rm-k k-test\">ا</span>اختبار</span><span><b>غ</b> غائب</span><span><b>ع</b> غائب بعذر</span><span>الخانة الفارغة: لم يُسمّع</span></div>"
         return section(head + kpiStrip + tables + legend + footer(style))
     }
 

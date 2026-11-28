@@ -100,7 +100,6 @@ object RoleNavigationPolicy {
             item(AppDestination.ImportExport, "الاستيراد والتصدير"),
             item(AppDestination.Supervision, "متابعة المحفظين والمشرفين"),
             item(AppDestination.Visits, "زيارات المشرفين"),
-            item(AppDestination.Approvals, "طلبات الاعتماد"),
             item(AppDestination.Org, "الهيكل الإداري"),
             item(AppDestination.Team, "كادر الحلقات"),
             item(AppDestination.Users, "الحسابات والصلاحيات"),
@@ -187,7 +186,7 @@ object RoleNavigationPolicy {
     fun moreSections(role: UserRole): List<MoreSection> {
         val allowed = destinations(role).toSet()
         fun sec(title: String, vararg c: AppDestination): MoreSection? {
-            val v = c.filter { it in allowed && it !in bottom(role) }
+            val v = c.filter { it in allowed && it !in bottom(role) && !(role == UserRole.ADMIN && it == AppDestination.Approvals) }
             return v.takeIf { it.isNotEmpty() }?.let { MoreSection(title, it) }
         }
         return listOfNotNull(

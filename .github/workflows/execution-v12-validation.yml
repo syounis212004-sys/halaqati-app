@@ -1,0 +1,300 @@
+name: Execution v1.2 validation
+
+on:
+  workflow_call:
+    inputs:
+      release_validation:
+        description: Check release lint instead of debug lint
+        type: boolean
+        default: false
+  push:
+    branches: [fix/execution-v1-2, main]
+  pull_request:
+    paths:
+      - 'source/**'
+      - '.github/workflows/execution-v12-validation.yml'
+
+permissions:
+  contents: read
+
+# Only obsolete PR runs are canceled; never cancel a production release.
+concurrency:
+  group: execution-v12-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  android:
+    name: Android / ${{ matrix.stage }}
+    needs: source-gates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        stage: [room, package, tests, lint]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.13'
+          cache-read-only: false
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+      - name: Prepare debug fixtures
+        run: |
+          set -euo pipefail
+          sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+          curl -fsSL --retry 4 -o "$RUNNER_TEMP/madina.json" https://digitalkhatt.org/assets/layouts/madina.json
+          echo "5de6e0c60d8a402b37483fed4f799eeefaebd5edd94b67ff1ac8d8e9ba5ff358  $RUNNER_TEMP/madina.json" | sha256sum -c -
+          python3 -I source/scripts/dk/make_dk_assets.py "$RUNNER_TEMP/madina.json" source/app/src/main/assets/dk
+          python3 -I source/scripts/dk/verify_pack.py source/app/src/main/assets/dk
+          python3 source/scripts/fetch-cairo-font.py
+          cat > source/app/google-services.json <<'JSON'
+          {"project_info":{"project_number":"123456789012","project_id":"halaqati-v12-debug-fixture"},"client":[{"client_info":{"mobilesdk_app_id":"1:123456789012:android:1234567890abcdef","android_client_info":{"package_name":"com.mohammedsamir.halaqati"}},"api_key":[{"current_key":"offline-fixture"}]}],"configuration_version":"1"}
+          JSON
+      - name: Restore pinned Robolectric API 35 fixture
+        if: matrix.stage == 'tests'
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/robolectric/android-all-instrumented/15-robolectric-12650502-i7
+          key: robolectric-api35-33c2d7cc4186
+      - name: Verify or fetch Robolectric API 35 fixture
+        if: matrix.stage == 'tests'
+        run: |
+          set -euo pipefail
+          version=15-robolectric-12650502-i7
+          relative="org/robolectric/android-all-instrumented/$version/android-all-instrumented-$version.jar"
+          jar="$HOME/.m2/repository/$relative"
+          digest=33c2d7cc4186d4605269d5d411fa1818972c5b30a9f70bfbbd3d430b076af52f
+          if ! printf '%s  %s\n' "$digest" "$jar" | sha256sum --check --status; then
+            mkdir -p "$(dirname "$jar")"
+            curl -fsSL --retry 4 --max-time 160 "https://maven-central.storage-download.googleapis.com/maven2/$relative" -o "$jar.part"
+            printf '%s  %s\n' "$digest" "$jar.part" | sha256sum --check
+            mv "$jar.part" "$jar"
+          fi
+      - name: Run independent Gradle stage
+        working-directory: source
+        env:
+          SUPABASE_URL: https://staging.invalid
+          SUPABASE_PUBLISHABLE_KEY: offline-fixture
+          JAVA_TOOL_OPTIONS: -Drobolectric.dependency.repo.url=https://maven-central.storage-download.googleapis.com/maven2
+          BUILD_STAGE: ${{ matrix.stage }}
+          RELEASE_VALIDATION: ${{ inputs.release_validation || false }}
+        run: |
+          cat > "$RUNNER_TEMP/central-mirror.gradle" <<'GRADLE'
+          gradle.beforeSettings { settings ->
+            def mirror = 'https://maven-central.storage-download.googleapis.com/maven2'
+            settings.pluginManagement.repositories.maven { url = uri(mirror) }
+            settings.dependencyResolutionManagement.repositories.maven { url = uri(mirror) }
+          }
+          GRADLE
+          # Match the heap of successful run 46152193061; fix source complexity, not heap.
+          heap_mib=4096
+          free -h
+          echo "Gradle heap: ${heap_mib} MiB"
+          jvm="-Xmx${heap_mib}m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError -Dfile.encoding=UTF-8 -Xlog:gc*:file=$RUNNER_TEMP/gradle-gc.log:time,level,tags:filecount=2,filesize=8m -XX:ErrorFile=$RUNNER_TEMP/gradle-crash-%p.log"
+          trap 'status=$?; if [ "$status" -ne 0 ]; then tail -n 50 "$RUNNER_TEMP/gradle-gc.log" 2>/dev/null || true; cat /sys/fs/cgroup/memory.events 2>/dev/null || true; fi' EXIT
+          # Exactly one entry task per runner. Gradle resolves its dependencies; no
+          # separate full app assemble before tests or lint. This mirrors RC114 fan-out.
+          case "$BUILD_STAGE" in
+            room) task=:offline-db:assembleDebug ;;
+            package) task=:app:assembleDebug ;;
+            tests) task=:app:testDebugUnitTest ;;
+            lint)
+              if [ "$RELEASE_VALIDATION" = true ]; then task=:app:lintRelease
+              else task=:app:lintDebug; fi ;;
+            *) exit 2 ;;
+          esac
+          bash scripts/gradle-with-diagnostics.sh --no-daemon --max-workers=1 --console=plain "-Dorg.gradle.jvmargs=$jvm" --init-script "$RUNNER_TEMP/central-mirror.gradle" "$task"
+          git diff --exit-code -- app/schemas
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: halaqati-v12-${{ matrix.stage }}
+          path: |
+            source/app/build/outputs/apk/debug/app-debug.apk
+            source/app/build/test-results/testDebugUnitTest/
+            source/build/reports/profile/
+            ${{ runner.temp }}/gradle-gc.log*
+            ${{ runner.temp }}/gradle-crash-*.log
+            ${{ runner.temp }}/gradle-threads-*.log
+            source/offline-db/build/reports/
+            source/app/build/reports/lint-results-*.xml
+            source/app/build/reports/lint-results-*.html
+
+  source-gates:
+    name: Source gates / modular build contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - working-directory: source
+        run: |
+          failed=0
+          for script in compiler-regression-check.py rc7-durability-check.py rc7-offline-contract-check.py offline-account-scope-check.py modular-build-contract-check.py update-publish-contract-check.py; do
+            echo "::group::$script"
+            python3 "scripts/$script" || failed=1
+            echo "::endgroup::"
+          done
+          exit "$failed"
+
+  education-sql:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: fixture-only-password
+          POSTGRES_DB: education_fixture
+        options: >-
+          --health-cmd "pg_isready -U postgres -d education_fixture"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Test educational assessment SQL on disposable database
+        env:
+          PG_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          docker exec "$PG_CONTAINER" mkdir -p /tmp/education/tests
+          docker cp source/migration/20261128120700_educational_assessments_v12.sql "$PG_CONTAINER:/tmp/education/"
+          docker cp source/migration/tests/educational_assessments_v12.sql "$PG_CONTAINER:/tmp/education/tests/"
+          docker exec "$PG_CONTAINER" psql -U postgres -d education_fixture -v ON_ERROR_STOP=1 -f /tmp/education/tests/educational_assessments_v12.sql
+
+  lifecycle-sql:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: fixture-only-password
+          POSTGRES_DB: lifecycle_fixture
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifecycle_fixture"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Test phase-four lifecycle and payment protection
+        env:
+          PG_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          docker exec "$PG_CONTAINER" mkdir -p /tmp/lifecycle/tests /tmp/lifecycle/proposals
+          docker cp source/migration/proposals/phase_four_lifecycle.sql "$PG_CONTAINER:/tmp/lifecycle/proposals/"
+          docker cp source/migration/tests/phase_four_lifecycle.sql "$PG_CONTAINER:/tmp/lifecycle/tests/"
+          docker exec "$PG_CONTAINER" psql -U postgres -d lifecycle_fixture -v ON_ERROR_STOP=1 -f /tmp/lifecycle/tests/phase_four_lifecycle.sql
+      - name: Test association retirement transaction and relationship preservation
+        env:
+          PG_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          docker exec "$PG_CONTAINER" createdb -U postgres retirement_fixture
+          docker cp source/migration/proposals/phase_four_association_retirement.sql "$PG_CONTAINER:/tmp/lifecycle/proposals/"
+          docker cp source/migration/tests/phase_four_association_retirement.sql "$PG_CONTAINER:/tmp/lifecycle/tests/"
+          docker exec "$PG_CONTAINER" psql -U postgres -d retirement_fixture -v ON_ERROR_STOP=1 -f /tmp/lifecycle/tests/phase_four_association_retirement.sql
+
+  guardian-activity-sql:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: fixture-only-password
+          POSTGRES_DB: guardian_fixture
+        options: >-
+          --health-cmd "pg_isready -U postgres -d guardian_fixture"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Test guardian activity and child isolation
+        env:
+          PG_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          docker exec "$PG_CONTAINER" mkdir -p /tmp/guardian/tests
+          docker cp source/migration/20261128120800_guardian_activity_overview_v12.sql "$PG_CONTAINER:/tmp/guardian/"
+          docker cp source/migration/tests/guardian_activity_overview_v12.sql "$PG_CONTAINER:/tmp/guardian/tests/"
+          docker exec "$PG_CONTAINER" psql -U postgres -d guardian_fixture -v ON_ERROR_STOP=1 -f /tmp/guardian/tests/guardian_activity_overview_v12.sql
+
+  independent-scope-sql:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: fixture-only-password
+          POSTGRES_DB: scope_fixture
+        options: >-
+          --health-cmd "pg_isready -U postgres -d scope_fixture"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Verify independent scope role isolation and idempotent session transition
+        env:
+          PG_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          docker exec "$PG_CONTAINER" mkdir -p /tmp/scope/tests /tmp/scope/proposals
+          docker cp source/migration/proposals/phase_four_independent_scope.sql "$PG_CONTAINER:/tmp/scope/proposals/"
+          docker cp source/migration/tests/phase_four_independent_scope.sql "$PG_CONTAINER:/tmp/scope/tests/"
+          docker exec "$PG_CONTAINER" psql -U postgres -d scope_fixture -v ON_ERROR_STOP=1 -f /tmp/scope/tests/phase_four_independent_scope.sql
+
+  seven-points-contract-sql:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: fixture-only-password
+          POSTGRES_DB: seven_fixture
+        options: >-
+          --health-cmd "pg_isready -U postgres -d seven_fixture"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Test scoped staff, guardian summaries, same-day history, scoring and revision conflicts
+        env:
+          PG_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          docker exec "$PG_CONTAINER" mkdir -p /tmp/seven/tests /tmp/seven/proposals
+          docker cp source/migration/20261128120800_guardian_activity_overview_v12.sql "$PG_CONTAINER:/tmp/seven/"
+          docker cp source/migration/tests/guardian_activity_overview_v12.sql "$PG_CONTAINER:/tmp/seven/tests/"
+          docker cp source/migration/tests/seven_points_contracts.sql "$PG_CONTAINER:/tmp/seven/tests/"
+          docker cp source/migration/proposals/seven_points_scoped_projections.sql "$PG_CONTAINER:/tmp/seven/proposals/"
+          docker cp source/migration/proposals/seven_points_tilawah_scoring.sql "$PG_CONTAINER:/tmp/seven/proposals/"
+          docker exec "$PG_CONTAINER" psql -U postgres -d seven_fixture -v ON_ERROR_STOP=1 -f /tmp/seven/tests/seven_points_contracts.sql

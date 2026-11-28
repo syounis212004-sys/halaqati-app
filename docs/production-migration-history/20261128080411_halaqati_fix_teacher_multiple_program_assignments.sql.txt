@@ -1,0 +1,7 @@
+SET LOCAL lock_timeout = '5s';
+DO $check$ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid='public.halaqa_teachers'::regclass AND tgname='rc86_teacher_single_regular' AND tgenabled IN ('O','A')) THEN RAISE EXCEPTION 'Regular halaqa guard missing'; END IF;
+ IF EXISTS (SELECT 1 FROM public.halaqa_teachers t JOIN public.halaqas h ON h.id=t.halaqa_id WHERE coalesce(h.halaqa_type,'regular')='regular' GROUP BY t.teacher_id HAVING count(*)>1) THEN RAISE EXCEPTION 'Existing regular assignment duplicates'; END IF;
+END $check$;
+CREATE INDEX IF NOT EXISTS halaqa_teachers_teacher_id_lookup_idx ON public.halaqa_teachers(teacher_id);
+DROP INDEX IF EXISTS public.halaqa_teachers_one_halaqa_per_teacher;

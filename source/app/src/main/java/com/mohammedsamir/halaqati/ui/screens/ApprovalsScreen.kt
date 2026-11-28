@@ -48,7 +48,7 @@ private fun stageLabelAr(r: ApprovalRequest): String = when {
  * admin: everything · supervisor: teacher accounts only · teacher: guardians linked to his own students.
  */
 @Composable
-fun ApprovalsScreen(profile: Profile) {
+fun ApprovalsScreen(profile: Profile, unified: Boolean = false, tabs: @Composable () -> Unit = {}) {
     val scope = rememberCoroutineScope()
     var items by remember { mutableStateOf<List<ApprovalRequest>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
@@ -87,7 +87,8 @@ fun ApprovalsScreen(profile: Profile) {
     LaunchedEffect(Unit) { reload() }
 
     Column(Modifier.fillMaxSize()) {
-        AppTopBar(title = "طلبات الاعتماد", onRefresh = { scope.launch { reload() } })
+        AppTopBar(title = if (unified) "الحسابات والصلاحيات" else "طلبات الاعتماد", onRefresh = { scope.launch { reload() } })
+        tabs()
         Text(
             when (profile.role) {
                 UserRole.ADMIN -> "طلبات الحسابات الجديدة وطلبات ربط أولياء الأمور بالطلاب."
@@ -177,6 +178,33 @@ fun ApprovalsScreen(profile: Profile) {
             dismissButton = { TextButton(onClick = { rejecting = null }) { Text("إلغاء") } },
         )
     }
+}
+
+
+/** Admin-only hub. Legacy approval links still open this same hub on its requests tab. */
+@Composable
+fun AccountsAndApprovalsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, initialApprovals: Boolean = true) {
+    var approvals by androidx.compose.runtime.saveable.rememberSaveable(profile.id, initialApprovals) { mutableStateOf(initialApprovals) }
+    val tabs: @Composable () -> Unit = {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(true to "طلبات الاعتماد", false to "الحسابات").forEach { (isApprovals, title) ->
+                val selected = approvals == isApprovals
+                FilterChip(
+                    selected = selected, onClick = { approvals = isApprovals },
+                    label = {
+                        Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                            Icon(if (isApprovals) Icons.Default.AssignmentTurnedIn else Icons.Default.Groups, contentDescription = null, modifier = Modifier.size(22.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
+                        }
+                    },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                )
+            }
+        }
+    }
+    if (approvals) ApprovalsScreen(profile, unified = true, tabs = tabs)
+    else UsersScreen(pending, onRefresh, openApprovals = { approvals = true }, tabs = tabs)
 }
 
 /** RC27.42: dashboard shortcut shown only when something is waiting for this person. */

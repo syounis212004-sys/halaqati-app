@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
-db=(root/'app/src/main/java/com/mohammedsamir/halaqati/data/OfflineDatabase.kt').read_text()
+db=(root/'offline-db/src/main/java/com/mohammedsamir/halaqati/data/OfflineDatabase.kt').read_text()
 q=(root/'app/src/main/java/com/mohammedsamir/halaqati/data/OfflineQueue.kt').read_text()
 imp=(root/'app/src/main/java/com/mohammedsamir/halaqati/data/OfflineLegacyImporter.kt').read_text()
 repo=(root/'app/src/main/java/com/mohammedsamir/halaqati/data/HalaqatiRepository.kt').read_text()

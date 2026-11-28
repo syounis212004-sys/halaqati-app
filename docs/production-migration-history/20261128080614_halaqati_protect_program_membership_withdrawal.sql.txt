@@ -1,0 +1,16 @@
+SET LOCAL lock_timeout='5s';
+CREATE FUNCTION halaqati_repair_private.guard_membership_scope_update() RETURNS trigger
+LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,public AS $guard$
+BEGIN
+ IF NEW.student_id IS DISTINCT FROM OLD.student_id OR NEW.halaqa_id IS DISTINCT FROM OLD.halaqa_id THEN
+  RAISE EXCEPTION 'لا يمكن تغيير الطالب أو البرنامج في عضوية موجودة' USING ERRCODE='23514';
+ END IF;
+ IF auth.uid() IS NOT NULL AND NOT public.can_manage_halaqa(OLD.halaqa_id)
+    AND (NEW.status IS DISTINCT FROM OLD.status OR NEW.ended_at IS DISTINCT FROM OLD.ended_at) THEN
+  RAISE EXCEPTION 'تغيير حالة العضوية من صلاحية مسؤول البرنامج المستهدف' USING ERRCODE='42501';
+ END IF;
+ RETURN NEW;
+END $guard$;
+REVOKE ALL ON FUNCTION halaqati_repair_private.guard_membership_scope_update() FROM PUBLIC,anon,authenticated;
+CREATE TRIGGER zz_halaqati_guard_membership_scope_update BEFORE UPDATE ON public.student_halaqa_memberships FOR EACH ROW EXECUTE FUNCTION halaqati_repair_private.guard_membership_scope_update();
+ALTER POLICY student_halaqa_memberships_delete ON public.student_halaqa_memberships USING (public.can_manage_halaqa(halaqa_id));

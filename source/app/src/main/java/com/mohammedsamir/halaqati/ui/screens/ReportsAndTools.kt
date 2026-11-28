@@ -209,13 +209,15 @@ fun ReportsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
         if (programReports) {
             track = "all"
             if (reportView !in listOf(ReportDocumentType.ATTENDANCE, ReportDocumentType.RECITATIONS, ReportDocumentType.HALAQA)) reportView = ReportDocumentType.HALAQA
-            if (sessionType !in listOf("all", "tajweed", "test", "lesson")) sessionType = "all"
+            if (sessionType !in listOf("all", "tajweed", "tilawah", "test", "lesson")) sessionType = "all"
         }
         reportStyle = reportStyle.copy(title = reportTitleFor(reportView), visibleColumns = reportColumnsFor(reportView))
     }
 
     var reportInitialized by remember { mutableStateOf(false) }
-    fun halaqaLabel(): String = if (halaqaId == "all") "جميع الحلقات" else {
+    val reportScopeIds = com.mohammedsamir.halaqati.plans.ReportScopeRules.ids(reportKind, halaqaId, reportMode.typeById)
+    var reportRequest by remember { mutableIntStateOf(0) }
+    fun halaqaLabel(): String = if (halaqaId == "all") (if (programReports) "جميع البرامج" else "جميع الحلقات") else {
         halaqas.firstOrNull { it.optString("id") == halaqaId }?.optString("name", "حلقة") ?: "حلقة"
     }
 
@@ -228,63 +230,64 @@ fun ReportsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
     }
 
     suspend fun reload() {
+        val request = ++reportRequest
+        val selectedIds = reportScopeIds
+        val selectedHalaqa = halaqaId
+        val selectedTrack = if (programReports) "all" else track
+        val selectedType = sessionType
+        val selectedMode = mode
         val start = runCatching { LocalDate.parse(from) }.getOrNull()
         val end = runCatching { LocalDate.parse(to) }.getOrNull()
-        if (start == null || end == null || start > end) { message = "تأكد من تاريخ البداية والنهاية"; return }
+        // Clear before a new request: failed or slow scope switches cannot display a previous report.
+        summaryRows = emptyList(); detailRows = emptyList(); notesRows = emptyList()
+        absenceRows = emptyList(); reportStudents = emptyList(); monthComparison = null
+        if (start == null || end == null || start > end) { loading = false; message = "تأكد من تاريخ البداية والنهاية"; return }
+        if (selectedIds.isEmpty()) { loading = false; message = "اختر نطاقًا متاحًا للتقرير"; return }
+        val cacheKey = NativeReportCache.key(profile.id, start.toString(), end.toString(), selectedTrack, selectedHalaqa, selectedType) +
+            "|scope-v2|" + com.mohammedsamir.halaqati.plans.ReportScopeRules.cachePart(selectedIds)
         loading = true
         message = ""
         try {
             val bundle = withContext(Dispatchers.IO) {
-                val currentSummary = AppGraph.repo.reportSummary(start.toString(), end.toString(), track, halaqaId, sessionType)
-                val details = AppGraph.repo.reportRecitations(start.toString(), end.toString(), track, halaqaId, sessionType)
-                val notes = AppGraph.repo.reportNotes(start.toString(), end.toString(), track, halaqaId, sessionType)
-                val allStudents = if (halaqaId == "all") AppGraph.repo.students().filter { it.status == "active" }
-                else AppGraph.repo.studentsForHalaqa(halaqaId)
+                val currentSummary = AppGraph.repo.reportSummary(start.toString(), end.toString(), selectedTrack, selectedHalaqa, selectedType, scopedHalaqaIds = selectedIds)
+                val details = AppGraph.repo.reportRecitations(start.toString(), end.toString(), selectedTrack, selectedHalaqa, selectedType, scopedHalaqaIds = selectedIds)
+                val notes = AppGraph.repo.reportNotes(start.toString(), end.toString(), selectedTrack, selectedHalaqa, selectedType, scopedHalaqaIds = selectedIds)
+                val allStudents = if (selectedHalaqa == "all") AppGraph.repo.students().filter { it.status == "active" }
+                    else AppGraph.repo.studentsForHalaqa(selectedHalaqa)
                 val memberRows = AppGraph.repo.studentHalaqaMemberships().let { arr -> (0 until arr.length()).mapNotNull { arr.optJSONObject(it) } }
-                val memberHalaqas = memberRows.filter { it.optString("status", "active") == "active" }
+                val memberHalaqas = memberRows.filter { it.optString("status") == "active" }
                     .groupBy({ it.optString("student_id") }, { it.optString("halaqa_id") })
-                val previousSummary = if (mode == "month") {
-                    val ym = YearMonth.from(start)
-                    val prev = ym.minusMonths(1)
-                    AppGraph.repo.reportSummary(prev.atDay(1).toString(), prev.atEndOfMonth().toString(), track, halaqaId, sessionType)
+                val previousSummary = if (selectedMode == "month") {
+                    val prev = YearMonth.from(start).minusMonths(1)
+                    AppGraph.repo.reportSummary(prev.atDay(1).toString(), prev.atEndOfMonth().toString(), selectedTrack, selectedHalaqa, selectedType, scopedHalaqaIds = selectedIds)
                 } else JSONArray()
-                val absences = runCatching { AppGraph.repo.reportAbsences(start.toString(), end.toString(), track, halaqaId, sessionType) }.getOrDefault(JSONArray())
+                val absences = AppGraph.repo.reportAbsences(start.toString(), end.toString(), selectedTrack, selectedHalaqa, selectedType, scopedHalaqaIds = selectedIds)
                 ReportLoadBundle(currentSummary, details, notes, allStudents, previousSummary, memberHalaqas, absences)
             }
-            // Keep only the students of the chosen kind (a halaqa student who also joined a program stays in halaqa reports).
-            val kindIds = bundle.students.filter { st ->
-                com.mohammedsamir.halaqati.plans.WorkModeRules.studentBelongs(
-                    reportKind, st.halaqaId?.let { reportMode.typeById[it] },
-                    bundle.memberHalaqas[st.id].orEmpty().map { reportMode.typeById[it] },
-                )
-            }.map { it.id }.toSet()
-            fun JSONObject.studentKey() = optString("student_id").ifBlank { optString("id") }
+            if (request != reportRequest) return
+            fun scopedRows(rows: JSONArray) = (0 until rows.length()).mapNotNull { rows.optJSONObject(it) }
+                .filter { it.optJSONObject("sessions")?.optString("halaqa_id") in selectedIds }
             summaryRows = (0 until bundle.summary.length()).mapNotNull { bundle.summary.optJSONObject(it) }
-                .filter { halaqaId != "all" || it.studentKey().isBlank() || it.studentKey() in kindIds }
-            detailRows = (0 until bundle.details.length()).mapNotNull { bundle.details.optJSONObject(it) }
-                .filter { halaqaId != "all" || it.optString("student_id").isBlank() || it.optString("student_id") in kindIds }
-            notesRows = (0 until bundle.notes.length()).mapNotNull { bundle.notes.optJSONObject(it) }
-            absenceRows = (0 until bundle.absences.length()).mapNotNull { bundle.absences.optJSONObject(it) }
-                .filter { halaqaId != "all" || it.optString("student_id").isBlank() || it.optString("student_id") in kindIds }
-            reportStudents = bundle.students
-            monthComparison = if (mode == "month") buildMonthComparison(bundle.summary, bundle.previousSummary) else null
-            NativeReportCache.save(context, NativeReportCache.key(profile.id, from, to, track, halaqaId, sessionType), summaryRows, detailRows)
+            detailRows = scopedRows(bundle.details)
+            notesRows = scopedRows(bundle.notes)
+            absenceRows = scopedRows(bundle.absences)
+            reportStudents = bundle.students.filter { com.mohammedsamir.halaqati.plans.ReportScopeRules.contains(it.halaqaId, bundle.memberHalaqas[it.id].orEmpty(), selectedIds) }
+            monthComparison = if (selectedMode == "month") buildMonthComparison(bundle.summary, bundle.previousSummary) else null
+            NativeReportCache.save(context, cacheKey, summaryRows, detailRows)
             message = "تم تجهيز البيانات: ${summaryRows.size} طالب · ${detailRows.size} تسميع · ${notesRows.size} متابعة"
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-            monthComparison = null
-            val cached = NativeReportCache.load(context, NativeReportCache.key(profile.id, from, to, track, halaqaId, sessionType))
+            if (request != reportRequest) return
+            val cached = NativeReportCache.load(context, cacheKey)
             if (cached != null) {
                 summaryRows = cached.summary
-                detailRows = cached.details
-                notesRows = emptyList()
-                reportStudents = com.mohammedsamir.halaqati.ui.runCatchingCancellable { withContext(Dispatchers.IO) { AppGraph.repo.students() } }.getOrDefault(reportStudents)
-                message = "تعذر الوصول للخادم؛ هذه آخر نسخة كاملة محفوظة للتقرير · ${cached.savedAt}"
+                detailRows = cached.details.filter { it.optJSONObject("sessions")?.optString("halaqa_id") in selectedIds }
+                message = "تعذر الوصول للخادم؛ نسخة محفوظة للملخص والتسميع فقط · ${cached.savedAt}"
             } else {
                 message = "تعذر تجهيز التقرير: ${e.message ?: "خطأ"}"
             }
-        } finally { loading = false }
+        } finally { if (request == reportRequest) loading = false }
     }
 
     // RC42: this account's own centre / halaqa logos; the bundled ones are only a fallback for the administrator.
@@ -317,10 +320,10 @@ fun ReportsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
         when (reportView) {
             ReportDocumentType.RECITATIONS -> NativeReportExport.matrixTable(detailRows, absenceRows)
             ReportDocumentType.WEEKLY -> NativeReportExport.weeklyTable(detailRows)
-            else -> NativeReportExport.table(summaryRows, details = false)
+            else -> NativeReportExport.table(summaryRows, details = false, program = programReports)
         }
     fun exportTitle(): String = exportTitleForReport(reportView, reportStyle)
-    fun exportSubtitle(): String = "الفترة: $from — $to · ${when (track) { "general_hifz" -> "الحفظ العام"; "tathbit" -> "التثبيت"; else -> "جميع المسارات" }} · ${halaqaLabel()}"
+    fun exportSubtitle(): String = if (programReports) "الفترة: $from — $to · ${halaqaLabel()}" else "الفترة: $from — $to · ${when (track) { "general_hifz" -> "الحفظ العام"; "tathbit" -> "التثبيت"; else -> "جميع المسارات" }} · ${halaqaLabel()}"
 
     val createReportXlsx = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) { uri ->
         if (uri != null) scope.launch {
@@ -355,7 +358,7 @@ fun ReportsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
         reportInitialized = true
     }
     // The kind or halaqa chosen in the scope bar changes the data set: prepare it again.
-    LaunchedEffect(programReports, halaqaId) { if (reportInitialized) reload() }
+    LaunchedEffect(programReports, halaqaId, reportScopeIds) { if (reportInitialized) reload() }
 
     val totalPages = summaryRows.sumOf { it.optDouble("total_pages", 0.0) }
     val totalPresent = summaryRows.sumOf { it.optInt("present", 0) + it.optInt("late", 0) }
@@ -445,7 +448,7 @@ fun ReportsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
                             searchable = halaqas.size > 8,
                         )
                         Text("نوع اللقاء", style = MaterialTheme.typography.labelLarge)
-                        ChipLine(items = if (programReports) listOf("all" to "كل الأنواع", "tajweed" to com.mohammedsamir.halaqati.plans.ProgramKindRules.TILAWAH_TAJWEED_LABEL, "test" to "اختبار", "lesson" to "درس") else listOf("all" to "كل الأنواع", "tasmee" to "تسميع", "sard" to "سرد", "review" to "مراجعة", "test" to "اختبار", "tajweed" to com.mohammedsamir.halaqati.plans.ProgramKindRules.TILAWAH_TAJWEED_LABEL, "lesson" to "درس", "other" to "أخرى")) { pair, itemModifier ->
+                        ChipLine(items = if (programReports) listOf("all" to "كل الأنواع", "tilawah" to "تلاوة", "tajweed" to "تجويد", "test" to "اختبار", "lesson" to "درس") else listOf("all" to "كل الأنواع", "tasmee" to "تسميع", "sard" to "سرد", "review" to "مراجعة", "test" to "اختبار", "tilawah" to "تلاوة", "tajweed" to "تجويد", "lesson" to "درس", "other" to "أخرى")) { pair, itemModifier ->
                             ProFilterChip(selected = sessionType == pair.first, onClick = { sessionType = pair.first }, label = pair.second, modifier = itemModifier.fillMaxWidth(), showCheckIcon = false)
                         }
                         }

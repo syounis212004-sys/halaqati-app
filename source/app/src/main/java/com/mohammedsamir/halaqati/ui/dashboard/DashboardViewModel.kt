@@ -2,6 +2,7 @@ package com.mohammedsamir.halaqati.ui.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+// AppGraph wires the repository to the isolated Room library.
 import com.mohammedsamir.halaqati.data.AppGraph
 import com.mohammedsamir.halaqati.data.HalaqatiRepository
 import com.mohammedsamir.halaqati.data.PlanSnapshot

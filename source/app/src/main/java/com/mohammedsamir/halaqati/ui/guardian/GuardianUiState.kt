@@ -38,6 +38,13 @@ import org.json.JSONObject
     val quality: Double?,
 )
 
+@Immutable data class GuardianEducationAssessment(
+    val sessionId: String, val date: String, val title: String, val halaqaName: String,
+    val scores: Map<String, Int>,
+)
+
+@Immutable data class GuardianTilawahSummary(val date: String, val quality: Double?, val major: Int, val minor: Int?, val corrected: Int, val followed: Int, val wardReviewed: Boolean?)
+
 @Immutable data class GuardianOverview(
     val childName: String,
     val tathbit: Boolean,
@@ -61,13 +68,16 @@ import org.json.JSONObject
     val todayWard: String? = null,
     val lastDay: GuardianLastDay? = null,
     val childPhoto: String? = null,
+    val program: Boolean = false,
+    val education: List<GuardianEducationAssessment> = emptyList(),
+    val tilawahSummary: List<GuardianTilawahSummary> = emptyList(),
 ) {
     val planComplete: Boolean get() = planActivities.isNotEmpty() && planActivities.filter { it.hasTarget }.let { it.isNotEmpty() && it.all(GuardianPlanActivity::complete) }
 
     companion object {
-        fun activityLabel(raw: String, tathbit: Boolean): String = if (tathbit && raw != "test") "تثبيت" else when (raw) {
+        fun activityLabel(raw: String, tathbit: Boolean): String = if (tathbit && raw in setOf("review", "review_near", "review_far")) "تثبيت" else when (raw) {
             "new_hifz", "hifz" -> "حفظ"; "review_near", "review_far", "review" -> "مراجعة"
-            "sard" -> "سرد"; "tilawah" -> "تلاوة"; "tathbit" -> "تثبيت"; "test" -> "اختبار"; else -> "تسميع"
+            "sard" -> "سرد"; "tilawah" -> "تلاوة"; "tajweed" -> "تجويد"; "tathbit" -> "تثبيت"; "test" -> "اختبار"; else -> "تسميع"
         }
 
         private fun JSONObject.intOrNull(key: String): Int? = if (!has(key) || isNull(key)) null else optInt(key).takeIf { it > 0 }
@@ -125,10 +135,11 @@ import org.json.JSONObject
 
         fun parse(json: JSONObject): GuardianOverview? {
             val student = json.optJSONObject("student") ?: return null
-            val tathbit = student.optString("track") == "tathbit"
+            val program = com.mohammedsamir.halaqati.plans.WorkModeRules.isProgramType(student.text("halaqa_type"))
+            val tathbit = !program && student.optString("track") == "tathbit"
             val today = json.optJSONObject("today") ?: JSONObject()
             val month = json.optJSONObject("month") ?: JSONObject()
-            val plan = json.optJSONObject("plan")
+            val plan = json.optJSONObject("plan").takeUnless { program }
             val todayRanges = today.optJSONArray("ranges")
             val todayRange = (0 until (todayRanges?.length() ?: 0)).mapNotNull { todayRanges?.optJSONObject(it)?.let { o -> range(o) } }
                 .distinct().joinToString(" · ").ifBlank { null }
@@ -142,11 +153,36 @@ import org.json.JSONObject
                     quality = r.doubleOrNull("quality"),
                 )
             }
+            val educationArray = json.optJSONArray("educational_assessments")
+            val education = (0 until (educationArray?.length() ?: 0)).mapNotNull { educationArray?.optJSONObject(it) }
+                .filter { it.optString("session_id").isNotBlank() }
+                .groupBy { it.optString("session_id") }
+                .mapNotNull { (sessionId, rows) ->
+                    val session = rows.firstOrNull()?.optJSONObject("sessions") ?: return@mapNotNull null
+                    val grades = rows.mapNotNull { row ->
+                        val key = row.optString("metric")
+                        val score = row.optInt("score")
+                        if (com.mohammedsamir.halaqati.ui.sessions.EducationScoreRules.valid(key,score)) key to score else null
+                    }.toMap()
+                    if (grades.isEmpty()) null else GuardianEducationAssessment(sessionId,
+                        session.optString("session_date"),session.optString("title").ifBlank { "نشاط تربوي" },
+                        session.optJSONObject("halaqas")?.optString("name").orEmpty(), grades)
+                }.sortedByDescending { it.date }
+            val summary = json.optJSONArray("tilawah_summary")
+            val tilawah = (0 until (summary?.length() ?: 0)).mapNotNull { summary?.optJSONObject(it) }.map { row ->
+                GuardianTilawahSummary(row.optString("date"),row.doubleOrNull("quality"),row.optInt("major").coerceAtLeast(0),
+                    row.optInt("minor").coerceAtLeast(0).takeIf { row.has("minor") && !row.isNull("minor") },
+                    row.optInt("corrected").coerceAtLeast(0),row.optInt("followed").coerceAtLeast(0),
+                    row.optBoolean("ward_reviewed").takeIf { row.has("ward_reviewed") && !row.isNull("ward_reviewed") })
+            }
             return GuardianOverview(
                 childName = student.text("full_name") ?: "طالب",
+                tilawahSummary = tilawah,
+                education = education,
                 childPhoto = student.text("photo_path"),
                 tathbit = tathbit,
-                trackLabel = if (tathbit) "التثبيت" else "الحفظ العام",
+                trackLabel = if (program) "" else if (tathbit) "التثبيت" else "الحفظ العام",
+                program = program,
                 subtitle = listOfNotNull(student.text("halaqa_name"), student.text("category_name")).joinToString(" · "),
                 todayAttendance = today.text("attendance"),
                 todaySessionExists = if (today.has("session_exists") && !today.isNull("session_exists")) today.optBoolean("session_exists") else null,
@@ -155,7 +191,7 @@ import org.json.JSONObject
                 todayPages = today.optDouble("pages", 0.0),
                 todayRange = todayRange,
                 planTitle = plan?.let { if (tathbit) "خطة التثبيت لهذا الشهر" else "خطة هذا الشهر" },
-                planActivities = parsePlanActivities(plan, month, tathbit),
+                planActivities = if (program) emptyList() else parsePlanActivities(plan, month, tathbit),
                 monthMain = if (tathbit) month.optDouble("tathbit", 0.0) else month.optDouble("hifz", 0.0),
                 monthMainLabel = if (tathbit) "التثبيت" else "الحفظ",
                 monthPresent = month.optInt("present", 0),
@@ -178,9 +214,13 @@ import org.json.JSONObject
     }
 }
 
+@Immutable data class GuardianActivity(val id: String, val name: String, val primary: Boolean)
+
 @Immutable data class GuardianHomeUiState(
     val children: List<GuardianChild> = emptyList(),
     val selectedId: String? = null,
+    val activities: List<GuardianActivity> = emptyList(),
+    val selectedActivity: String? = null,
     val overview: GuardianOverview? = null,
     val loadingFirst: Boolean = true,
     val refreshing: Boolean = false,

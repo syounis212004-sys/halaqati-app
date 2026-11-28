@@ -85,8 +85,13 @@ internal fun DkReadyPage(
     onTapWord: (String) -> Unit, onLongWord: (String, Offset) -> Unit, onPreview: (Set<String>) -> Unit, onSpan: (List<String>) -> Unit,
     kindMenuFor: Pair<String, Offset>?, onKind: (String, MarkKind) -> Unit, onDismissKind: () -> Unit,
     isCurrent: Boolean = true, onZoomChanged: (Boolean) -> Unit = {},
+    tilawahById: Map<String, List<com.mohammedsamir.halaqati.quran.TilawahMark>> = emptyMap(),
 ) {
     val density = LocalDensity.current
+    val latestTap by androidx.compose.runtime.rememberUpdatedState(onTapWord)
+    val latestLong by androidx.compose.runtime.rememberUpdatedState(onLongWord)
+    val latestSpan by androidx.compose.runtime.rememberUpdatedState(onSpan)
+    val latestPreview by androidx.compose.runtime.rememberUpdatedState(onPreview)
     val first = p.wordIds.firstOrNull()?.let { MushafEngine.parseWordId(it) }
     val inside = remember(p, tick) { p.wordIds.count { id -> MushafEngine.parseWordId(id)?.let { inRange(it.first, it.second, page) } == true } }
     val juz = (1..30).firstOrNull { page in com.mohammedsamir.halaqati.quran.MushafOfflinePlan.juzPages(it) }
@@ -140,11 +145,24 @@ internal fun DkReadyPage(
                         p.dk.lines.forEachIndexed { i, line -> if (line.type == 1) drawSuraOrnament(i * pitch + pitch * 0.06f, pitch * 0.88f, pal) }
                         for ((id, r) in rects) {
                             val mark = marksById[id]
+                            val corrections = tilawahById[id].orEmpty()
                             val prev = id in preview
                             val bg = when (mark?.type) { MarkType.Mistake -> pal.mistakeBg; MarkType.Prompt -> pal.promptBg; null -> if (prev) pal.rangeBg else androidx.compose.ui.graphics.Color.Transparent }
                             val corner = CornerRadius(r.height * 0.12f)
                             if (bg != androidx.compose.ui.graphics.Color.Transparent) drawRoundRect(bg, r.topLeft, r.size, corner)
                             if (prev) drawRoundRect(pal.accent, r.topLeft, r.size, corner, style = Stroke(1.5f * density.density, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 6f))))
+                            if (corrections.isNotEmpty()) {
+                                val groups = listOf(corrections.any { it.category.major && !it.corrected }, corrections.any { !it.category.major && !it.corrected }, corrections.any { it.corrected })
+                                val colors = listOf(pal.mistake, if (pal.dark) androidx.compose.ui.graphics.Color(0xFFFFCC80) else androidx.compose.ui.graphics.Color(0xFF9A5B00), if (pal.dark) androidx.compose.ui.graphics.Color(0xFF81C784) else androidx.compose.ui.graphics.Color(0xFF237A37))
+                                val active = groups.indices.filter { groups[it] }
+                                val step = r.width / active.size.coerceAtLeast(1)
+                                active.forEachIndexed { index, group ->
+                                    val t = max(2f, r.height * .06f)
+                                    val y = r.bottom - r.height * .08f
+                                    drawLine(colors[group], Offset(r.left + index * step, y), Offset(r.left + (index + 1) * step, y), strokeWidth = t,
+                                        pathEffect = if (group == 1) PathEffect.dashPathEffect(floatArrayOf(t * 2.5f, t * 1.6f)) else null)
+                                }
+                            }
                             if (mark != null) {
                                 val c = if (mark.type == MarkType.Mistake) pal.mistake else pal.prompt
                                 val t = max(2f, r.height * 0.05f); val y = r.bottom - r.height * 0.08f
@@ -160,30 +178,30 @@ internal fun DkReadyPage(
                             val anchor = hit(down.position) ?: return@awaitEachGesture
                             var current = anchor; var moved = false; var long = false
                             val t0 = down.uptimeMillis
-                            if (tool != Tool.Tap) onPreview(setOf(anchor))
+                            if (tool != Tool.Tap) latestPreview(setOf(anchor))
                             var finished = false
                             while (!finished) {
                                 val waitForLong = tool == Tool.Tap && !moved && !long
                                 val ev = if (waitForLong) withTimeoutOrNull(450L) { awaitPointerEvent() } else awaitPointerEvent()
-                                if (ev == null) { long = true; onLongWord(anchor, down.position); continue }
+                                if (ev == null) { long = true; latestLong(anchor, down.position); continue }
                                 val ch = ev.changes.firstOrNull() ?: break
                                 if (!ch.pressed) {
                                     finished = true
                                     val dur = ch.uptimeMillis - t0
                                     when {
                                         long -> Unit
-                                        tool == Tool.Tap -> if (!moved && dur <= 400L) onTapWord(anchor)
-                                        else -> onSpan(p.span(anchor, current))
+                                        tool == Tool.Tap -> if (!moved && dur <= 400L) latestTap(anchor)
+                                        else -> latestSpan(p.span(anchor, current))
                                     }
                                 } else {
                                     if (!moved && hypot(ch.position.x - down.position.x, ch.position.y - down.position.y) > slop) moved = true
                                     if (tool != Tool.Tap && moved) {
                                         ch.consume()
-                                        hit(ch.position)?.let { w -> current = w; onPreview(p.span(anchor, w).toSet()) }
+                                        hit(ch.position)?.let { w -> current = w; latestPreview(p.span(anchor, w).toSet()) }
                                     }
                                 }
                             }
-                            if (tool != Tool.Tap && !finished) onPreview(emptySet())
+                            if (tool != Tool.Tap && !finished) latestPreview(emptySet())
                         }
                     },
             ) {

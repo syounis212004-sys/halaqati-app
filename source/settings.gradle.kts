@@ -6,4 +6,4 @@ dependencyResolutionManagement {
     repositories { google(); mavenCentral() }
 }
 rootProject.name = "HalaqatiNative"
-include(":app")
+include(":app", ":offline-db")

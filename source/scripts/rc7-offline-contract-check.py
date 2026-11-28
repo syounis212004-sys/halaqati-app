@@ -4,14 +4,18 @@ root = Path(__file__).resolve().parents[1]
 
 def read(rel): return (root/rel).read_text()
 
-db = read('app/src/main/java/com/mohammedsamir/halaqati/data/OfflineDatabase.kt')
+db = read('offline-db/src/main/java/com/mohammedsamir/halaqati/data/OfflineDatabase.kt')
 repo = read('app/src/main/java/com/mohammedsamir/halaqati/data/HalaqatiRepository.kt')
 graph = read('app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt')
 ui = read('app/src/main/java/com/mohammedsamir/halaqati/ui/screens/CoreScreens.kt')
 sync = read('app/src/main/java/com/mohammedsamir/halaqati/ui/screens/SyncCenterScreen.kt')
 build = read('app/build.gradle.kts')
+offline_build = read('offline-db/build.gradle.kts')
 checks = {
-    'Room 2.8.5 runtime': 'androidx.room:room-runtime:2.8.5' in build,
+    'Room 2.8.5 runtime': (
+        'api("androidx.room:room-runtime:2.8.5")' in offline_build
+        and 'implementation(project(":offline-db"))' in build
+    ),
     'single Room db': 'class HalaqatiOfflineDatabase' in db and 'halaqati-rc7.db' in db,
     'account-scoped cache': 'primaryKeys = ["ownerUserId", "cacheKey"]' in db,
     'durable outbox': 'tableName = "outbox"' in db and 'const val CONFLICT = "conflict"' in db,

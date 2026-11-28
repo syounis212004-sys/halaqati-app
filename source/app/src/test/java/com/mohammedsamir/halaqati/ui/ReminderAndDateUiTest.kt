@@ -14,9 +14,11 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.onRoot
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.mohammedsamir.halaqati.reminders.ReminderPrefs
@@ -132,5 +134,21 @@ class ReminderAndDateUiTest {
     @Test fun previewDateFields() = shot("rc114_datefields", false) {
         DateField("تاريخ البداية (اختياري)", "01-12-2026", {}, null, "اختر من التقويم أو اكتب 01-12-2026", true)
         DateField("تاريخ النهاية (اختياري)", "20-11-2026", {}, "تاريخ النهاية قبل تاريخ البداية", "اختر من التقويم", true)
+    }
+
+    @Test fun programDateRemainsOnOneLineInRtl() {
+        rule.setContent {
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Rtl) {
+                MaterialTheme(lightColorScheme()) {
+                    androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.width(180.dp)) {
+                        com.mohammedsamir.halaqati.ui.components.HalaqatiDateField("بداية البرنامج", java.time.LocalDate.of(2026, 10, 4), {}, androidx.compose.ui.Modifier)
+                    }
+                }
+            }
+        }
+        val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        rule.onNodeWithText("2026-10-04", useUnmergedTree = true).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        assertEquals(1, layouts.single().lineCount)
+        assertFalse(layouts.single().hasVisualOverflow)
     }
 }

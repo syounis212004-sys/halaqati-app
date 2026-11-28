@@ -1,11 +1,49 @@
 package com.mohammedsamir.halaqati.ui.sessions
 
+import com.mohammedsamir.halaqati.plans.WorkModeRules
+
 /**
  * RC9.2 session-level rules kept Android-free so the roster state/filter logic can be
  * regression-tested without Compose or Room.
  */
 object SessionWorkflowRules {
-    val manualSessionTypes = listOf("tasmee", "sard", "review", "test", "tajweed", "tilawah", "lesson", "other")
+    val manualSessionTypes = listOf("tasmee", "sard", "test", "tajweed", "tilawah", "lesson", "other")
+
+    fun manualTypesForScope(halaqaType: String?): List<String> =
+        if (WorkModeRules.isProgramType(halaqaType)) listOf("tilawah", "lesson", "test", "other")
+        else manualSessionTypes.filterNot { it == "tajweed" }
+
+    fun canTransition(from: String, to: String): Boolean =
+        (from == "open" && to == "closed") || (from in setOf("planned","closed") && to == "open")
+
+    fun statusLabel(status: String): String = when (status) {
+        "open" -> "مفتوحة"
+        "closed" -> "مغلقة"
+        "planned" -> "مجدولة"
+        "cancelled" -> "ملغاة"
+        else -> "حالة غير معروفة"
+    }
+
+    fun displayStatus(status: String, date: String, archived: Boolean, today: java.time.LocalDate): String {
+        if (archived) return "مؤرشفة"
+        if (status == "cancelled") return "ملغاة"
+        if (status == "closed") return "منتهية"
+        val day = runCatching { java.time.LocalDate.parse(date) }.getOrNull() ?: return statusLabel(status)
+        return when {
+            day.isAfter(today) -> "قادمة"
+            day.isBefore(today) -> "منتهية"
+            status == "planned" -> "قادمة"
+            status == "open" -> "جارية"
+            else -> statusLabel(status)
+        }
+    }
+
+    fun canRecord(status: String, archived: Boolean, date: String, today: java.time.LocalDate): Boolean =
+        !archived && status in setOf("open", "closed") &&
+            runCatching { !java.time.LocalDate.parse(date).isAfter(today) }.getOrDefault(false)
+
+    fun usesRecitationTools(type: String): Boolean =
+        type in setOf("tasmee", "sard", "review", "test", "tajweed", "tilawah")
 
     const val NOT_RECITED_MARKER = "halaqati:not_recited"
 
@@ -21,10 +59,43 @@ object SessionWorkflowRules {
 
     fun sessionTypeForAssignment(assignmentKind: String): String = when (assignmentKind) {
         "sard" -> "sard"
-        "review", "tathbit" -> "review"
+        "review", "review_near", "review_far", "tathbit" -> "tasmee"
         "test" -> "test"
+        "tajweed", "tilawah" -> "tilawah"
         else -> "tasmee"
     }
+
+    /** Historical review sessions are readable; new review work belongs to tasmee. */
+    fun planKeysForSession(sessionType: String): Set<String> = when (sessionType) {
+        "tasmee" -> setOf("hifz", "review", "tathbit")
+        "sard" -> setOf("sard")
+        "review" -> setOf("review", "tathbit")
+        else -> emptySet()
+    }
+
+    fun matchesRecitation(sessionType: String, activityType: String): Boolean = when (sessionType) {
+        "tasmee" -> activityType in setOf("new_hifz", "hifz", "review", "review_near", "review_far", "tathbit")
+        "sard" -> activityType == "sard"
+        "review" -> activityType in setOf("review", "review_near", "review_far", "tathbit")
+        "test" -> activityType == "test"
+        "tilawah", "tajweed" -> activityType == "tilawah"
+        else -> false
+    }
+
+    fun eligibleLatest(sessionType: String, activityType: String, recitationDay: java.time.LocalDate, sessionDay: java.time.LocalDate?): Boolean =
+        sessionDay != null && !recitationDay.isAfter(sessionDay) && matchesRecitation(sessionType, activityType)
+
+    fun quickActivities(sessionType: String, program: Boolean, tathbitStudent: Boolean): List<Pair<String, String>> =
+        when {
+            sessionType == "test" -> listOf("test" to "اختبار")
+            sessionType in setOf("tilawah", "tajweed") -> listOf("tilawah" to "تلاوة")
+            program -> emptyList()
+            sessionType == "sard" && !tathbitStudent -> listOf("sard" to "سرد")
+            sessionType in setOf("tasmee", "review") && tathbitStudent -> listOf("tathbit" to "تثبيت")
+            sessionType == "tasmee" -> listOf("new_hifz" to "حفظ", "review_near" to "مراجعة")
+            sessionType == "review" -> listOf("review_near" to "مراجعة")
+            else -> emptyList()
+        }
 
     /** One halaqa can have at most one non-cancelled session of a given type per day. */
     fun dailySessionKey(halaqaId: String, date: String, sessionType: String): String =
@@ -61,6 +132,7 @@ object SessionWorkflowRules {
         val recited: Int,
         val present: Int,
         val absent: Int,
+        val excused: Int = 0,
     )
 
     fun summary(states: Collection<StudentState>): Summary = Summary(
@@ -69,7 +141,8 @@ object SessionWorkflowRules {
         notRecited = states.count { it == StudentState.NOT_RECITED },
         recited = states.count { it == StudentState.RECITED },
         present = states.count { it in setOf(StudentState.PRESENT, StudentState.LATE, StudentState.NOT_RECITED, StudentState.RECITED) },
-        absent = states.count { it == StudentState.ABSENT || it == StudentState.EXCUSED },
+        absent = states.count { it == StudentState.ABSENT },
+        excused = states.count { it == StudentState.EXCUSED },
     )
 
     fun matchesSearch(value: String, query: String): Boolean {
@@ -95,7 +168,8 @@ object SessionWorkflowRules {
         "not_recited" -> state == StudentState.NOT_RECITED
         "recited" -> state == StudentState.RECITED
         "present_pending" -> state == StudentState.PRESENT || state == StudentState.LATE
-        "absent" -> state == StudentState.ABSENT || state == StudentState.EXCUSED
+        "absent" -> state == StudentState.ABSENT
+        "excused" -> state == StudentState.EXCUSED
         else -> true
     }
 

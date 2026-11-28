@@ -49,7 +49,7 @@ object RecitationMatrix {
     }
 
     fun letter(kind: String): String = when (kind) {
-        "hifz" -> "ح"; "review" -> "م"; "sard" -> "س"; "tathbit" -> "ث"; "tilawah" -> "ل"; "test" -> "ا"; else -> "•"
+        "hifz" -> "ح"; "review" -> "م"; "sard" -> "س"; "tathbit" -> "ث"; "tilawah" -> "ل"; "tajweed" -> "ج"; "test" -> "ا"; else -> "•"
     }
 
     fun shortRange(range: String): String = range.replace("سورة ", "").trim()

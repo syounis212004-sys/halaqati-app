@@ -4,7 +4,7 @@ import sqlite3
 
 root = Path(__file__).resolve().parents[1]
 queue = (root / 'app/src/main/java/com/mohammedsamir/halaqati/data/OfflineQueue.kt').read_text(encoding='utf-8')
-db_src = (root / 'app/src/main/java/com/mohammedsamir/halaqati/data/OfflineDatabase.kt').read_text(encoding='utf-8')
+db_src = (root / 'offline-db/src/main/java/com/mohammedsamir/halaqati/data/OfflineDatabase.kt').read_text(encoding='utf-8')
 repo = (root / 'app/src/main/java/com/mohammedsamir/halaqati/data/HalaqatiRepository.kt').read_text(encoding='utf-8')
 app_vm = (root / 'app/src/main/java/com/mohammedsamir/halaqati/ui/AppViewModel.kt').read_text(encoding='utf-8')
 all_kotlin = '\n'.join(p.read_text(encoding='utf-8') for p in (root / 'app/src/main/java').rglob('*.kt'))
@@ -30,7 +30,7 @@ for token in [
 
 required_repo = [
     'private fun queueOwnerId()',
-    'queue.add(queueOwnerId(), method, path, obj?.toString(), dedupe, baseUpdatedAt, entityTable, entityId)',
+    'queue.add(queueOwnerId(), method, path, obj?.toString(), dedupe, baseUpdatedAt, entityTable, entityId, preserveExisting)',
     'fun pendingQueueSize()',
     'fun blockedQueueSize()',
     'fun queueSnapshot(limit: Int = 200)',

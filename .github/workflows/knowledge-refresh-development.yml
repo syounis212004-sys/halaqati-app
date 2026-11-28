@@ -1,0 +1,69 @@
+name: Refresh development Graphify index
+on:
+  push:
+    branches: [fix/v12-phase-one-ui]
+    paths:
+      - 'source/**'
+      - 'docs/**'
+      - 'tools/knowledge/**'
+      - '.github/workflows/knowledge-refresh-development.yml'
+  workflow_dispatch:
+
+# Never writes main, never publishes an APK, and never uses deployment secrets.
+permissions:
+  contents: read
+concurrency:
+  group: graphify-refresh-development
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    if: github.repository == 'syounis212004-sys/halaqati-app' && github.ref == 'refs/heads/fix/v12-phase-one-ui'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Rehydrate pinned Graphify and verify
+        run: |
+          set -euo pipefail
+          bash tools/knowledge/bootstrap.sh
+          export PATH="$HOME/.local/bin:$PATH"
+          interpreter="$(cat graphify-out/.graphify_python)"
+          "$interpreter" tools/knowledge/manage.py verify
+          "$interpreter" -m unittest discover -s tools/knowledge/tests
+          "$interpreter" tools/knowledge/manage.py status
+          sha256sum graphify-out/graph.json > "$RUNNER_TEMP/graph.sha256"
+          bash tools/knowledge/bootstrap.sh
+          sha256sum --check "$RUNNER_TEMP/graph.sha256"
+          "$interpreter" tools/knowledge/manage.py verify
+      - name: Commit only reviewed portable index files
+        run: |
+          set -euo pipefail
+          target=refs/heads/fix/v12-phase-one-ui
+          remote_sha="$(git ls-remote origin "$target" | cut -f1)"
+          if [ "$remote_sha" != "$GITHUB_SHA" ]; then
+            echo "Branch advanced; newer run owns the refresh."
+            exit 0
+          fi
+          git add -- graphify-out/graph.json graphify-out/manifest.json graphify-out/coverage.json
+          if git diff --cached --quiet; then
+            echo "Committed knowledge index already current."
+            exit 0
+          fi
+          unexpected="$(git diff --cached --name-only | grep -vE '^graphify-out/(graph|manifest|coverage)\.json$' || true)"
+          test -z "$unexpected"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore: refresh Graphify for current development source'
+          test "$(git rev-parse HEAD:source)" = "$(git rev-parse "$GITHUB_SHA":source)"
+          unexpected="$(git diff-tree --no-commit-id --name-only -r HEAD | grep -vE '^graphify-out/(graph|manifest|coverage)\.json$' || true)"
+          test -z "$unexpected"
+          git diff --exit-code -- graphify-out/graph.json graphify-out/manifest.json graphify-out/coverage.json
+          git push origin "HEAD:$target"

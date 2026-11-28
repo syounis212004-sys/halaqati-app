@@ -1,5 +1,9 @@
 package com.mohammedsamir.halaqati.data
 
+// The database implementation lives in :offline-db; its API and package stay stable.
+import com.mohammedsamir.halaqati.data.HalaqatiOfflineDatabase
+
+import com.mohammedsamir.halaqati.plans.SmartPlanEligibility
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -25,6 +29,7 @@ import com.mohammedsamir.halaqati.quran.QuranRangeRequest
 import com.mohammedsamir.halaqati.quran.QuranSelection
 import com.mohammedsamir.halaqati.quran.QuranTraversalDirection
 import com.mohammedsamir.halaqati.ui.sessions.SessionWorkflowRules
+import com.mohammedsamir.halaqati.ui.sessions.SessionScheduleRules
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
@@ -110,6 +115,7 @@ private const val CACHE_PLAN_RECITATIONS = "plans:recitations"
 private const val CACHE_SESSION_RECITATIONS_PREFIX = "session:recitations:"
 private const val CACHE_SESSION_ATTENDANCE_PREFIX = "session:attendance:"
 private const val CACHE_SESSION_NOTES_PREFIX = "session:notes:"
+private const val CACHE_EDUCATION_PREFIX = "session:education:"
 private const val CACHE_PRIMARY_HALAQA = "meta:primary_halaqa"
 private const val CACHE_PROFILE = "profile:self"
 private const val CACHE_PLAN_EVENTS = "plans:events"
@@ -821,7 +827,8 @@ class HalaqatiRepository(
      * the broad students() master-data endpoint. The server RPC checks student_guardians against
      * auth.uid(); the cache is owner-scoped and is the only offline fallback.
      */
-    fun guardianChildren(forceRefresh: Boolean = false): List<Student> {
+    fun guardianChildren(forceRefresh: Boolean = false, requireFresh: Boolean = false): List<Student> {
+        require(!requireFresh || forceRefresh)
         val owner = currentUserId() ?: return emptyList()
         val cached = cache.get(owner, CACHE_GUARDIAN_CHILDREN, null)
             ?.let { runCatching { studentsFromJson(it) }.getOrNull() }
@@ -829,11 +836,15 @@ class HalaqatiRepository(
             if (online()) scheduleSync()
             return cached
         }
-        if (!online()) return cached.orEmpty()
+        if (!online()) {
+            check(!requireFresh) { "تحديث قائمة الأبناء يحتاج اتصالًا بالإنترنت" }
+            return cached.orEmpty()
+        }
         val fresh = runCatching {
             val arr = runCatching {
                 JSONArray(withAuthRetry { api.rpc("guardian_children", JSONObject()) })
-            }.getOrElse {
+            }.getOrElse { error ->
+                if (requireFresh) throw error
                 // Upgrade-safe fallback before the RC18 migration is applied: query only rows
                 // explicitly linked to auth.uid(), never the broad students endpoint.
                 val links = withAuthRetry {
@@ -847,7 +858,10 @@ class HalaqatiRepository(
             }
             cache.put(owner, CACHE_GUARDIAN_CHILDREN, arr.toString())
             studentsFromJson(arr.toString())
-        }.getOrElse { cached.orEmpty() }
+        }.getOrElse { error ->
+            if (requireFresh) throw error
+            cached.orEmpty()
+        }
         return fresh.filter { it.status == "active" }.sortedBy { it.fullName }
     }
 
@@ -936,13 +950,54 @@ class HalaqatiRepository(
         invalidateTableCache("student_halaqa_memberships")
     }
 
-    fun saveStudentSecondaryMemberships(studentId: String, halaqaIds: Set<String>, confirmed: Boolean = true) {
+
+    /** New online enrollment is acknowledged as one transaction, not a chain of optimistic writes. */
+    fun registerStudentConfirmed(payload: JSONObject, additionalProgramIds: Set<String>) {
+        requireConfirmedMutationConnection()
+        val owner = currentUserId() ?: error("الجلسة غير صالحة")
+        val studentId = payload.optString("id")
+        val scopeId = payload.optString("halaqa_id")
+        require(studentId.isNotBlank() && scopeId.isNotBlank())
+        val args = JSONObject().put("p_student_id", studentId).put("p_halaqa_id", scopeId)
+            .put("p_student", StudentSchemaContract.sanitize(payload))
+            .put("p_program_ids", JSONArray(additionalProgramIds.toList()))
+        val result = rpcObject("rc_enroll_student_v12", args)
+        check(result.optBoolean("ok")) { result.optString("error").ifBlank { "تعذر تسجيل الطالب" } }
+        val row = result.optJSONObject("student") ?: error("لم يؤكد الخادم حفظ الطالب")
+        check(row.optString("id") == studentId) { "استجابة التسجيل غير متطابقة" }
+        upsertStudentLocal(owner, row, dirty = false)
+        cache.put(owner, CACHE_STUDENTS, localStudentsJson(owner).toString())
+        invalidateTableCache("students")
+        invalidateTableCache("student_halaqa_memberships")
+    }
+
+    /** Existing record enrollment never overwrites personal data or other memberships. */
+    fun enrollExistingStudent(studentId: String, halaqaId: String) {
+        require(studentId.isNotBlank() && halaqaId.isNotBlank())
+        val args = JSONObject().put("p_student_id", studentId).put("p_halaqa_id", halaqaId)
+        if (online()) {
+            val result = rpcObject("rc_enroll_student_v12", args)
+            check(result.optBoolean("ok")) { result.optString("error").ifBlank { "تعذر التسجيل في البرنامج" } }
+            invalidateTableCache("student_halaqa_memberships")
+        } else {
+            queued("POST", "/rest/v1/rpc/rc_enroll_student_v12", args, "enroll-existing:$studentId:$halaqaId")
+        }
+    }
+
+    fun saveStudentSecondaryMemberships(
+        studentId: String,
+        addedHalaqaIds: Set<String>,
+        removedHalaqaIds: Set<String>,
+        confirmed: Boolean = true,
+    ) {
         require(studentId.isNotBlank())
+        if (addedHalaqaIds.isEmpty() && removedHalaqaIds.isEmpty()) return
         val existing = studentHalaqaMemberships(studentId = studentId, forceRefresh = online())
         val byHalaqa = (0 until existing.length()).mapNotNull { existing.optJSONObject(it) }
             .associateBy { it.optString("halaqa_id") }
         val today = LocalDate.now().toString()
-        halaqaIds.filter(String::isNotBlank).forEach { hid ->
+        addedHalaqaIds.filter(String::isNotBlank).forEach { hid ->
+            if (byHalaqa[hid]?.optString("status") == "active") return@forEach
             val payload = JSONObject()
                 .put("student_id", studentId)
                 .put("halaqa_id", hid)
@@ -954,8 +1009,8 @@ class HalaqatiRepository(
             if (confirmed && online()) writeConfirmed("student_halaqa_memberships", payload, onConflict = "student_id,halaqa_id")
             else write("student_halaqa_memberships", payload, onConflict = "student_id,halaqa_id", dedupe = "student-membership:$studentId:$hid")
         }
-        byHalaqa.forEach { (hid, row) ->
-            if (hid.isBlank() || hid in halaqaIds || row.optString("status") != "active") return@forEach
+        removedHalaqaIds.filter(String::isNotBlank).forEach { hid ->
+            if (byHalaqa[hid]?.optString("status") != "active") return@forEach
             val patch = JSONObject()
                 .put("status", "withdrawn")
                 .put("ended_at", today)
@@ -1110,7 +1165,7 @@ class HalaqatiRepository(
         return sessionsFromJson(merged.toString(), includeArchived)
     }
 
-    /** Sessions created here but not uploaded yet stay in the list; sessions deleted here but not yet deleted on the server stay hidden. */
+    /** Keep confirmed server rows visible until a queued delete is acknowledged. */
     private fun withPendingSessions(owner: String, server: JSONArray): JSONArray {
         val pending = runCatching { queue.snapshot(owner, 1_000) }.getOrDefault(emptyList())
             .filter { it.entityTable == "sessions" || it.path.contains("/rest/v1/sessions") }
@@ -2055,14 +2110,14 @@ class HalaqatiRepository(
         }
 
     private fun planSnapshotsImpl(today: LocalDate, forceRefresh: Boolean, baseInputsFresh: Boolean): List<PlanSnapshot> {
-        smartPlanIneligibleHalaqaIds()
+        val ineligible = smartPlanIneligibleHalaqaIds()
         if (!forceRefresh && planMemoryValid(today)) {
             if (online()) scheduleSync()
-            return planSnapshotMemory
+            return planSnapshotMemory.filter { it.student.halaqaId !in ineligible && it.plan.halaqaId !in ineligible }
         }
         val rolled = rollTathbitMonthsOncePerDay(today)
-        val students = students(forceRefresh = forceRefresh && !baseInputsFresh)
-        val planRows = plans(forceRefresh = (forceRefresh && !baseInputsFresh) || rolled)
+        val students = students(forceRefresh = forceRefresh && !baseInputsFresh).filter { it.halaqaId !in ineligible }
+        val planRows = plans(forceRefresh = (forceRefresh && !baseInputsFresh) || rolled).filter { it.halaqaId !in ineligible }
         if (students.isEmpty() || planRows.isEmpty()) return emptyList()
         val phaseRows = planPhases(forceRefresh = forceRefresh)
         val phaseStates = planPhaseStates(forceRefresh = forceRefresh)
@@ -2826,13 +2881,14 @@ class HalaqatiRepository(
      */
     /**
      * `table()` for lists that can pass PostgREST's 1000-row response cap (insight screens read thousands of attendance and
-     * recitation rows). Pages of 1000 by `id`, so the query must not carry its own limit/order. shortcut: 20 pages (20,000 rows).
+     * recitation rows). Uses each table's stable sort key. The caller must omit limit/order. Bounded to 20 pages.
      */
     fun tablePaged(name: String, query: String, forceRefresh: Boolean = false): JSONArray {
         val out = JSONArray()
         var offset = 0
+        val order = BackupRules.orderFor(name)
         repeat(20) {
-            val page = table(name, "$query&order=id.asc&limit=1000&offset=$offset", forceRefresh = forceRefresh && offset == 0)
+            val page = table(name, "$query&order=$order.asc&limit=1000&offset=$offset", forceRefresh = forceRefresh)
             for (i in 0 until page.length()) out.put(page.get(i))
             if (page.length() < 1000) return out
             offset += 1000
@@ -2845,8 +2901,9 @@ class HalaqatiRepository(
         query: String = "select=*&order=created_at.desc&limit=250",
         forceRefresh: Boolean = false,
         preferCache: Boolean = false,
+        requireKnownResult: Boolean = false,
     ): JSONArray {
-        val owner = currentUserId() ?: return JSONArray()
+        val owner = currentUserId() ?: if (requireKnownResult) error("لا يوجد حساب نشط") else return JSONArray()
         if (sessionCachesDirty && online()) {
             sessionCachesDirty = false
             invalidateSessionDerivedCaches()
@@ -2873,10 +2930,10 @@ class HalaqatiRepository(
         }
         // RC79: callers that follow the once-per-cycle gate (student profile) accept the stored copy even past the 90 s window.
         if (!forceRefresh && preferCache && cached != null) return cached
-        if (!online()) return cached ?: JSONArray()
+        if (!online()) return cached ?: if (requireKnownResult) error("لا توجد نسخة محلية لهذه البيانات") else JSONArray()
         return runCatching { withAuthRetry { api.select(table, query) } }
             .onSuccess { cache.put(owner, key, it.toString()) }
-            .getOrElse { cached ?: JSONArray() }
+            .getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it; cached ?: if (requireKnownResult) throw it else JSONArray() }
     }
 
     /**
@@ -2992,7 +3049,7 @@ class HalaqatiRepository(
 
     fun approveAccount(userId: String, role: String) {
         requireDirectAccountConnection()
-        require(role in setOf("guardian", "teacher", "supervisor", "observer")) { "الصلاحية المطلوبة غير صالحة" }
+        require(role in setOf("teacher", "supervisor", "observer")) { "اعتماد ولي الأمر من شاشة طلبات الاعتماد" }
         val uid = store.load()?.userId ?: error("الجلسة غير صالحة")
         withAuthRetry {
             api.patch(
@@ -3403,6 +3460,41 @@ class HalaqatiRepository(
             .getOrElse { cached ?: JSONArray() }
     }
 
+
+    /** Relationship rows, not email or legacy primary display pointers, are the authority. */
+    fun guardianLinks(studentId: String, forceRefresh: Boolean = false): List<StudentGuardianRules.GuardianOption> {
+        require(studentId.isNotBlank()) { "الطالب غير صالح" }
+        val query = "select=guardian_id&student_id=eq.$studentId&order=guardian_id.asc"
+        val owner = currentUserId() ?: error("الجلسة غير صالحة")
+        val rows = if (forceRefresh && online()) {
+            withAuthRetry { api.select("student_guardians", query) }.also {
+                cache.put(owner, "table:student_guardians:${query.hashCode()}", it.toString())
+            }
+        } else table("student_guardians", query)
+        val accounts = guardianAccounts(forceRefresh)
+        val options = (0 until accounts.length()).mapNotNull { i -> accounts.optJSONObject(i) }.map { row ->
+            StudentGuardianRules.GuardianOption(
+                id = row.optString("id"),
+                fullName = row.optString("full_name").ifBlank { "ولي أمر مرتبط" },
+                email = row.optString("email").takeIf { it.isNotBlank() && it != "null" },
+                phone = row.optString("phone").takeIf { it.isNotBlank() && it != "null" },
+            )
+        }
+        val ids = (0 until rows.length()).mapNotNull { rows.optJSONObject(it)?.optString("guardian_id") }
+        return StudentGuardianRules.linkedOptions(ids, options)
+    }
+
+    /** Administrative removal needs server confirmation; it must never enter the legacy outbox. */
+    fun unlinkGuardian(studentId: String, guardianId: String, reason: String) {
+        requireConfirmedMutationConnection()
+        require(studentId.isNotBlank() && guardianId.isNotBlank() && reason.isNotBlank())
+        val result = rpcObject("rc_unlink_guardian", JSONObject()
+            .put("p_student_id", studentId).put("p_guardian_id", guardianId).put("p_reason", reason.trim()))
+        check(result.optBoolean("ok", false)) { result.optString("error").ifBlank { "تعذر إزالة الارتباط" } }
+        invalidateTableCache("student_guardians")
+        currentUserId()?.let { cache.invalidate(it, CACHE_GUARDIAN_ACCOUNTS) }
+    }
+
     private fun pendingPrimaryGuardianId(studentId: String): Pair<Boolean, String?> {
         val pending = queueSnapshot(2_000)
             .asSequence()
@@ -3455,11 +3547,12 @@ class HalaqatiRepository(
         halaqaId: String = "all",
         sessionType: String = "all",
         forceRefresh: Boolean = false,
+        scopedHalaqaIds: Set<String>? = null,
     ): JSONArray {
         require(track in setOf("all", "general_hifz", "tathbit")) { "المسار غير صالح" }
         require(sessionType in setOf("all", "tasmee", "sard", "review", "test", "tajweed", "tilawah", "lesson", "other")) { "نوع اللقاء غير صالح" }
         val trackFilter = if (track == "all") "" else "&${StudentTrackRules.postgrestFilter("students.track_code", track)}"
-        val halaqaFilter = if (halaqaId == "all") "" else "&sessions.halaqa_id=eq.$halaqaId"
+        val halaqaFilter = com.mohammedsamir.halaqati.plans.ReportScopeRules.sessionFilter(halaqaId, scopedHalaqaIds)
         val typeFilter = sessionTypeQuery(sessionType)
         val query = "select=student_id,activity_type,input_method,start_surah,start_ayah,end_surah,end_ayah,start_page,end_page,selected_surahs,selection_data,pages_count,mistakes,prompts,evaluation,safety_percentage,points,teacher_note,created_at," +
             "students!inner(full_name,track_code,halaqa_id,category_id,date_of_birth),sessions!inner(session_date,halaqa_id,session_type,status)" +
@@ -3475,11 +3568,12 @@ class HalaqatiRepository(
         halaqaId: String = "all",
         sessionType: String = "all",
         forceRefresh: Boolean = false,
+        scopedHalaqaIds: Set<String>? = null,
     ): JSONArray {
         require(track in setOf("all", "general_hifz", "tathbit")) { "المسار غير صالح" }
         require(sessionType in setOf("all", "tasmee", "sard", "review", "test", "tajweed", "tilawah", "lesson", "other")) { "نوع اللقاء غير صالح" }
         val trackFilter = if (track == "all") "" else "&${StudentTrackRules.postgrestFilter("students.track_code", track)}"
-        val halaqaFilter = if (halaqaId == "all") "" else "&sessions.halaqa_id=eq.$halaqaId"
+        val halaqaFilter = com.mohammedsamir.halaqati.plans.ReportScopeRules.sessionFilter(halaqaId, scopedHalaqaIds)
         val typeFilter = sessionTypeQuery(sessionType)
         val query = "select=student_id,behavior,behavior_score,teacher_comment,homework,participation,created_at," +
             "students!inner(full_name,track_code,halaqa_id),sessions!inner(session_date,halaqa_id,session_type,status)" +
@@ -3495,10 +3589,11 @@ class HalaqatiRepository(
         track: String = "all",
         halaqaId: String = "all",
         sessionType: String = "all",
+        scopedHalaqaIds: Set<String>? = null,
     ): JSONArray {
         require(track in setOf("all", "general_hifz", "tathbit")) { "المسار غير صالح" }
         val trackFilter = if (track == "all") "" else "&${StudentTrackRules.postgrestFilter("students.track_code", track)}"
-        val halaqaFilter = if (halaqaId == "all") "" else "&sessions.halaqa_id=eq.$halaqaId"
+        val halaqaFilter = com.mohammedsamir.halaqati.plans.ReportScopeRules.sessionFilter(halaqaId, scopedHalaqaIds)
         val typeFilter = sessionTypeQuery(sessionType)
         val query = "select=student_id,status,students!inner(full_name,track_code,halaqa_id),sessions!inner(session_date,halaqa_id,session_type,status)" +
             "&status=in.(absent,excused)&sessions.session_date=gte.$from&sessions.session_date=lte.$to&sessions.status=neq.cancelled" +
@@ -3516,11 +3611,12 @@ class HalaqatiRepository(
         halaqaId: String = "all",
         sessionType: String = "all",
         forceRefresh: Boolean = false,
+        scopedHalaqaIds: Set<String>? = null,
     ): JSONArray {
-        val memoKey = "${currentUserId()}|$from|$to|$track|$halaqaId|$sessionType"
+        val memoKey = "${currentUserId()}|$from|$to|$track|$halaqaId|$sessionType|${com.mohammedsamir.halaqati.plans.ReportScopeRules.cachePart(scopedHalaqaIds)}"
         val now = System.currentTimeMillis()
         if (!forceRefresh) reportSummaryMemo[memoKey]?.takeIf { now - it.at < 60_000L }?.let { return it.rows }
-        return PerfLog.time("reportSummary (compute)") { reportSummaryCompute(from, to, track, halaqaId, sessionType, forceRefresh) }.also {
+        return PerfLog.time("reportSummary (compute)") { reportSummaryCompute(from, to, track, halaqaId, sessionType, forceRefresh, scopedHalaqaIds) }.also {
             reportSummaryMemo[memoKey] = SummaryMemo(System.currentTimeMillis(), it)
         }
     }
@@ -3532,6 +3628,7 @@ class HalaqatiRepository(
         halaqaId: String,
         sessionType: String,
         forceRefresh: Boolean,
+        scopedHalaqaIds: Set<String>?,
     ): JSONArray {
         val start = runCatching { LocalDate.parse(from) }.getOrElse { error("تاريخ البداية غير صالح") }
         val end = runCatching { LocalDate.parse(to) }.getOrElse { error("تاريخ النهاية غير صالح") }
@@ -3567,7 +3664,7 @@ class HalaqatiRepository(
             }
         }
 
-        val sessionHalaqa = if (halaqaId == "all") "" else "&sessions.halaqa_id=eq.$halaqaId"
+        val sessionHalaqa = com.mohammedsamir.halaqati.plans.ReportScopeRules.sessionFilter(halaqaId, scopedHalaqaIds)
         val sessionTypeFilter = sessionTypeQuery(sessionType)
         val sessionFilters = "&sessions.session_date=gte.$from&sessions.session_date=lte.$to&sessions.status=neq.cancelled$sessionHalaqa$sessionTypeFilter"
         val recitations = table(
@@ -3581,11 +3678,18 @@ class HalaqatiRepository(
             "select=student_id,status,sessions!inner(session_date,halaqa_id,session_type,status)$sessionFilters&limit=$REPORT_ROW_CEILING",
             forceRefresh = forceRefresh,
         )
-        val extraPoints = table(
+        // Global bonus points have no activity ID: do not attribute them to a scoped report.
+        val extraPoints = if (scopedHalaqaIds != null) JSONArray() else table(
             "student_points",
             "select=student_id,points&awarded_at=gte.$from&awarded_at=lte.$to&limit=10000",
             forceRefresh = forceRefresh,
         )
+        val scopedMemberIds = scopedHalaqaIds?.let { ids ->
+            val memberships = studentHalaqaMemberships(forceRefresh = forceRefresh)
+            (0 until memberships.length()).mapNotNull { memberships.optJSONObject(it) }
+                .filter { it.optString("status") == "active" && it.optString("halaqa_id") in ids }
+                .map { it.optString("student_id") }.toSet()
+        }
 
         data class Aggregate(
             val student: JSONObject,
@@ -3594,6 +3698,8 @@ class HalaqatiRepository(
             var review: Double = 0.0,
             var sard: Double = 0.0,
             var tilawah: Double = 0.0,
+            var tajweed: Double = 0.0,
+            var testPages: Double = 0.0,
             var mistakes: Int = 0,
             var prompts: Int = 0,
             var recitationPoints: Double = 0.0,
@@ -3610,7 +3716,7 @@ class HalaqatiRepository(
         for (i in 0 until students.length()) {
             val student = students.optJSONObject(i) ?: continue
             val id = student.optString("id")
-            if (id.isNotBlank()) byStudent[id] = Aggregate(student)
+            if (id.isNotBlank() && (scopedHalaqaIds == null || student.optString("halaqa_id") in scopedHalaqaIds || id in scopedMemberIds.orEmpty())) byStudent[id] = Aggregate(student)
         }
         for (i in 0 until attendance.length()) {
             val row = attendance.optJSONObject(i) ?: continue
@@ -3629,6 +3735,7 @@ class HalaqatiRepository(
             val row = recitations.optJSONObject(i) ?: continue
             val aggregate = byStudent[row.optString("student_id")] ?: continue
             val pages = row.optDouble("pages_count", 0.0).coerceAtLeast(0.0)
+            val reportActivity = com.mohammedsamir.halaqati.plans.ReportScopeRules.reportActivity(row.optString("activity_type"), row.optJSONObject("sessions")?.optString("session_type"))
             if (row.optString("activity_type") == "new_hifz" &&
                 !TrackActivityPolicy.isTathbit(aggregate.student.optString("track_code"))
             ) hifzSpanEntries.getOrPut(row.optString("student_id")) { mutableListOf() }.add(hifzSpanEntryOf(row))
@@ -3636,13 +3743,16 @@ class HalaqatiRepository(
                 !TrackActivityPolicy.isTathbit(aggregate.student.optString("track_code"))
             ) sardSpanEntries.getOrPut(row.optString("student_id")) { mutableListOf() }.add(hifzSpanEntryOf(row))
             when {
+                reportActivity == "tilawah" -> aggregate.tilawah += pages
+                reportActivity == "tajweed" -> aggregate.tajweed += pages
+                reportActivity == "test" -> aggregate.testPages += pages
                 row.optString("activity_type") == "tathbit" -> aggregate.tathbit += pages
                 // RC15.1: every non-test recitation of a tathbit student (incl. legacy review_far/new_hifz/sard) is tathbit.
                 TrackActivityPolicy.isTathbit(aggregate.student.optString("track_code")) && row.optString("activity_type") != "test" -> aggregate.tathbit += pages
                 row.optString("activity_type") == "new_hifz" -> aggregate.hifz += pages
                 row.optString("activity_type").contains("review") -> aggregate.review += pages
                 row.optString("activity_type") == "sard" -> aggregate.sard += pages
-                else -> aggregate.tilawah += pages
+                else -> Unit
             }
             aggregate.mistakes += row.optInt("mistakes", 0).coerceAtLeast(0)
             aggregate.prompts += row.optInt("prompts", 0).coerceAtLeast(0)
@@ -3666,7 +3776,8 @@ class HalaqatiRepository(
         // Sard achievement out of the Hifz total while preserving the existing activity totals.
         val reportPlans = plans(forceRefresh = forceRefresh).filter { plan ->
             plan.status != "archived" && plan.startDate <= to && plan.endDate >= from &&
-                (halaqaId == "all" || plan.halaqaId == halaqaId)
+                (halaqaId == "all" || plan.halaqaId == halaqaId) &&
+                (scopedHalaqaIds == null || plan.halaqaId in scopedHalaqaIds)
         }
         val reportPhases = planPhases(forceRefresh = forceRefresh).filter { phase ->
             phase.status != "archived" && phase.startDate <= to && phase.endDate >= from
@@ -3694,7 +3805,7 @@ class HalaqatiRepository(
 
         val ordered = byStudent.values.sortedWith(
             compareByDescending<Aggregate> { it.recitationPoints + it.bonusPoints }
-                .thenByDescending { it.hifz + it.tathbit + it.review + it.sard + it.tilawah }
+                .thenByDescending { it.hifz + it.tathbit + it.review + it.sard + it.tilawah + it.tajweed + it.testPages }
                 .thenBy { it.student.optString("full_name") },
         )
         return JSONArray().apply {
@@ -3741,7 +3852,7 @@ class HalaqatiRepository(
                 val sardCompleted = completedFor(sardPhase, a.sard)
                 // Keep the overall total consistent with the same phase-aware values shown
                 // in Hifz/Sard columns instead of mixing legacy aggregates with frozen phases.
-                val totalPages = hifzCompleted + a.tathbit + a.review + sardCompleted + a.tilawah
+                val totalPages = hifzCompleted + a.tathbit + a.review + sardCompleted + a.tilawah + a.tajweed + a.testPages
                 val qualityPercent = if (a.safetyCount > 0) a.safetySum / a.safetyCount else 0.0
                 val qualityLabel = when {
                     a.safetyCount == 0 -> "—"
@@ -3761,6 +3872,8 @@ class HalaqatiRepository(
                         .put("review_pages", kotlin.math.round(a.review * 100.0) / 100.0)
                         .put("sard_pages", kotlin.math.round(sardCompleted * 100.0) / 100.0)
                         .put("tilawah_pages", kotlin.math.round(a.tilawah * 100.0) / 100.0)
+                        .put("tajweed_pages", kotlin.math.round(a.tajweed * 100.0) / 100.0)
+                        .put("test_pages", kotlin.math.round(a.testPages * 100.0) / 100.0)
                         .put("total_pages", kotlin.math.round(totalPages * 100.0) / 100.0)
                         .put("hifz_target_pages", hifzTarget ?: JSONObject.NULL)
                         .put("sard_target_pages", sardTarget ?: JSONObject.NULL)
@@ -3993,8 +4106,9 @@ class HalaqatiRepository(
         baseUpdatedAt: String? = null,
         entityTable: String? = null,
         entityId: String? = null,
+        preserveExisting: Boolean = false,
     ) {
-        queue.add(queueOwnerId(), method, path, obj?.toString(), dedupe, baseUpdatedAt, entityTable, entityId)
+        queue.add(queueOwnerId(), method, path, obj?.toString(), dedupe, baseUpdatedAt, entityTable, entityId, preserveExisting)
         signalLocalMutation()
         if (entityTable in setOf("smart_plans", "smart_plan_events", "smart_plan_phases", "smart_plan_phase_states", "recitation_entries", "sessions")) {
             planSnapshotMemoryDate = null
@@ -4003,7 +4117,9 @@ class HalaqatiRepository(
         // RC27.23: only a queued DELETE drops the derived caches. Inserts/updates are merged into the caches by their own
         // writers; dropping them here wiped the counters and the plan progress right after every save (the rows were still
         // only in the outbox), until a manual refresh.
-        if (method.equals("DELETE", ignoreCase = true) && path.substringAfter("/rest/v1/").substringBefore('?') in SESSION_DERIVED_TABLES) invalidateSessionDerivedCaches()
+        if (method.equals("DELETE", ignoreCase = true) && entityTable != "sessions" &&
+            path.substringAfter("/rest/v1/").substringBefore('?') in SESSION_DERIVED_TABLES
+        ) invalidateSessionDerivedCaches()
         // WorkManager is the durable fallback. While the app is open and Android has already
         // validated the network, also kick the lightweight Outbox flusher immediately instead of
         // waiting for WorkManager scheduling latency.
@@ -4950,6 +5066,93 @@ class HalaqatiRepository(
         return result
     }
 
+    /** Guardian membership lists and overviews are cached by child and activity, not pooled across memberships. */
+    fun guardianActivities(studentId: String): JSONArray {
+        require(guardianOwnsCachedChild(studentId)) { "الطالب غير مرتبط بهذا الحساب" }
+        val owner = currentUserId() ?: return JSONArray()
+        val key = "guardian:activities:$studentId"
+        if (!online()) return cache.get(owner,key,null)?.let { JSONArray(it) } ?: JSONArray()
+        val result = withAuthRetry { api.rpc("rc_guardian_activities_v12", JSONObject().put("p_student_id",studentId)) }
+        val rows = JSONArray(result)
+        cache.put(owner,key,rows.toString())
+        return rows
+    }
+
+    fun cachedGuardianActivityOverview(studentId: String, halaqaId: String): JSONObject? {
+        val owner = currentUserId() ?: return null
+        if (!guardianOwnsCachedChild(studentId)) return null
+        return cache.get(owner, "${CACHE_GUARDIAN_OVERVIEW_PREFIX}$studentId:$halaqaId", null)?.let { JSONObject(it) }
+    }
+
+    private fun missingProjection(e: SupabaseException): Boolean = e.sqlState in setOf("PGRST202", "42883")
+
+    fun linkedStaffDisplay(halaqaIds: Collection<String>): JSONArray {
+        val owner = currentUserId() ?: return JSONArray()
+        val result = JSONArray()
+        halaqaIds.distinct().sorted().chunked(80).forEach { ids ->
+            val key = "linked-staff-v2:" + ids.joinToString(",")
+            val rows = if (!online()) cache.get(owner,key,null)?.let { JSONArray(it) } ?: JSONArray()
+            else try {
+                JSONArray(withAuthRetry { api.rpc("rc_linked_staff_display_v2", JSONObject().put("p_halaqa_ids",JSONArray(ids))) })
+                    .also { cache.put(owner,key,it.toString()) }
+            } catch (e: SupabaseException) {
+                if (missingProjection(e)) JSONArray() else throw e
+            }
+            for (i in 0 until rows.length()) rows.optJSONObject(i)?.let { row ->
+                if (row.optString("halaqa_id") in ids) result.put(row)
+            }
+        }
+        return result
+    }
+
+    /** One batch per roster; account-scoped known-empty results are distinct from missing data. */
+    fun previousTilawahBatch(sessionId: String, studentIds: Collection<String>, forceRefresh: Boolean = false): Map<String, JSONObject> {
+        val owner = currentUserId() ?: return emptyMap()
+        val connected = online()
+        val result = mutableMapOf<String, JSONObject>()
+        val pending = mutableListOf<String>()
+        studentIds.distinct().sorted().forEach { id ->
+            val key = "tilawah-history-v2:$sessionId:$id:"
+            val stored = if (forceRefresh && connected) null else cache.get(owner,key,if (connected) Duration.ofMinutes(5) else null)
+            if (stored == null) pending += id else result[id] = JSONObject(stored)
+        }
+        if (!connected) return result
+        pending.chunked(80).forEach { batch ->
+            val rows = try {
+                JSONArray(withAuthRetry { api.rpc("rc_tilawah_previous_v2", JSONObject()
+                    .put("p_session_id",sessionId).put("p_student_ids",JSONArray(batch))) })
+            } catch (e: SupabaseException) {
+                if (missingProjection(e)) return result else throw e
+            }
+            for (i in 0 until rows.length()) {
+                val row = rows.optJSONObject(i) ?: continue
+                val id = row.optString("student_id")
+                if (id in batch) {
+                    result[id] = row
+                    cache.put(owner,"tilawah-history-v2:$sessionId:$id:",row.toString())
+                }
+            }
+        }
+        return result
+    }
+
+    fun guardianActivityOverview(studentId: String, halaqaId: String): JSONObject? {
+        require(guardianOwnsCachedChild(studentId)) { "الطالب غير مرتبط بهذا الحساب" }
+        if (!online()) return cachedGuardianActivityOverview(studentId,halaqaId)
+        val owner = currentUserId() ?: return null
+        val args = JSONObject().put("p_student_id",studentId).put("p_halaqa_id",halaqaId)
+        val result = try {
+            JSONObject(withAuthRetry { api.rpc("rc_guardian_activity_overview_v13",args) })
+        } catch (e: SupabaseException) {
+            if (!missingProjection(e)) throw e
+            JSONObject(withAuthRetry { api.rpc("rc_guardian_activity_overview_v12",args) })
+        }
+        require(result.optJSONObject("student")?.optString("id") == studentId && result.optJSONObject("student")?.optString("halaqa_id") == halaqaId) { "نطاق البيانات غير مطابق" }
+        localizeGuardianOverview(studentId,result)
+        cache.put(owner, "${CACHE_GUARDIAN_OVERVIEW_PREFIX}$studentId:$halaqaId", result.toString())
+        return result
+    }
+
     /** RC17: cache-only read, instant (no network). Null when nothing was cached yet. */
     fun cachedGuardianChildOverview(studentId: String): JSONObject? {
         val owner = currentUserId() ?: return null
@@ -4970,6 +5173,12 @@ class HalaqatiRepository(
         }.getOrNull()
         if (fresh != null && fresh.length() > 0) {
             localizeGuardianOverview(studentId, fresh)
+            // RLS restricts grades to the linked child; never include private teacher notes.
+            val education = runCatching {
+                withAuthRetry { api.select("educational_assessments",
+                    "select=session_id,student_id,metric,score,sessions!inner(session_date,title,halaqa_id,halaqas(name))&student_id=eq.$studentId&sessions.session_date=gte.${LocalDate.now().minusDays(62)}&order=updated_at.desc&limit=300") }
+            }.getOrNull()
+            if (education != null) fresh.put("educational_assessments", education)
             cache.put(owner, CACHE_GUARDIAN_OVERVIEW_PREFIX + studentId, fresh.toString())
             return fresh
         }
@@ -4985,8 +5194,11 @@ class HalaqatiRepository(
     /** RC44: the guardian sees the SAME plan figures as the teacher: month facts first, then the plan engine's phase numbers on top. */
     private fun localizeGuardianOverview(studentId: String, json: JSONObject) {
         localizeGuardianMonth(studentId, json)
-        unifyGuardianWithPlan(studentId, json)
-        attachGuardianWard(studentId, json)
+        val halaqaType = json.optJSONObject("student")?.optString("halaqa_type")
+        if (SmartPlanEligibility.isHalaqaType(halaqaType)) {
+            unifyGuardianWithPlan(studentId, json)
+            attachGuardianWard(studentId, json)
+        }
         attachGuardianPhoto(studentId, json)
     }
 
@@ -5056,10 +5268,17 @@ class HalaqatiRepository(
     private fun localizeGuardianMonth(studentId: String, json: JSONObject) {
         runCatching {
             val monthStart = LocalDate.now().withDayOfMonth(1).toString()
+            val student = json.optJSONObject("student") ?: return@runCatching
+            val halaqaId = student.optString("halaqa_id").takeUnless { it.isBlank() || it == "null" }
+                ?: guardianChildren().firstOrNull { it.id == studentId }?.halaqaId
+                ?: return@runCatching
+            val activityFilter = if (SmartPlanEligibility.isHalaqaType(student.optString("halaqa_type"))) ""
+                else "&activity_type=in.(tilawah,test)"
             val rows = table(
                 "recitation_entries",
                 "select=activity_type,start_surah,start_ayah,end_surah,end_ayah,pages_count,evaluation,safety_percentage,mistakes,prompts," +
-                    "sessions!inner(session_date,status)&student_id=eq.$studentId&sessions.session_date=gte.$monthStart&sessions.status=neq.cancelled&limit=3000",
+                    "sessions!inner(session_date,status,halaqa_id)&student_id=eq.$studentId&sessions.halaqa_id=eq.$halaqaId" +
+                    "&sessions.session_date=gte.$monthStart&sessions.status=neq.cancelled$activityFilter&limit=3000",
             )
             val list = (0 until rows.length()).mapNotNull { rows.optJSONObject(it) }
             if (list.isEmpty()) return@runCatching
@@ -5540,10 +5759,22 @@ class HalaqatiRepository(
             if (existing != null) return SessionRow.from(existing).also(::cacheSession)
         }
 
-        // Saturday is the fixed halaqa off-day. Reading/opening today's workflow must
-        // never create a phantom session. Existing exceptional sessions were returned above.
-        if (SmartPlanEngine.weekday(sessionDate) == 6) {
-            error("اليوم السبت إجازة حسب نظام الحلقة. لا يتم إنشاء جلسة تلقائيًا في يوم الإجازة.")
+        // Existing exceptional sessions were returned above. Schedule is independent of smart-plan days.
+        val group = table("halaqas", "select=*&id=eq.$halaqaId&limit=1", forceRefresh = online()).optJSONObject(0)
+            ?: if (!online()) {
+                val rows = table("halaqas", "select=*&order=created_at.asc&limit=200")
+                (0 until rows.length()).mapNotNull { rows.optJSONObject(it) }.firstOrNull { it.optString("id") == halaqaId }
+            } else null
+        requireNotNull(group) { "تعذر التحقق من جدول النشاط. أنشئ جلسة يدويًا بعد اختيار النشاط." }
+        require(group.optBoolean("active", false)) { "النشاط غير مفعل" }
+        val program = com.mohammedsamir.halaqati.plans.WorkModeRules.isProgramType(group.optString("halaqa_type"))
+        val configuredDays = group.optJSONArray("session_weekdays")?.let { a ->
+            (0 until a.length()).map { a.optInt(it, -1) }.toSet()
+        }
+        val configuredAuto = if (group.has("auto_session_enabled") && !group.isNull("auto_session_enabled"))
+            group.optBoolean("auto_session_enabled") else null
+        check(SessionScheduleRules.allowsAutomatic(sessionDate, program, configuredDays, configuredAuto)) {
+            "لا توجد جلسة تلقائية حسب جدول النشاط. يمكنك إنشاء جلسة مخصصة يدويًا."
         }
 
         val title = when (sessionType) {
@@ -5815,6 +6046,30 @@ class HalaqatiRepository(
         invalidateSessionDerivedCaches()
     }
 
+    /** Only status changes; never manufacture attendance during finalization. */
+    fun transitionSession(session: SessionRow, to: String): SessionRow {
+        requireConfirmedMutationConnection()
+        require(!session.archived && SessionWorkflowRules.canTransition(session.status, to)) { "انتقال حالة الجلسة غير صالح" }
+        val owner = currentUserId() ?: error("الجلسة غير صالحة")
+        return synchronized(pushLock) {
+            val pending = queue.snapshot(owner, 2000)
+            check(pending.size < 2000 && pending.none { item ->
+                val body = item.body?.let { runCatching { JSONObject(it) }.getOrNull() }
+                SessionScheduleRules.pendingFor(session.id, item.dedupe, item.path, body?.optString("session_id"))
+                    || item.entityTable == "sessions" && item.entityId == session.id
+            }) { "توجد عمليات معلقة لهذه الجلسة. أتمم المزامنة وعالج الأخطاء أولًا." }
+            val result = rpcObject("rc_transition_session_v12", JSONObject()
+                .put("p_session_id", session.id).put("p_expected_status", session.status).put("p_status", to))
+            check(result.optBoolean("ok")) { result.optString("error").ifBlank { "لم يؤكد الخادم تغيير حالة الجلسة" } }
+            val row = result.optJSONObject("session") ?: error("لم يرجع الخادم بيانات الجلسة")
+            val updated = SessionRow.from(row)
+            check(updated.id == session.id && updated.status == to) { "حالة الجلسة غير متطابقة" }
+            cacheSession(updated)
+            invalidateSessionDerivedCaches()
+            updated
+        }
+    }
+
     fun archiveSession(sessionId: String) {
         require(sessionId.isNotBlank()) { "معرّف الجلسة غير صالح" }
         val owner = currentUserId() ?: error("لا توجد جلسة مستخدم صالحة")
@@ -5829,8 +6084,6 @@ class HalaqatiRepository(
         // student_daily_notes and notifications to sessions. Queue one mutation instead of four;
         // this is materially faster on weak/VPN mobile links and remains atomic on the server.
         delete("sessions", "id=eq.$sessionId", dedupe = "session-delete:$sessionId")
-        removeSessionFromLocalCache(sessionId)
-        invalidateSessionDerivedCaches()
     }
 
     /** RC8.6: one reconnect refresh warms recent rosters in three batched requests instead of
@@ -5926,6 +6179,44 @@ class HalaqatiRepository(
         upsertSessionScopedCache(CACHE_SESSION_ATTENDANCE_PREFIX, sessionId, obj)
     }
 
+    /** Independent educational grades; pending writes remain account-scoped. */
+    fun educationScores(sessionId: String, refresh: Boolean = false): Map<String, Map<String, Int>> {
+        val owner = currentUserId() ?: return emptyMap()
+        val key = CACHE_EDUCATION_PREFIX + sessionId
+        var rows = cache.get(owner, key, null)?.let { JSONArray(it) } ?: JSONArray()
+        if (refresh && online()) {
+            rows = withAuthRetry { api.select("educational_assessments", "select=session_id,student_id,metric,score&session_id=eq.$sessionId&order=student_id.asc,metric.asc&limit=1000") }
+            for (i in 0 until rows.length()) rows.optJSONObject(i)?.let { row ->
+                row.put("id", "${row.optString("student_id")}:${row.optString("metric")}")
+            }
+            cache.put(owner, key, rows.toString())
+        }
+        val result = linkedMapOf<String, MutableMap<String, Int>>()
+        fun put(student: String, metric: String, score: Int) {
+            if (student.isNotBlank() && com.mohammedsamir.halaqati.ui.sessions.EducationScoreRules.valid(metric, score)) {
+                result.getOrPut(student) { linkedMapOf() }[metric] = score
+            }
+        }
+        for (i in 0 until rows.length()) rows.optJSONObject(i)?.let { put(it.optString("student_id"), it.optString("metric"), it.optInt("score")) }
+        queueSnapshot(2000).filter { it.dedupe.orEmpty().startsWith("education:$sessionId:") }.forEach { item ->
+            val obj = item.body?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return@forEach
+            val student = obj.optString("p_student_id")
+            val metric = obj.optString("p_metric")
+            if (!obj.optBoolean("p_only_unrated") || result[student]?.containsKey(metric) != true)
+                put(student, metric, obj.optInt("p_score"))
+        }
+        return result
+    }
+
+    fun saveEducationScore(sessionId: String, studentId: String, metric: String, score: Int, onlyUnrated: Boolean = false) {
+        require(com.mohammedsamir.halaqati.ui.sessions.EducationScoreRules.valid(metric, score)) { "درجة التقييم غير صالحة" }
+        require(sessionId.isNotBlank() && studentId.isNotBlank())
+        val args = JSONObject().put("p_session_id", sessionId).put("p_student_id", studentId)
+            .put("p_metric", metric).put("p_score", score).put("p_only_unrated", onlyUnrated)
+        queued("POST", "/rest/v1/rpc/rc_save_education_score_v12", args, "education:$sessionId:$studentId:$metric",
+            preserveExisting = onlyUnrated)
+    }
+
     fun saveDailyNote(
         sessionId: String,
         studentId: String,
@@ -5980,23 +6271,27 @@ class HalaqatiRepository(
         return runCatching { offlineDb.students().byId(queueOwnerId(), studentId)?.asJson()?.optString("track_code") }.getOrNull()
     }
 
-    fun saveRecitationLocalFirst(draft: RecitationDraft): String = saveRecitationNormalized(
-        // RC15: a tathbit student can only receive tathbit (or test); tathbit is never stored as review_far.
-        draft.copy(activityType = TrackActivityPolicy.recitationActivityFor(studentTrackOf(draft.studentId), draft.activityType)),
-    )
+    fun saveRecitationLocalFirst(draft: RecitationDraft): String {
+        val localSession = currentUserId()?.let { cachedSessions(it, null, true) }?.firstOrNull { it.id == draft.sessionId }
+        val program = localSession?.let { session ->
+            session.type in setOf("tajweed", "tilawah") || run {
+                smartPlanIneligibleHalaqaIds()
+                !isSmartPlanEligible(session.halaqaId)
+            }
+        } == true
+        val activity = draft.activityType.trim().lowercase()
+        if (program) require(activity in setOf("tilawah", "test")) { "جلسات البرامج تقبل التلاوة والاختبار فقط" }
+        val normalized = if (program || activity == "tilawah") {
+            draft.copy(activityType = activity, smartPlanId = null, smartPlanPhaseId = null, smartPlanType = null, smartPlanDate = null)
+        } else {
+            draft.copy(activityType = TrackActivityPolicy.recitationActivityFor(studentTrackOf(draft.studentId), activity))
+        }
+        return saveRecitationNormalized(normalized)
+    }
 
     private fun saveRecitationNormalized(draft: RecitationDraft): String {
         require(draft.activityType in setOf("new_hifz", "review_near", "review_far", "sard", "tilawah", "test", "tathbit")) {
             "نوع التسميع غير صالح"
-        }
-        // RC27.9: program sessions (courses, التلاوة والتجويد, qualifying) record tilawah/test only: never hifz/sard/review.
-        if (draft.activityType in setOf("new_hifz", "review_near", "review_far", "sard", "tathbit")) {
-            val sessionHalaqa = currentUserId()
-                ?.let { cachedSessions(it, null, true) }?.firstOrNull { it.id == draft.sessionId }?.halaqaId
-            if (sessionHalaqa != null) {
-                smartPlanIneligibleHalaqaIds()
-                require(isSmartPlanEligible(sessionHalaqa)) { "جلسات البرامج والدورات تقبل التلاوة والاختبار فقط، لا الحفظ ولا السرد ولا المراجعة" }
-            }
         }
         require(draft.pages >= 0) { "عدد الصفحات غير صالح" }
         require(draft.mistakes >= 0 && draft.prompts >= 0) { "عدد الأخطاء أو التلقين غير صالح" }
@@ -6105,12 +6400,14 @@ class HalaqatiRepository(
             .put("penalty_units", penaltyUnits)
             .put("penalty_per_page", penaltyPerPage)
             .put("points", points)
-            .put("scoring_version", if (draft.activityType == "tilawah") "TILAWAH_V1" else "V7")
+            .put("scoring_version", if (draft.activityType == "tilawah") {
+                if (draft.tilawahAssessment?.optInt("version") == 2) "TILAWAH_V2" else "TILAWAH_V1"
+            } else "V7")
             .put("selection_data", selectionData)
         // RC15.2: tathbit recitations belong to the monthly plan, never to a phase. The server
         // trigger resolves plan_id from the session date, so no schema-dependent column is sent.
         if (draft.activityType != TrackActivityPolicy.TATHBIT) resolvedSmartPlanPhaseId?.let { obj.put("phase_id", it) }
-        if (draft.notes.isNotBlank()) obj.put("teacher_note", draft.notes)
+        if (draft.notes.isNotBlank() || draft.tilawahAssessment?.optInt("version") == 2) obj.put("teacher_note", draft.notes)
         draft.startSurah?.let { obj.put("start_surah", it) }
         draft.startAyah?.let { obj.put("start_ayah", it) }
         draft.endSurah?.let { obj.put("end_surah", it) }
@@ -6120,12 +6417,21 @@ class HalaqatiRepository(
         if (draft.selectedSurahs.isNotEmpty()) obj.put("selected_surahs", JSONArray(draft.selectedSurahs))
         store.load()?.userId?.let { obj.put("created_by", it) }
 
-        queued(
-            "POST",
-            "/rest/v1/recitation_entries?on_conflict=id",
-            obj,
-            "recitation:${draft.sessionId}:${draft.studentId}:$id",
-        )
+        val recitationDedupe = "recitation:${draft.sessionId}:${draft.studentId}:$id"
+        // If this exact entry has an unsent earlier edit, preserve its server base rather than
+        // replacing it with the optimistic local revision. A racing upload is rejected safely.
+        val assessment = obj.optJSONObject("selection_data")?.optJSONObject("tilawah_assessment")
+        if (assessment?.optInt("version") == 2) {
+            val pending = queueSnapshot(2000).firstOrNull { it.dedupe == recitationDedupe }
+            if (pending != null) {
+                require(!pending.conflict && !pending.blocked) { "يوجد تعديل متعارض محفوظ؛ راجع مركز المزامنة أولًا" }
+                val prior = pending.body?.let { JSONObject(it) }?.optJSONObject("selection_data")?.optJSONObject("tilawah_assessment")
+                if (prior != null && prior.optString("revision") == assessment.optString("base_revision"))
+                    assessment.put("base_revision", prior.opt("base_revision") ?: JSONObject.NULL)
+            }
+        }
+        queued("POST", "/rest/v1/recitation_entries?on_conflict=id", obj, recitationDedupe,
+            entityTable = "recitation_entries", entityId = id)
         val cachedRow = JSONObject(obj.toString()).put("created_at", draft.createdAt?.takeIf { it.isNotBlank() } ?: java.time.Instant.now().toString())
         upsertSessionScopedCache(CACHE_SESSION_RECITATIONS_PREFIX, draft.sessionId, cachedRow)
         upsertPlanRecitationCacheRow(cachedRow, draft.sessionId)
@@ -6249,9 +6555,10 @@ class HalaqatiRepository(
         val owner = currentUserId() ?: return
         val item = queue.item(id, owner) ?: return
         val server = item.serverJson?.let { runCatching { JSONObject(it) }.getOrNull() }
-        if (item.entityTable == "students" && !item.entityId.isNullOrBlank()) {
+        val entityId = item.entityId
+        if (item.entityTable == "students" && !entityId.isNullOrBlank()) {
             if (server != null) upsertStudentLocal(owner, server, dirty = false)
-            else offlineDb.students().deleteAny(owner, item.entityId)
+            else offlineDb.students().deleteAny(owner, entityId)
             cache.put(owner, CACHE_STUDENTS, localStudentsJson(owner).toString())
         }
         queue.discard(id, owner)
@@ -6380,20 +6687,6 @@ class HalaqatiRepository(
 
     private val sessionChildTables = listOf("recitation_entries", "attendance_records", "student_daily_notes")
 
-    /** RC25: recreate a session row (same id) that vanished on the server; returns true if recreated. */
-    private fun recreateMissingParentSession(owner: String, path: String, body: String?): Boolean {
-        if (sessionChildTables.none { path.contains("/rest/v1/$it") } || body.isNullOrBlank()) return false
-        val sid = runCatching {
-            val text = body.trim()
-            val obj = if (text.startsWith("[")) JSONArray(text).optJSONObject(0) else JSONObject(text)
-            obj?.optString("session_id")?.takeIf { it.isNotBlank() }
-        }.getOrNull() ?: return false
-        val local = cachedSessions(owner, maxAge = null, includeArchived = true)?.firstOrNull { it.id == sid } ?: return false
-        return runCatching {
-            serverGetOrCreateDailySession(local.halaqaId, local.date, local.type, local.title, local.id)
-            true
-        }.getOrDefault(false)
-    }
 
     fun flushQueue(): Int {
         if (!online()) return 0
@@ -6435,25 +6728,39 @@ class HalaqatiRepository(
             try {
                 // RC24.4: a queued session DELETE must never wipe recitation/attendance that another
                 // device already uploaded. Daily session ids are deterministic, so two phones share one id.
-                if (item.method == "DELETE" && item.entityTable == "sessions") {
-                    val sid = SessionDeleteGuard.sessionIdFromPath(item.path)
-                    if (sid != null && withAuthRetry { serverSessionHasData(sid) }) {
-                        // Keep the refused delete visible in the sync centre instead of dropping it silently:
-                        // the user was told the session is gone, and it will come back on the next refresh.
+                val sessionDeleteId = if (item.method == "DELETE" && item.entityTable == "sessions")
+                    SessionDeleteGuard.sessionIdFromPath(item.path) else null
+                if (sessionDeleteId != null) {
+                    if (withAuthRetry { serverSessionHasData(sessionDeleteId) }) {
+                        // Preserve the session and the reason in the sync centre.
                         queue.markBlocked(item.id, owner, "لم تُحذف الجلسة من الخادم لأن فيها تسميعًا أو حضورًا أو ملاحظات محفوظة. أرشف الجلسة بدل حذفها، ثم تجاهل هذا العنصر.")
                         signalLocalMutation()
                         continue
                     }
                 }
-                try {
-                    withAuthRetry { api.raw(item.method, item.path, body) }
-                } catch (fk: SupabaseException) {
-                    // RC25 self-healing: the parent session was removed on the server while this
-                    // device still holds its recitation/attendance/notes. Recreate the session with
-                    // the same id and retry once so offline work is never lost.
-                    if (fk.sqlState == "23503" && item.method != "DELETE" && recreateMissingParentSession(owner, item.path, body)) {
-                        withAuthRetry { api.raw(item.method, item.path, body) }
-                    } else throw fk
+                if (sessionDeleteId != null) {
+                    val removed = withAuthRetry { api.delete("sessions", "id=eq.$sessionDeleteId&select=id") }
+                    if (removed.optJSONObject(0)?.optString("id") != sessionDeleteId) {
+                        throw SupabaseException("لم يؤكد الخادم حذف الجلسة", status = 403, sqlState = "42501")
+                    }
+                    removeSessionFromLocalCache(sessionDeleteId)
+                    invalidateSessionDerivedCaches()
+                } else if (item.path == "/rest/v1/rpc/rc_save_education_score_v12" && parsed != null) {
+                    val ack = rpcObject(withAuthRetry { api.raw(item.method, item.path, body) })
+                    val actual = ack.optInt("score")
+                    check(ack.optBoolean("ok") && actual in 1..5) { "لم يؤكد الخادم حفظ التقييم" }
+                    val sid = parsed.optString("p_session_id")
+                    val student = parsed.optString("p_student_id")
+                    val metric = parsed.optString("p_metric")
+                    upsertSessionScopedCache(CACHE_EDUCATION_PREFIX, sid, JSONObject()
+                        .put("id", "$student:$metric").put("session_id", sid).put("student_id", student)
+                        .put("metric", metric).put("score", actual))
+                } else {
+                    val expectedId = MutationAcknowledgementRules.expectedPatchId(item.method,item.path)
+                    val response = withAuthRetry { api.raw(item.method, item.path, body, confirmRow = expectedId != null) }
+                    if (expectedId != null && !MutationAcknowledgementRules.confirmed(expectedId,response)) {
+                        throw SupabaseException("لم يؤكد الخادم تعديل السجل؛ بقيت العملية محفوظة للمراجعة", status = 403, sqlState = "42501")
+                    }
                 }
                 if (item.entityTable == "students" && !item.entityId.isNullOrBlank()) {
                     val server = runCatching { fetchServerStudent(item.entityId) }.getOrNull()
@@ -6470,6 +6777,16 @@ class HalaqatiRepository(
                 val status = (e as? SupabaseException)?.status ?: 0
                 val sqlState = (e as? SupabaseException)?.sqlState
                 val kind = if (e is SupabaseException) SyncErrorRules.classify(status, sqlState) else SyncErrorRules.Kind.TRANSIENT
+                if (sqlState == "PT409" && item.entityTable == "recitation_entries") {
+                    queue.markBlocked(item.id, owner, "تعارض تقييم التلاوة أو نسخة قديمة. بقي التعديل محفوظًا محليًا؛ لا يُستبدل سجل الخادم تلقائيًا. راجع السجل ومركز المزامنة.")
+                    signalLocalMutation()
+                    continue
+                }
+                if (sqlState == "23503" && item.entityTable in sessionChildTables) {
+                    queue.markBlocked(item.id, owner, "تعذر العثور على جلسة السجل في الخادم. راجع الجلسة قبل إعادة المحاولة؛ بياناتك ما زالت محفوظة على الجهاز.")
+                    signalLocalMutation()
+                    continue
+                }
                 val message = SyncErrorRules.label(kind, sqlState, e.message ?: e::class.java.simpleName)
                 signalLocalMutation()
                 when (kind) {

@@ -6,16 +6,40 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SessionWorkflowRulesTest {
-    @Test fun mapsAssignmentKindsToLegacySessionTypes() {
+    @Test fun mapsAssignmentKindsToSessionTypes() {
         assertEquals("sard", SessionWorkflowRules.sessionTypeForAssignment("sard"))
-        assertEquals("review", SessionWorkflowRules.sessionTypeForAssignment("tathbit"))
-        assertEquals("review", SessionWorkflowRules.sessionTypeForAssignment("review"))
+        assertEquals("tasmee", SessionWorkflowRules.sessionTypeForAssignment("tathbit"))
+        assertEquals("tasmee", SessionWorkflowRules.sessionTypeForAssignment("review"))
         assertEquals("test", SessionWorkflowRules.sessionTypeForAssignment("test"))
         assertEquals("tasmee", SessionWorkflowRules.sessionTypeForAssignment("hifz"))
     }
 
     @Test fun supportedManualTypesMatchGoldenMaster() {
-        assertTrue(SessionWorkflowRules.manualSessionTypes.containsAll(listOf("tasmee","sard","review","test","tajweed","lesson","other")))
+        assertTrue(SessionWorkflowRules.manualSessionTypes.containsAll(listOf("tasmee","sard","test","tajweed","lesson","other")))
+        assertFalse("review" in SessionWorkflowRules.manualSessionTypes)
+        assertTrue(SessionWorkflowRules.usesRecitationTools("review"))
+    }
+
+    @Test fun programsOfferIndependentActivities() {
+        assertEquals(listOf("tilawah", "lesson", "test", "other"), SessionWorkflowRules.manualTypesForScope("course"))
+        assertEquals("tasmee", SessionWorkflowRules.manualTypesForScope("regular").first())
+        assertFalse("tajweed" in SessionWorkflowRules.manualTypesForScope("tilawah"))
+    }
+
+    @Test fun sessionTypesDoNotBorrowOtherActivities() {
+        assertEquals(setOf("sard"), SessionWorkflowRules.planKeysForSession("sard"))
+        assertEquals(setOf("hifz", "review", "tathbit"), SessionWorkflowRules.planKeysForSession("tasmee"))
+        assertTrue(SessionWorkflowRules.planKeysForSession("lesson").isEmpty())
+        assertTrue(SessionWorkflowRules.matchesRecitation("sard", "sard"))
+        assertFalse(SessionWorkflowRules.matchesRecitation("sard", "new_hifz"))
+        assertFalse(SessionWorkflowRules.matchesRecitation("tasmee", "sard"))
+        assertTrue(SessionWorkflowRules.matchesRecitation("review", "review_near"))
+        assertFalse(SessionWorkflowRules.matchesRecitation("test", "tilawah"))
+        assertEquals(listOf("sard"), SessionWorkflowRules.quickActivities("sard", false, false).map { it.first })
+        assertEquals(listOf("new_hifz", "review_near"), SessionWorkflowRules.quickActivities("tasmee", false, false).map { it.first })
+        assertEquals(listOf("tathbit"), SessionWorkflowRules.quickActivities("tasmee", false, true).map { it.first })
+        assertEquals(listOf("test"), SessionWorkflowRules.quickActivities("test", true, false).map { it.first })
+        assertTrue(SessionWorkflowRules.quickActivities("lesson", true, false).isEmpty())
     }
 
     @Test fun explicitNotRecitedIsDifferentFromUnmarked() {
@@ -84,4 +108,33 @@ class SessionWorkflowRulesTest {
         )
     }
 
+
+    @Test fun excusedIsNotUnexcusedAbsence() {
+        val states = listOf(SessionWorkflowRules.StudentState.ABSENT, SessionWorkflowRules.StudentState.EXCUSED, SessionWorkflowRules.StudentState.UNMARKED)
+        val result = SessionWorkflowRules.summary(states)
+        assertEquals(1, result.absent)
+        assertEquals(1, result.excused)
+        assertEquals(1, result.unmarked)
+        assertFalse(SessionWorkflowRules.matchesFilter(SessionWorkflowRules.StudentState.EXCUSED, "absent"))
+        assertTrue(SessionWorkflowRules.matchesFilter(SessionWorkflowRules.StudentState.EXCUSED, "excused"))
+    }
+
+    @Test fun statusTransitionNeverCancelsOrSilentlyReopens() {
+        assertTrue(SessionWorkflowRules.canTransition("open","closed"))
+        assertTrue(SessionWorkflowRules.canTransition("closed","open"))
+        assertTrue(SessionWorkflowRules.canTransition("planned","open"))
+        assertFalse(SessionWorkflowRules.canTransition("open","cancelled"))
+        assertFalse(SessionWorkflowRules.canTransition("closed","planned"))
+        assertFalse(SessionWorkflowRules.canTransition("cancelled","open"))
+    }
+
+    @org.junit.Test
+    fun latestRecitationMatchesTypeAndDate() {
+        val day = java.time.LocalDate.parse("2026-11-28")
+        org.junit.Assert.assertTrue(SessionWorkflowRules.eligibleLatest("sard", "sard", day.minusDays(1), day))
+        org.junit.Assert.assertTrue(SessionWorkflowRules.eligibleLatest("sard", "sard", day, day))
+        org.junit.Assert.assertFalse(SessionWorkflowRules.eligibleLatest("sard", "sard", day.plusDays(1), day))
+        org.junit.Assert.assertFalse(SessionWorkflowRules.eligibleLatest("sard", "new_hifz", day, day))
+        org.junit.Assert.assertFalse(SessionWorkflowRules.eligibleLatest("sard", "sard", day, null))
+    }
 }

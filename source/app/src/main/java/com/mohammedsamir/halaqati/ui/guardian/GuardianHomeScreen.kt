@@ -13,6 +13,7 @@ import com.mohammedsamir.halaqati.ui.components.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.School
@@ -49,9 +50,9 @@ fun GuardianHomeScreen(
     val overview = state.overview
 
     Column(Modifier.fillMaxSize()) {
-        AppTopBar(title = "اطمئن على رحلته", kicker = "ولي الأمر · متابعة الأبناء")
+        AppTopBar(title = "اطمئن على رحلته", kicker = "ولي الأمر · متابعة الأبناء", onRefresh = vm::refresh)
         PullToRefreshBox(
-            isRefreshing = state.refreshing && overview != null,
+            isRefreshing = state.refreshing,
             onRefresh = { vm.refresh() },
             modifier = Modifier.weight(1f).fillMaxWidth(),
         ) {
@@ -65,36 +66,50 @@ fun GuardianHomeScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                if (overview == null) item(key = "role-welcome", contentType = "welcome") { com.mohammedsamir.halaqati.ui.components.RoleWelcomeCard(com.mohammedsamir.halaqati.model.UserRole.GUARDIAN) }
-                item(key = "add-child", contentType = "add-child") { com.mohammedsamir.halaqati.ui.screens.AddChildCard() }
-                if (com.mohammedsamir.halaqati.data.ContestsFeature.enabled) item(key = "contests-card", contentType = "contests") { com.mohammedsamir.halaqati.ui.screens.ContestsHomeCard(navigate) }
-                if (state.children.size > 1) {
-                    item(key = "switcher", contentType = "switcher") {
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(state.children, key = { it.id }) { child ->
-                                ProFilterChip(
-                                    selected = child.id == state.selectedId,
-                                    onClick = { vm.select(child.id) },
-                                    label = child.name.substringBefore(' '),
-                                )
+                if (overview == null) {
+                    if (state.children.isEmpty()) item(key = "role-welcome", contentType = "welcome") {
+                        com.mohammedsamir.halaqati.ui.components.RoleWelcomeCard(com.mohammedsamir.halaqati.model.UserRole.GUARDIAN)
+                    }
+                    if (state.children.isNotEmpty()) item(key = "select-child-activity", contentType = "switcher") {
+                        GuardianHomeSelectors(state, vm::select, vm::selectActivity, MaterialTheme.colorScheme.onSurface)
+                    }
+                    if (state.children.isEmpty() && !state.loadingFirst && !state.refreshing && state.message == null) {
+                        item(key = "children-link", contentType = "shortcut") {
+                            OutlinedButton(onClick = { navigate("guardian_profile") }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                                Text("انتقل إلى أبنائي")
                             }
                         }
                     }
+                    state.message?.let { msg -> item(key = "msg", contentType = "notice") { StateNotice(msg, kind = "error") } }
                 }
-                if (state.stale && overview != null) {
-                    item(key = "stale", contentType = "notice") {
-                        StateNotice("تعرض آخر بيانات محفوظة${overview.updatedAt?.let { " · " + shortTime(it) } ?: ""}", kind = "warning")
-                    }
-                }
-                state.message?.let { msg -> item(key = "msg", contentType = "notice") { StateNotice(msg, kind = "error") } }
                 when {
                     overview == null && (state.loadingFirst || state.refreshing) ->
                         item(key = "loading", contentType = "loading") { LoadingSkeleton(rows = 3) }
-                    overview == null && state.children.isEmpty() && !state.loadingFirst ->
+                    overview == null && state.children.isEmpty() && state.message == null ->
                         item(key = "empty", contentType = "empty") { EmptyState("لا توجد ملفات طلاب مرتبطة بهذا الحساب") }
                     overview != null -> {
-                        item(key = "today", contentType = "today") { TodayCard(overview) }
+                        item(key = "today", contentType = "today") {
+                            TodayCard(overview) {
+                                GuardianHomeSelectors(state, vm::select, vm::selectActivity, androidx.compose.ui.graphics.Color.White)
+                            }
+                        }
+                        if (state.stale) item(key = "stale", contentType = "notice") {
+                            StateNotice("تعرض آخر بيانات محفوظة${overview.updatedAt?.let { " · " + shortTime(it) } ?: ""}", kind = "warning")
+                        }
+                        state.message?.let { msg -> item(key = "msg", contentType = "notice") { StateNotice(msg, kind = "error") } }
                         item(key = "today-detail", contentType = "today-detail") { TodayDetailGrid(overview) }
+                        if (overview.tilawahSummary.isNotEmpty()) item(key = "tilawah-summary", contentType = "tilawah-summary") {
+                            ElevatedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+                                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text("متابعة التلاوة والتصحيحات", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                    overview.tilawahSummary.forEach { line ->
+                                        Text("${line.date} · ${line.quality?.let { num(it) + "٪" } ?: "غير مقيّم"}", fontWeight = FontWeight.SemiBold)
+                                        Text("جلي: ${line.major}" + (line.minor?.let { " · خفي: $it" } ?: "") + " · صُحح: ${line.corrected} · متابعة: ${line.followed}", style = MaterialTheme.typography.bodySmall)
+                                        line.wardReviewed?.let { Text(if (it) "راجع الورد" else "لم يراجع الورد", style = MaterialTheme.typography.bodySmall) }
+                                    }
+                                }
+                            }
+                        }
                         GuardianPraise.lines(overview).takeIf { it.isNotEmpty() }?.let { praise ->
                             item(key = "praise", contentType = "praise") {
                                 com.mohammedsamir.halaqati.ui.components.InsightCardShell(
@@ -108,15 +123,24 @@ fun GuardianHomeScreen(
                         if (overview.planTitle != null) item(key = "plan", contentType = "plan") { PlanCard(overview) }
                         item(key = "metrics", contentType = "metrics") { MetricsStrip(overview) }
                         item(key = "weekly", contentType = "weekly") { WeeklySummaryCard(overview) }
+                        if (overview.education.isNotEmpty()) {
+                            item(key = "education-title", contentType = "title") {
+                                Text("الأنشطة التربوية", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            }
+                            items(overview.education.take(8), key = { "education-" + it.sessionId }, contentType = { "education" }) { assessment ->
+                                GuardianEducationCard(assessment)
+                            }
+                        }
                         if (overview.latest.isNotEmpty()) {
                             item(key = "latest-title", contentType = "title") {
                                 Text("آخر التسميعات", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             }
-                            items(overview.latest, key = { "${it.date}:${it.activityLabel}:${it.range}" }, contentType = { "recitation" }) { line ->
+                            items(overview.latest.withIndex().toList(), key = { "${it.index}:${it.value.date}:${it.value.activityLabel}:${it.value.range}" }, contentType = { "recitation" }) { indexed ->
+                                val line = indexed.value
                                 RecitationRow(line)
                             }
                         }
-                        state.selectedId?.let { sid ->
+                        state.selectedId?.takeUnless { overview.program }?.let { sid ->
                             item(key = "badges", contentType = "badges") { GuardianBadgesCard(sid) }
                         }
                         item(key = "seasons", contentType = "seasons") {
@@ -149,6 +173,74 @@ fun GuardianHomeScreen(
                         }
                     }
                 }
+                if (com.mohammedsamir.halaqati.data.ContestsFeature.enabled) item(key = "contests-card", contentType = "contests") {
+                    com.mohammedsamir.halaqati.ui.screens.ContestsHomeCard(navigate)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GuardianHomeSelectors(
+    state: GuardianHomeUiState,
+    onChild: (String) -> Unit,
+    onActivity: (String) -> Unit,
+    ink: androidx.compose.ui.graphics.Color,
+) {
+    if (state.children.size > 1) {
+        GuardianHomeSelector(
+            label = "الابن",
+            options = state.children.map { it.id to it.name },
+            selected = state.selectedId,
+            onSelect = onChild,
+            ink = ink,
+        )
+    }
+    if (state.activities.isNotEmpty()) {
+        GuardianHomeSelector(
+            label = "النشاط",
+            options = state.activities.map { it.id to it.name },
+            selected = state.selectedActivity,
+            onSelect = onActivity,
+            ink = ink,
+        )
+    }
+}
+
+@Composable
+internal fun GuardianHomeSelector(
+    label: String,
+    options: List<Pair<String, String>>,
+    selected: String?,
+    onSelect: (String) -> Unit,
+    ink: androidx.compose.ui.graphics.Color,
+) {
+    var open by remember(options) { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = ink)
+        Box(Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                onClick = { open = true },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = ink),
+                border = BorderStroke(1.dp, ink.copy(alpha = .45f)),
+            ) {
+                Text(
+                    options.firstOrNull { it.first == selected }?.second ?: "اختر $label",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Icon(androidx.compose.material.icons.Icons.Default.KeyboardArrowDown, contentDescription = null, tint = ink)
+            }
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                options.forEach { (id, name) ->
+                    DropdownMenuItem(
+                        text = { Text(name) },
+                        onClick = { open = false; if (id != selected) onSelect(id) },
+                        trailingIcon = if (id == selected) {{ Icon(Icons.Default.CheckCircle, contentDescription = "محدد") }} else null,
+                    )
+                }
             }
         }
     }
@@ -156,7 +248,7 @@ fun GuardianHomeScreen(
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun TodayCard(o: GuardianOverview) {
+private fun TodayCard(o: GuardianOverview, selectors: @Composable () -> Unit) {
     val attendance = when (o.todayAttendance) {
         "present" -> "حضر اليوم"
         "late" -> "حضر اليوم (متأخر)"
@@ -197,6 +289,8 @@ private fun TodayCard(o: GuardianOverview) {
                         )
                         }
                 }
+                selectors()
+                val activity = if (o.program) "التلاوة" else if (o.tathbit) "التثبيت" else "التسميع"
                 // RC104: today's two states sit side by side under the child (they used to wrap into two tall rows beside the photo).
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Surface(Modifier.weight(1f), shape = RoundedCornerShape(50), color = onP.copy(alpha = .2f)) {
@@ -204,14 +298,14 @@ private fun TodayCard(o: GuardianOverview) {
                     }
                     Surface(Modifier.weight(1f), shape = RoundedCornerShape(50), color = onP.copy(alpha = if (o.todayRecited) .32f else .14f)) {
                         Text(
-                            if (o.todayRecited) "أتمّ ${if (o.tathbit) "التثبيت" else "التسميع"}" else "لم يُسجَّل ${if (o.tathbit) "التثبيت" else "التسميع"}",
+                            if (o.todayRecited) "أتمّ $activity" else "لم يُسجَّل $activity",
                             Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
                 // Today's ward in a clear inset panel
-                Surface(shape = RoundedCornerShape(16.dp), color = onP.copy(alpha = .14f), modifier = Modifier.fillMaxWidth()) {
+                if (!o.program) Surface(shape = RoundedCornerShape(16.dp), color = onP.copy(alpha = .14f), modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text("مقرر اليوم", style = MaterialTheme.typography.labelMedium, color = onP.copy(alpha = .92f))
                         Text(o.todayWard ?: "لا يوجد مقرر اليوم", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -346,7 +440,7 @@ private fun PlanActivityRow(activity: GuardianPlanActivity) {
 @Composable
 private fun MetricsStrip(o: GuardianOverview) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Metric(o.monthMainLabel, "${num(o.monthMain)} ص", Modifier.weight(1f))
+        if (!o.program) Metric(o.monthMainLabel, "${num(o.monthMain)} ص", Modifier.weight(1f))
         Metric("الحضور", "${o.monthPresent}/${o.monthSessions}", Modifier.weight(1f))
         Metric("الجودة", o.quality?.let { "${num(it)}٪" } ?: "—", Modifier.weight(1f))
     }
@@ -387,3 +481,28 @@ private fun num(v: Double): String {
 }
 
 private fun shortTime(iso: String): String = com.mohammedsamir.halaqati.ui.components.GazaTime.shortDateTime(iso).takeIf { iso.isNotBlank() }.orEmpty()
+
+
+@Composable
+private fun GuardianEducationCard(a: GuardianEducationAssessment) {
+    ElevatedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.School, null, tint = MaterialTheme.colorScheme.primary)
+                Column(Modifier.weight(1f)) {
+                    Text(a.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(listOf(a.date,a.halaqaName).filter { it.isNotBlank() }.joinToString(" · "), style = MaterialTheme.typography.labelSmall)
+                }
+                a.scores["general"]?.let { Text("$it/5", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
+            }
+            com.mohammedsamir.halaqati.ui.sessions.EducationScoreRules.detailed.forEach { (key,label) ->
+                a.scores[key]?.let { score ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(label, style = MaterialTheme.typography.bodySmall)
+                        Text("$score/5 · ${com.mohammedsamir.halaqati.ui.sessions.EducationScoreRules.label(score)}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+        }
+    }
+}

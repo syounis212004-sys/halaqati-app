@@ -132,4 +132,17 @@ class RoleNavigationPolicyTest {
         }
         assertEquals(AppDestination.Contribute, AppDestination.fromRoute("contribute"))
     }
+
+    @Test fun adminHasOneAccountMenuButOldApprovalRouteStillWorks() {
+        val role = UserRole.ADMIN
+        assertTrue(RoleNavigationPolicy.canOpen(role, AppDestination.Approvals))
+        assertTrue(RoleNavigationPolicy.drawerItems(role).any { it.destination == AppDestination.Users })
+        assertFalse(RoleNavigationPolicy.drawerItems(role).any { it.destination == AppDestination.Approvals })
+        assertFalse(RoleNavigationPolicy.moreSections(role).any { AppDestination.Approvals in it.items })
+        for (staff in listOf(UserRole.SUPERVISOR, UserRole.TEACHER)) {
+            assertTrue(RoleNavigationPolicy.canOpen(staff, AppDestination.Approvals))
+            assertFalse(RoleNavigationPolicy.canOpen(staff, AppDestination.Users))
+            assertTrue(RoleNavigationPolicy.drawerItems(staff).any { it.destination == AppDestination.Approvals })
+        }
+    }
 }

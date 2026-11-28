@@ -22,7 +22,7 @@ import java.util.zip.ZipOutputStream
 object NativeReportExport {
     data class Table(val headers: List<String>, val rows: List<List<String>>)
 
-    fun table(source: List<JSONObject>, details: Boolean): Table {
+    fun table(source: List<JSONObject>, details: Boolean, program: Boolean = false): Table {
         return if (details) {
             val headers = listOf("#", "الطالب", "التاريخ", "النشاط", "الصفحات", "التقييم", "السلامة", "الأخطاء", "النقرات")
             val rows = source.mapIndexed { index, row ->
@@ -32,13 +32,22 @@ object NativeReportExport {
                     (index + 1).toString(),
                     st?.optString("full_name").orEmpty().ifBlank { row.optString("student_name", "طالب") },
                     session?.optString("session_date").orEmpty().ifBlank { row.optString("session_date") },
-                    activityLabel(row.optString("activity_type")),
+                    activityLabel(com.mohammedsamir.halaqati.plans.ReportScopeRules.reportActivity(row.optString("activity_type"), session?.optString("session_type"))),
                     clean(row.optDouble("pages_count", 0.0)),
                     evaluationLabel(row.optString("evaluation")),
                     clean(row.optDouble("safety_percentage", 0.0)) + "%",
                     row.optInt("mistakes", 0).toString(),
                     row.optInt("prompts", 0).toString(),
                 )
+            }
+            Table(headers, rows)
+        } else if (program) {
+            val headers = listOf("#", "الطالب", "التلاوة (صفحات)", "التجويد (صفحات)", "الاختبار (صفحات)", "الحضور", "الغياب", "الغياب بعذر", "نقاط النشاط")
+            val rows = source.mapIndexed { index, row ->
+                listOf((index + 1).toString(), row.optString("student_name", "طالب"),
+                    clean(row.optDouble("tilawah_pages",0.0)), clean(row.optDouble("tajweed_pages",0.0)),
+                    clean(row.optDouble("test_pages",0.0)), (row.optInt("present",0) + row.optInt("late",0)).toString(),
+                    row.optInt("absent",0).toString(),row.optInt("excused",0).toString(),clean(row.optDouble("recitation_points",0.0)))
             }
             Table(headers, rows)
         } else {
@@ -68,7 +77,7 @@ object NativeReportExport {
             studentId = r.optString("student_id"),
             studentName = st?.optString("full_name").orEmpty().ifBlank { "طالب" },
             date = r.optJSONObject("sessions")?.optString("session_date").orEmpty(),
-            kind = com.mohammedsamir.halaqati.documents.RecitationMatrix.kindOf(r.optString("activity_type")),
+            kind = com.mohammedsamir.halaqati.documents.RecitationMatrix.kindOf(com.mohammedsamir.halaqati.plans.ReportScopeRules.reportActivity(r.optString("activity_type"), r.optJSONObject("sessions")?.optString("session_type"))),
             range = com.mohammedsamir.halaqati.documents.ReportHtmlRenderer.rangeText(r),
             pages = r.optDouble("pages_count", 0.0),
             startPage = r.optInt("start_page").takeIf { it > 0 },
@@ -192,6 +201,9 @@ object NativeReportExport {
         "review_near" -> "مراجعة قريبة"
         "review_far" -> "مراجعة بعيدة"
         "sard" -> "سرد"
+        "tathbit" -> "تثبيت"
+        "tilawah" -> "تلاوة"
+        "tajweed" -> "تجويد"
         "test" -> "اختبار"
         else -> v.ifBlank { "—" }
     }

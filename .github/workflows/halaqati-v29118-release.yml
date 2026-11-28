@@ -1,0 +1,162 @@
+name: Halaqati 2.91.18 signed candidate and public download
+
+on:
+  push:
+    branches: [fix/v12-phase-one-ui]
+    paths:
+      - '.github/workflows/halaqati-v29118-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: halaqati-v29118-signed-release
+  cancel-in-progress: false
+
+jobs:
+  validation:
+    uses: ./.github/workflows/execution-v12-validation.yml
+    permissions:
+      contents: read
+
+  signed:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.13'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+      - name: Prepare verified production assets
+        run: |
+          set -euo pipefail
+          sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+          curl -fsSL --retry 4 -o "$RUNNER_TEMP/madina.json" https://digitalkhatt.org/assets/layouts/madina.json
+          echo "5de6e0c60d8a402b37483fed4f799eeefaebd5edd94b67ff1ac8d8e9ba5ff358  $RUNNER_TEMP/madina.json" | sha256sum -c -
+          python3 -I source/scripts/dk/make_dk_assets.py "$RUNNER_TEMP/madina.json" source/app/src/main/assets/dk
+          python3 -I source/scripts/dk/verify_pack.py source/app/src/main/assets/dk
+          python3 source/scripts/fetch-cairo-font.py
+      - name: Restore existing signing identity and Firebase configuration
+        working-directory: source
+        env:
+          FIREBASE_JSON_B64: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64 }}
+          FIREBASE_JSON: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON }}
+          KEYSTORE_B64: ${{ secrets.HALAQATI_KEYSTORE_BASE64 }}
+          HALAQATI_STORE_PASSWORD: ${{ secrets.HALAQATI_STORE_PASSWORD }}
+          HALAQATI_KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
+          HALAQATI_KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
+          GOOGLE_WEB_CLIENT_ID_SECRET: ${{ secrets.HALAQATI_GOOGLE_WEB_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 - <<'PY'
+          import base64, json, os
+          from pathlib import Path
+          for key in ('KEYSTORE_B64','HALAQATI_STORE_PASSWORD','HALAQATI_KEY_ALIAS','HALAQATI_KEY_PASSWORD'):
+              if not os.environ.get(key): raise SystemExit('Missing existing signing input: '+key)
+          raw=base64.b64decode(os.environ['FIREBASE_JSON_B64']).decode() if os.environ.get('FIREBASE_JSON_B64') else os.environ.get('FIREBASE_JSON','')
+          data=json.loads(raw)
+          clients=[c for c in data.get('client',[]) if c.get('client_info',{}).get('android_client_info',{}).get('package_name')=='com.mohammedsamir.halaqati']
+          if not clients: raise SystemExit('Firebase package mismatch')
+          Path('app/google-services.json').write_text(raw)
+          ks=Path(os.environ['RUNNER_TEMP'])/'halaqati-release.jks'
+          ks.write_bytes(base64.b64decode(os.environ['KEYSTORE_B64'],validate=True))
+          web=next((o['client_id'] for c in clients for o in c.get('oauth_client',[]) if o.get('client_type')==3 and o.get('client_id')),os.environ.get('GOOGLE_WEB_CLIENT_ID_SECRET',''))
+          with open(os.environ['GITHUB_ENV'],'a') as f:
+              f.write('HALAQATI_KEYSTORE_PATH='+str(ks)+'\nGOOGLE_WEB_CLIENT_ID='+web+'\n')
+          PY
+      - name: Build production release
+        working-directory: source
+        env:
+          HALAQATI_STORE_PASSWORD: ${{ secrets.HALAQATI_STORE_PASSWORD }}
+          HALAQATI_KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
+          HALAQATI_KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/central-mirror.gradle" <<'GRADLE'
+          gradle.beforeSettings { settings ->
+            def mirror = 'https://maven-central.storage-download.googleapis.com/maven2'
+            settings.pluginManagement.repositories.maven { url = uri(mirror) }
+            settings.dependencyResolutionManagement.repositories.maven { url = uri(mirror) }
+          }
+          GRADLE
+          gradle --no-daemon --console=plain --init-script "$RUNNER_TEMP/central-mirror.gradle" :app:lintRelease :app:assembleRelease
+      - name: Verify identical signer to published APK, package identity and version
+        working-directory: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p verified "$RUNNER_TEMP/previous-release"
+          gh release download v2.91.15 --repo "$GITHUB_REPOSITORY" --pattern 'Halaqati-v2.91.15-release.apk' --dir "$RUNNER_TEMP/previous-release"
+          APK=app/build/outputs/apk/release/app-release.apk
+          PREVIOUS="$RUNNER_TEMP/previous-release/Halaqati-v2.91.15-release.apk"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$PREVIOUS" > "$RUNNER_TEMP/previous-certs.txt"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" > verified/apksigner.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" > verified/badging.txt
+          python3 - <<'PY'
+          import os,re,zipfile
+          from pathlib import Path
+          previous=(Path(os.environ['RUNNER_TEMP'])/'previous-certs.txt').read_text()
+          current=Path('verified/apksigner.txt').read_text()
+          fingerprints=lambda s: sorted(re.findall(r'Signer #\d+ certificate SHA-256 digest: (\S+)',s))
+          assert fingerprints(previous) and fingerprints(previous)==fingerprints(current),'APK signing identity differs from previous public release'
+          b=Path('verified/badging.txt').read_text()
+          assert "name='com.mohammedsamir.halaqati'" in b
+          assert "versionName='2.91.18'" in b and "versionCode='29119'" in b
+          assert "application-debuggable" not in b
+          with zipfile.ZipFile('app/build/outputs/apk/release/app-release.apk') as z:
+              names=set(z.namelist())
+              assert all(f'assets/dk/p{i:03d}.bin' in names for i in range(1,605)) or len([n for n in names if re.fullmatch(r'assets/dk/p\d+\.bin',n)])==604
+              assert {'assets/dk/ids.bin','assets/dk/glyphs.bin'}<=names
+          PY
+          cp "$APK" verified/Halaqati-v2.91.18-release.apk
+          HALAQATI_MANDATORY=false python3 scripts/make-update-publish.py
+          cp update-publish/version.json verified/version.json
+          (cd update-publish && zip -q -X ../verified/Halaqati-v2.91.18-publish-update.zip Halaqati-latest.apk version.json)
+          python3 ../.github/scripts/release_gate.py app verified update-publish 2.91.18 29119
+          (cd verified && sha256sum Halaqati-v2.91.18-release.apk Halaqati-v2.91.18-publish-update.zip version.json > SHA256SUMS.txt)
+      - name: Remove restored private key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/halaqati-release.jks" source/app/google-services.json
+      - uses: actions/upload-artifact@v6
+        with:
+          name: halaqati-v2.91.18-signed
+          path: source/verified/
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: [validation, signed]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v6
+        with:
+          name: halaqati-v2.91.18-signed
+          path: verified
+      - name: Publish signed public candidate without replacing stable update
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          (cd verified && sha256sum -c SHA256SUMS.txt)
+          if gh release view v2.91.18 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Version already exists; refusing to overwrite a signed APK with the same version code"
+            exit 1
+          fi
+          gh release create v2.91.18 verified/Halaqati-v2.91.18-release.apk verified/Halaqati-v2.91.18-publish-update.zip verified/version.json verified/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title "Halaqati v2.91.18 — نسخة موقّعة للتجربة" \
+            --notes "نسخة Android موقعة بنفس شهادة الإصدار المنشور السابق. متاحة للتنزيل اليدوي. لا تُنشر كتحديث مستقر أو إجباري حتى تكتمل ترحيلات Supabase واختبارات التكامل؛ بعض وظائف المرحلة الرابعة تحتاج قاعدة البيانات الجديدة."

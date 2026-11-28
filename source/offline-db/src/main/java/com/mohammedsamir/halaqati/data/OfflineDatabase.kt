@@ -102,7 +102,13 @@ data class StudentLocalEntity(
         .put("id", id)
         .put("full_name", fullName)
         .put("status", status)
-        .put("track_code", track)
+        .also { json ->
+            // Preserve an explicit no-track value from a program-only record; the typed
+            // Room track still supplies the legacy UI fallback, not the stored SQL value.
+            if (!json.has("track_code") || !json.isNull("track_code") || track != StudentTrackRules.GENERAL_HIFZ) {
+                json.put("track_code", track)
+            }
+        }
         .putNullable("category_id", categoryId)
         .putNullable("halaqa_id", halaqaId)
         .putNullable("primary_teacher_id", primaryTeacherId)
@@ -197,6 +203,8 @@ interface OutboxDao {
         return true
     }
     @Insert(onConflict = OnConflictStrategy.REPLACE) fun insert(row: OutboxEntity): Long
+    // A conditional bulk fill must never replace an unsent (even blocked) individual edit.
+    @Insert(onConflict = OnConflictStrategy.IGNORE) fun insertIfAbsent(row: OutboxEntity): Long
     @Transaction fun replaceDedupe(row: OutboxEntity): Long { deleteDedupe(row.ownerUserId, row.dedupe); return insert(row) }
     @Query("SELECT COUNT(*) FROM outbox WHERE ownerUserId=:owner AND state=:state") fun count(owner: String, state: String): Int
     @Query("SELECT * FROM outbox WHERE ownerUserId=:owner AND state='pending' ORDER BY id LIMIT :limit") fun pending(owner: String, limit: Int): List<OutboxEntity>

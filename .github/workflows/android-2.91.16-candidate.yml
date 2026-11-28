@@ -1,0 +1,132 @@
+name: Android 2.91.16 signed candidate
+
+on:
+  push:
+    branches: [prepare/android-2.91.16-release]
+    paths: [".github/workflows/android-2.91.16-candidate.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.13'
+          cache-read-only: false
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+      - name: Prepare verified assets
+        run: |
+          set -euo pipefail
+          sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+          curl -fsSL --retry 4 -o "$RUNNER_TEMP/madina.json" https://digitalkhatt.org/assets/layouts/madina.json
+          echo "5de6e0c60d8a402b37483fed4f799eeefaebd5edd94b67ff1ac8d8e9ba5ff358  $RUNNER_TEMP/madina.json" | sha256sum -c -
+          python3 -I source/scripts/dk/make_dk_assets.py "$RUNNER_TEMP/madina.json" source/app/src/main/assets/dk
+          python3 -I source/scripts/dk/verify_pack.py source/app/src/main/assets/dk
+          python3 source/scripts/fetch-cairo-font.py
+      - name: Restore Firebase and release signing
+        timeout-minutes: 2
+        working-directory: source
+        env:
+          FIREBASE_JSON_B64: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64 }}
+          FIREBASE_JSON: ${{ secrets.HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON }}
+          KEYSTORE_B64: ${{ secrets.HALAQATI_KEYSTORE_BASE64 }}
+          HALAQATI_STORE_PASSWORD: ${{ secrets.HALAQATI_STORE_PASSWORD }}
+          HALAQATI_KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
+          HALAQATI_KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
+          GOOGLE_WEB_CLIENT_ID_SECRET: ${{ secrets.HALAQATI_GOOGLE_WEB_CLIENT_ID }}
+          VARIANT: release
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, json, os
+          from pathlib import Path
+          b64 = os.environ.get('FIREBASE_JSON_B64', '')
+          raw = base64.b64decode(b64).decode() if b64 else os.environ.get('FIREBASE_JSON', '')
+          if not raw:
+              raise SystemExit('Missing HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON_BASE64 or HALAQATI_FIREBASE_GOOGLE_SERVICES_JSON')
+          data = json.loads(raw)
+          packages = [c.get('client_info', {}).get('android_client_info', {}).get('package_name') for c in data.get('client', [])]
+          if 'com.mohammedsamir.halaqati' not in packages:
+              raise SystemExit('Firebase package mismatch')
+          Path('app/google-services.json').write_text(raw)
+          web_client = ''
+          for client in data.get('client', []):
+              for oauth in client.get('oauth_client', []):
+                  if oauth.get('client_type') == 3 and oauth.get('client_id'):
+                      web_client = oauth['client_id']; break
+              if web_client: break
+          web_client = web_client or os.environ.get('GOOGLE_WEB_CLIENT_ID_SECRET', '').strip()
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write('GOOGLE_WEB_CLIENT_ID=' + web_client + '\n')
+          if not web_client:
+              print('NOTICE: Native Google Web Client ID is not configured; the app will use the existing Supabase Google OAuth fallback.')
+          if os.environ['VARIANT'] == 'release':
+              for name in ['KEYSTORE_B64','HALAQATI_STORE_PASSWORD','HALAQATI_KEY_ALIAS','HALAQATI_KEY_PASSWORD']:
+                  if not os.environ.get(name): raise SystemExit('Missing release signing secret: ' + name)
+              keystore = Path(os.environ['RUNNER_TEMP']) / 'halaqati-release.jks'
+              keystore.write_bytes(base64.b64decode(os.environ['KEYSTORE_B64']))
+              with open(os.environ['GITHUB_ENV'], 'a') as f:
+                  f.write('HALAQATI_KEYSTORE_PATH=' + str(keystore) + '\n')
+          print('Firebase / Google auth / legacy release signing inputs validated.')
+          PY
+          if [ "$VARIANT" = release ]; then
+            KEYSTORE="$RUNNER_TEMP/halaqati-release.jks"
+            test -s "$KEYSTORE"
+            CERT_SHA256="$(keytool -list -v \
+              -keystore "$KEYSTORE" \
+              -alias "$HALAQATI_KEY_ALIAS" \
+              -storepass "$HALAQATI_STORE_PASSWORD" 2>/dev/null \
+              | awk -F': ' '/SHA256:/{print $2; exit}')"
+            test -n "$CERT_SHA256" || { echo 'Unable to derive SHA-256 signing certificate from the legacy keystore'; exit 1; }
+            echo "HALAQATI_SIGNING_CERT_SHA256=$CERT_SHA256" >> "$GITHUB_ENV"
+            echo 'Legacy 2.44 signing keystore validated and certificate fingerprint derived.'
+          fi
+
+
+      - name: Build signed candidate and lint release
+        working-directory: source
+        env:
+          HALAQATI_STORE_PASSWORD: ${{ secrets.HALAQATI_STORE_PASSWORD }}
+          HALAQATI_KEY_ALIAS: ${{ secrets.HALAQATI_KEY_ALIAS }}
+          HALAQATI_KEY_PASSWORD: ${{ secrets.HALAQATI_KEY_PASSWORD }}
+        run: |
+          cat > "$RUNNER_TEMP/central-mirror.gradle" <<'GRADLE'
+          gradle.beforeSettings { settings ->
+            def mirror = 'https://maven-central.storage-download.googleapis.com/maven2'
+            settings.pluginManagement.repositories.maven { url = uri(mirror) }
+            settings.dependencyResolutionManagement.repositories.maven { url = uri(mirror) }
+          }
+          GRADLE
+          gradle --no-daemon --console=plain --init-script "$RUNNER_TEMP/central-mirror.gradle" :app:lintRelease :app:assembleRelease
+      - name: Verify version, package and signer against the published APK
+        run: |
+          set -euo pipefail
+          apk=source/app/build/outputs/apk/release/app-release.apk
+          sdk="$ANDROID_HOME/build-tools/36.0.0"
+          "$sdk/apksigner" verify --print-certs "$apk" > "$RUNNER_TEMP/release-signer.txt" 2>&1
+          "$sdk/aapt" dump badging "$apk" > "$RUNNER_TEMP/release-badging.txt"
+          grep -Fx 'Signer #1 certificate SHA-256 digest: 40d054f7e3e0029359ab583c86f9a14d824fae419e671e739d14e7fabd1fc6e7' "$RUNNER_TEMP/release-signer.txt"
+          grep -F "name='com.mohammedsamir.halaqati' versionCode='29117' versionName='2.91.16'" "$RUNNER_TEMP/release-badging.txt"
+          mkdir -p candidate
+          cp "$apk" candidate/Halaqati-v2.91.16-release.apk
+          (cd candidate && sha256sum Halaqati-v2.91.16-release.apk > SHA256SUMS.txt)
+      - name: Store the candidate as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: halaqati-2.91.16-signed-candidate
+          path: candidate/
+          if-no-files-found: error
+          retention-days: 7
