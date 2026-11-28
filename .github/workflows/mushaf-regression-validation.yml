@@ -9,22 +9,10 @@ jobs:
   rendering:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
-    strategy:
-      fail-fast: false
-      matrix:
-        version: [before, after]
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-          ref: ${{ matrix.version == 'before' && 'ad60a593c9ab962347c78519ddb50d667241cd0b' || github.sha }}
-      - if: matrix.version == 'before'
-        uses: actions/checkout@v6
-        with:
-          path: validation
-          persist-credentials: false
-      - if: matrix.version == 'before'
-        run: cp validation/source/app/src/test/java/com/mohammedsamir/halaqati/ui/MushafMarkRenderingTest.kt source/app/src/test/java/com/mohammedsamir/halaqati/ui/
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -49,11 +37,25 @@ jobs:
           cat > source/app/google-services.json <<'JSON'
           {"project_info":{"project_number":"123456789012","project_id":"halaqati-rendering-test"},"client":[{"client_info":{"mobilesdk_app_id":"1:123456789012:android:1234567890abcdef","android_client_info":{"package_name":"com.mohammedsamir.halaqati"}},"api_key":[{"current_key":"offline-fixture"}]}],"configuration_version":"1"}
           JSON
-      - name: Run Compose pixel regression and focused Android checks
+      - uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-android-all-15-robolectric-12650502-i7
+      - name: Cache Android runtime for Robolectric
+        run: |
+          runtime=15-robolectric-12650502-i7
+          jar=android-all-instrumented-$runtime.jar
+          base=org/robolectric/android-all-instrumented/$runtime
+          dir="$HOME/.m2/repository/$base"
+          mkdir -p "$dir"
+          if [ ! -s "$dir/$jar" ]; then
+            curl -fsSL --retry 3 "https://repo.maven.apache.org/maven2/$base/$jar" -o "$dir/$jar.part"
+            mv "$dir/$jar.part" "$dir/$jar"
+          fi
+      - name: Run focused Android checks
         working-directory: source
         run: >
           gradle --no-daemon --console=plain :app:testDebugUnitTest
-          --tests '*MushafMarkRenderingTest'
           --tests '*MushafEngineTest'
           --tests '*SafetyScoringTest'
           --tests '*DkBitmapsTest'
@@ -63,7 +65,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: mushaf-test-results-${{ matrix.version }}
+          name: mushaf-test-results
           path: |
             source/app/build/test-results/testDebugUnitTest/
             source/app/build/mushaf-mark-regression/

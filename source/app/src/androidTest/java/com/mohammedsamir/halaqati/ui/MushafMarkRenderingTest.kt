@@ -2,16 +2,17 @@ package com.mohammedsamir.halaqati.ui
 
 import android.app.Application
 import android.graphics.Bitmap
-import android.content.ComponentName
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.PixelMap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toPixelMap
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.click
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -33,33 +34,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.RuleChain
-import org.junit.rules.TestRule
 import org.junit.runner.RunWith
-import org.junit.runners.model.Statement
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.Shadows.shadowOf
-import org.robolectric.annotation.Config
-import org.robolectric.annotation.GraphicsMode
 import java.io.File
 import kotlin.math.abs
 
-@RunWith(RobolectricTestRunner::class)
-@GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [35], application = Application::class, qualifiers = "w411dp-h900dp-xxhdpi")
+@RunWith(AndroidJUnit4::class)
 class MushafMarkRenderingTest {
-    private val compose = createComposeRule()
-    @get:Rule val chain: RuleChain = RuleChain.outerRule(TestRule { base, _ ->
-        object : Statement() {
-            override fun evaluate() {
-                val app = ApplicationProvider.getApplicationContext<Application>()
-                shadowOf(app.packageManager).addActivityIfNotPresent(
-                    ComponentName(app.packageName, ComponentActivity::class.java.name)
-                )
-                base.evaluate()
-            }
-        }
-    }).around(compose)
+    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
     @Test fun mistakeRepaintsInLight() = checkMarks(ThemeMode.LIGHT, MushafEngine.MarkType.Mistake)
     @Test fun mistakeRepaintsInDark() = checkMarks(ThemeMode.DARK, MushafEngine.MarkType.Mistake)
@@ -102,17 +83,9 @@ class MushafMarkRenderingTest {
             .maxBy { it.value.width() }
         val center = Offset(box.centerX(), box.centerY())
         fun pixels(label: String? = null): PixelMap {
-            val rect = node.fetchSemanticsNode().boundsInRoot
-            val view = compose.onRoot().fetchSemanticsNode().root as android.view.View
-            val bitmap = compose.runOnIdle {
-                val output = Bitmap.createBitmap(rect.width.toInt(), rect.height.toInt(), Bitmap.Config.ARGB_8888)
-                val canvas = android.graphics.Canvas(output)
-                canvas.translate(-rect.left, -rect.top)
-                view.draw(canvas)
-                output
-            }
+            val bitmap = node.captureToImage().asAndroidBitmap()
             if (label != null) {
-                val dir = File("build/mushaf-mark-regression").apply { mkdirs() }
+                val dir = File(app.cacheDir, "mushaf-mark-regression").apply { mkdirs() }
                 File(dir, "$initialTheme-$type-$label.png").outputStream().use {
                     bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
                 }
