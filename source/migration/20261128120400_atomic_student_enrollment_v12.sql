@@ -14,7 +14,9 @@ declare
     program_id uuid;
     wanted_programs uuid[];
 begin
-    if auth.uid() is null or coalesce(public."current_role"()::text, '') not in ('admin','supervisor','teacher') then
+    if auth.uid() is null or coalesce(public."current_role"()::text, '') not in ('admin','supervisor','teacher')
+       or not exists (select 1 from public.profiles p where p.id=auth.uid() and p.active
+           and not coalesce(p.frozen,false) and p.approval_status='approved') then
         raise exception 'لا تملك صلاحية التسجيل' using errcode='42501';
     end if;
     if p_student_id is null or p_halaqa_id is null or coalesce(cardinality(p_program_ids),0)>50 then

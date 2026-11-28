@@ -3,6 +3,8 @@
 package com.mohammedsamir.halaqati.ui.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -22,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlin.math.floor
 
 /**
@@ -206,7 +209,7 @@ fun HalaqatiDateField(
     OutlinedButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.heightIn(min = 54.dp),
+        modifier = modifier.fillMaxWidth().heightIn(min = 54.dp),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -214,8 +217,18 @@ fun HalaqatiDateField(
                 Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Icon(androidx.compose.material.icons.Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))
             }
-            Text(value.toString(), style = MaterialTheme.typography.bodyMedium.copy(textDirection = androidx.compose.ui.text.style.TextDirection.Ltr),
-                fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
+            BasicText(
+                text = value.toString(),
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = LocalContentColor.current,
+                    fontWeight = FontWeight.SemiBold,
+                    textDirection = androidx.compose.ui.text.style.TextDirection.Ltr,
+                ),
+                maxLines = 1,
+                softWrap = false,
+                autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = MaterialTheme.typography.bodyMedium.fontSize, stepSize = 1.sp),
+            )
         }
     }
 }

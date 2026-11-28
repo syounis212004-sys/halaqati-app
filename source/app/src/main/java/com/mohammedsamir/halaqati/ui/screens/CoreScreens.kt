@@ -523,6 +523,7 @@ GoldenStudentCard(
             )
         } else {
         val detailProgram = visibleScopes.firstOrNull { it.id == detailScopeId }?.program == true
+        key(student.id, detailScopeId) {
         StudentDetailSheet(
             student = student,
             detailScopeId = detailScopeId,
@@ -536,6 +537,7 @@ GoldenStudentCard(
             },
             onStartRecitation = { startTodayRecitation(student) },
         )
+        }
         }
     }
 
