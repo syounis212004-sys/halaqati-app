@@ -62,6 +62,8 @@ alter policy rc66_assoc_write_del on public.sessions
   using(public.assoc_writable(public.assoc_of_halaqa(halaqa_id)));
 create policy phase4_sessions_read_scope on public.sessions as restrictive for select to authenticated
   using(public.can_access_halaqa(halaqa_id));
+create policy phase4_sessions_insert_scope on public.sessions as restrictive for insert to authenticated
+  with check(public.can_manage_halaqa(halaqa_id));
 create policy phase4_sessions_write_scope on public.sessions as restrictive for update to authenticated
   using(public.can_manage_halaqa(halaqa_id)) with check(public.can_manage_halaqa(halaqa_id));
 create policy phase4_sessions_delete_scope on public.sessions as restrictive for delete to authenticated
@@ -85,6 +87,10 @@ revoke all on function halaqati_scope_private.may_read_student(uuid) from public
 grant execute on function halaqati_scope_private.may_read_student(uuid) to authenticated;
 create policy phase4_students_read_scope on public.students as restrictive for select to authenticated
   using(halaqati_scope_private.may_read_student(id));
+create policy phase4_students_insert_scope on public.students as restrictive for insert to authenticated
+  with check(public.can_manage_halaqa(halaqa_id));
+create policy phase4_students_update_scope on public.students as restrictive for update to authenticated
+  using(public.can_manage_halaqa(halaqa_id)) with check(public.can_manage_halaqa(halaqa_id));
 create policy phase4_students_delete_scope on public.students as restrictive for delete to authenticated
   using(public.can_manage_halaqa(halaqa_id));
 
@@ -96,7 +102,9 @@ as $scope$
 select exists(select 1 from public.sessions s join public.students st on st.id=p_student
   join public.profiles p on p.id=auth.uid()
   where s.id=p_session and p.active and not p.frozen and p.approval_status='approved'
-    and (st.halaqa_id=s.halaqa_id or exists(
+    -- Existing records establish their historical scope; do not hide them just because
+    -- the student's current primary group changed. New writes still require membership.
+    and (not p_write or st.halaqa_id=s.halaqa_id or exists(
       select 1 from public.student_halaqa_memberships m where m.student_id=st.id and m.halaqa_id=s.halaqa_id
       and m.joined_at<=s.session_date and (m.ended_at is null or m.ended_at>=s.session_date)
       and m.status in ('active','completed','withdrawn','suspended')))

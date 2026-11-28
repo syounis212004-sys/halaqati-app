@@ -93,6 +93,14 @@ declare h uuid:='00000000-0000-0000-0000-000000000011'; p uuid:='00000000-0000-0
  s uuid:='00000000-0000-0000-0000-000000000031'; c uuid:='00000000-0000-0000-0000-000000000021'; result jsonb;
 begin
  if public.can_manage_halaqa(h) or exists(select 1 from public.students) or exists(select 1 from public.sessions) then raise exception 'unassigned admin can access independent records'; end if;
+ begin
+  insert into public.sessions(id,halaqa_id,status) values(gen_random_uuid(),h,'open');
+  raise exception 'unassigned admin inserted independent session';
+ exception when insufficient_privilege then null; end;
+ begin
+  insert into public.students(id,halaqa_id) values(gen_random_uuid(),h);
+  raise exception 'unassigned admin inserted independent student';
+ exception when insufficient_privilege then null; end;
  if not public.can_manage_halaqa('00000000-0000-0000-0000-000000000013') or public.can_manage_halaqa('00000000-0000-0000-0000-000000000014') then raise exception 'association admin scope wrong'; end if;
  perform set_config('fixture.actor','00000000-0000-0000-0000-000000000003',true);
  if not public.can_manage_halaqa(h) or public.can_manage_halaqa(p) or (select count(*) from public.sessions)<>1 or (select count(*) from public.attendance_records)<>1 then raise exception 'assigned teacher scope wrong'; end if;
@@ -102,6 +110,12 @@ begin
  if result#>>'{session,status}' is distinct from 'closed' then raise exception 'retry not idempotent'; end if;
  perform set_config('fixture.actor','00000000-0000-0000-0000-000000000004',true);
  if (select count(*) from public.students)<>2 or (select count(*) from public.attendance_records)<>2 then raise exception 'program teacher cannot see members or can see primary history'; end if;
+ update public.students set status='withdrawn' where id=c;
+ if found then raise exception 'secondary program teacher altered primary student identity'; end if;
+ begin
+  insert into public.attendance_records values(s,c,'absent');
+  raise exception 'program teacher inserted into other activity';
+ exception when insufficient_privilege then null; end;
  begin
   perform public.rc_transition_session_v12(s,'closed','open');
   raise exception 'unassigned teacher changed independent session';
