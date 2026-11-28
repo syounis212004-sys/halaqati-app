@@ -53,6 +53,19 @@ private fun JSONArray.rows(): List<JSONObject> = (0 until length()).mapNotNull {
 private fun roleCanManage(role: UserRole) = role in setOf(UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.TEACHER)
 private fun roleCanAdmin(role: UserRole) = role in setOf(UserRole.ADMIN, UserRole.SUPERVISOR)
 
+internal fun assignedStaffNames(ids: Set<String>, profiles: List<JSONObject>, currentId: String): String {
+    if (ids.isEmpty()) return ""
+    val names = profiles.associateBy { it.optString("id") }
+    val resolved = ids.mapNotNull { id ->
+        names[id]?.optString("full_name")?.takeIf { it.isNotBlank() && it != "null" }?.let { name ->
+            if (id == currentId) "$name (أنت)" else name
+        }
+    }
+    val missing = ids.size - resolved.size
+    return (resolved + if (missing > 0) listOf("تعذر تحميل أسماء ($missing)") else emptyList()).joinToString("، ")
+}
+
+
 
 @Composable
 fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
@@ -87,11 +100,29 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
                 val h = AppGraph.repo.table("halaqas", "select=*&order=created_at.asc&limit=200", forceRefresh = true).rows()
                 val c = AppGraph.repo.table("student_categories", "select=*&order=name.asc&limit=500", forceRefresh = true).rows()
                 val s = AppGraph.repo.students()
-                val p = if (profile.role in setOf(UserRole.ADMIN, UserRole.SUPERVISOR)) {
-                    AppGraph.repo.table("profiles", "select=id,full_name,email,role,approval_status,active&approval_status=eq.approved&active=eq.true&limit=500", forceRefresh = true).rows()
-                } else emptyList()
                 val tl = AppGraph.repo.table("halaqa_teachers", "select=*&limit=1000", forceRefresh = true).rows()
                 val sl = AppGraph.repo.table("halaqa_supervisors", "select=*&limit=1000", forceRefresh = true).rows()
+                val p = if (profile.role in setOf(UserRole.ADMIN, UserRole.SUPERVISOR)) {
+                    AppGraph.repo.table("profiles", "select=id,full_name,email,role,approval_status,active&approval_status=eq.approved&active=eq.true&limit=500", forceRefresh = true).rows()
+                } else if (profile.role == UserRole.TEACHER) {
+                    // Only request names of staff assigned to the visible, RLS-scoped halaqas.
+                    // Never broaden profiles RLS or request contact details for this display.
+                    val visibleIds = h.map { it.optString("id") }.toSet()
+                    val linkedIds = (tl.filter { it.optString("halaqa_id") in visibleIds }.map { it.optString("teacher_id") } +
+                        sl.filter { it.optString("halaqa_id") in visibleIds }.map { it.optString("supervisor_id") })
+                        .distinct().filter { id -> id != profile.id && runCatching { java.util.UUID.fromString(id).toString().equals(id, ignoreCase = true) }.getOrDefault(false) }
+                        .sorted()
+                    val scoped = if (linkedIds.isEmpty()) emptyList() else try {
+                        linkedIds.chunked(80).flatMap { ids ->
+                            AppGraph.repo.table("profiles", "select=id,full_name,role&id=in.(${ids.joinToString(",")})&limit=${ids.size}").rows()
+                        }.filter { it.optString("id") in linkedIds }
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        emptyList()
+                    }
+                    scoped + JSONObject().put("id", profile.id).put("full_name", profile.fullName).put("role", "teacher")
+                } else emptyList()
                 val ml = AppGraph.repo.studentHalaqaMemberships(forceRefresh = true).rows()
                 listOf(h, c, p, tl, sl, ml) to s
             }
@@ -167,8 +198,8 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
                 val hCats = categories.filter { it.optString("halaqa_id") == hid && it.optBoolean("active", true) }
                 val tIds = teacherLinks.filter { it.optString("halaqa_id") == hid }.map { it.optString("teacher_id") }.toSet()
                 val sIds = supervisorLinks.filter { it.optString("halaqa_id") == hid }.map { it.optString("supervisor_id") }.toSet()
-                val tNames = teachers.filter { it.optString("id") in tIds }.joinToString("، ") { it.optString("full_name", "محفّظ") }
-                val sNames = supervisors.filter { it.optString("id") in sIds }.joinToString("، ") { it.optString("full_name", "مشرف") }
+                val tNames = assignedStaffNames(tIds, teachers, profile.id)
+                val sNames = assignedStaffNames(sIds, supervisors, profile.id)
                 val hType = h.mgmtStr("halaqa_type").ifBlank { "regular" }
                 val headerPair = when (hType) {
                     "training" -> HalaqatiGradients.Blue
@@ -200,7 +231,7 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
                         categoryCount = hCats.size,
                         supervisorCount = sIds.size,
                         supervisors = sNames,
-                        teachers = tNames.ifBlank { if (profile.role == UserRole.TEACHER) "حسب الربط" else "" },
+                        teachers = tNames,
                         gradient = headerPair,
                     ),
                     expanded = expanded,
@@ -2633,6 +2664,9 @@ fun GuardianProfileNativeScreen(
                         )
                     }
                 }
+            }
+            if (profile.role == UserRole.GUARDIAN) item(key = "guardian-add-child", contentType = "add-child") {
+                AddChildCard()
             }
             if (!loading && rows.isEmpty()) item { EmptyState("لا توجد ملفات طلاب مرتبطة بهذا الحساب") }
             items(rows, key = { it.student.id }) { row ->
