@@ -72,3 +72,6 @@ Source base for knowledge setup: `e900ccb` (RC114 / 2.91.14); code is in `source
 - Never commit secrets, personal data, machine paths or raw extraction caches.
 - Record a confirmed fix or lasting decision here with a source reference;
   do not save whole conversations or duplicate the graph.
+
+## Phase-four development checkpoint (2026-11-28)
+- On existing development PR #112, phase-four plan and checkpoint are in `docs/superpowers/plans/2026-11-28-v12-phase-four.md`. Compact UI, independent educational ratings and scoped views implemented in development; new SQL 120700/120800 not applied. Staff detach blocked rather than delete assignments. Association deletion and null-scope permissions, server closure, full integration tests remain open. No release or production change.
