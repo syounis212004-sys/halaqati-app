@@ -197,11 +197,11 @@ internal fun DkReadyPage(
                                     if (!moved && hypot(ch.position.x - down.position.x, ch.position.y - down.position.y) > slop) moved = true
                                     if (tool != Tool.Tap && moved) {
                                         ch.consume()
-                                        hit(ch.position)?.let { w -> current = w; onPreview(p.span(anchor, w).toSet()) }
+                                        hit(ch.position)?.let { w -> current = w; latestPreview(p.span(anchor, w).toSet()) }
                                     }
                                 }
                             }
-                            if (tool != Tool.Tap && !finished) onPreview(emptySet())
+                            if (tool != Tool.Tap && !finished) latestPreview(emptySet())
                         }
                     },
             ) {

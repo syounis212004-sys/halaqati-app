@@ -56,6 +56,10 @@ import com.mohammedsamir.halaqati.model.*
 import com.mohammedsamir.halaqati.quran.QuranCore
 import com.mohammedsamir.halaqati.quran.QuranLocation
 import com.mohammedsamir.halaqati.quran.QuranMetadata
+import com.mohammedsamir.halaqati.quran.TilawahCategory
+import com.mohammedsamir.halaqati.quran.TilawahMark
+import com.mohammedsamir.halaqati.quran.TilawahMarks
+import com.mohammedsamir.halaqati.quran.TilawahMarkJson
 import com.mohammedsamir.halaqati.quran.QuranRangeRequest
 import com.mohammedsamir.halaqati.quran.QuranRangeResult
 import com.mohammedsamir.halaqati.quran.QuranSelection
@@ -3824,12 +3828,22 @@ private fun RecitationDialog(
     val existingTilawah = existing?.tilawahAssessment
     // Do not silently convert old assessments to the new scoring contract during an edit.
     val legacyTilawah = existing != null && (existingTilawah?.optInt("version", 1) ?: 1) < 2
-    var jaliWords by remember(existing?.id) { mutableIntStateOf(existingTilawah?.optInt("jali_words", 0)?.coerceAtLeast(0) ?: 0) }
-    var jaliLetters by remember(existing?.id) { mutableIntStateOf(existingTilawah?.optInt("jali_letters", 0)?.coerceAtLeast(0) ?: 0) }
-    var jaliHarakat by remember(existing?.id) { mutableIntStateOf(existingTilawah?.optInt("jali_harakat", 0)?.coerceAtLeast(0) ?: 0) }
+    var tilawahMarkOriginal by remember(student.id, session.id, existing?.id) { mutableStateOf(existingTilawah?.optJSONArray("marks")) }
+    var tilawahMarks by remember(student.id, session.id, existing?.id) { mutableStateOf(TilawahMarkJson.decode(tilawahMarkOriginal)) }
+    val draftOwner = remember(student.id, session.id, existing?.id) { AppGraph.repo.currentUserId() }
+    var tilawahClientId by remember(student.id, session.id, existing?.id) { mutableStateOf(existing?.id ?: java.util.UUID.randomUUID().toString()) }
+    fun initialManual(key: String, category: TilawahCategory): Int =
+        (existingTilawah?.optInt("manual_$key", (existingTilawah.optInt(key, 0) - TilawahMarks.count(tilawahMarks, category)).coerceAtLeast(0)) ?: 0).coerceAtLeast(0)
+    var jaliWords by remember(student.id, session.id, existing?.id) { mutableIntStateOf(initialManual("jali_words", TilawahCategory.WORD)) }
+    var jaliLetters by remember(student.id, session.id, existing?.id) { mutableIntStateOf(initialManual("jali_letters", TilawahCategory.LETTER)) }
+    var jaliHarakat by remember(student.id, session.id, existing?.id) { mutableIntStateOf(initialManual("jali_harakat", TilawahCategory.HARAKAH)) }
+    val totalJaliWords = TilawahMarks.total(jaliWords, tilawahMarks, TilawahCategory.WORD)
+    val totalJaliLetters = TilawahMarks.total(jaliLetters, tilawahMarks, TilawahCategory.LETTER)
+    val totalJaliHarakat = TilawahMarks.total(jaliHarakat, tilawahMarks, TilawahCategory.HARAKAH)
+    val markedMinorCount = tilawahMarks.filterNot { it.category.major }.sumOf { it.occurrences }
     var wardReviewed by remember(existing?.id) { mutableStateOf(existingTilawah?.takeIf { it.has("ward_reviewed") && !it.isNull("ward_reviewed") }?.optBoolean("ward_reviewed")) }
     var correctionAdherence by remember(existing?.id) { mutableStateOf(existingTilawah?.takeIf { it.has("correction_adherence") && !it.isNull("correction_adherence") }?.optInt("correction_adherence")?.coerceIn(0, 5)) }
-    val issueOptions = listOf("madd" to "المدود", "ghunnah" to "الغنة", "ikhfa_idgham" to "الإخفاء والإدغام", "qalqalah" to "القلقلة", "makharij" to "المخارج", "waqf" to "الوقف والابتداء")
+    val issueOptions = TilawahCategory.entries.map { it.key to it.label }
     var previousIssues by remember(student.id, session.id, existing?.id) {
         val arr = existingTilawah?.optJSONArray("previous_issue_keys")
         mutableStateOf(if (arr == null) emptySet<String>() else (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) }.toSet())
@@ -3843,6 +3857,8 @@ private fun RecitationDialog(
             previousLoading = true
             previousUnavailable = false
             previousAcknowledged = false
+            previousIssues = emptySet()
+            correctionAdherence = null
             try {
                 // Narrow, account-scoped cached projection, one lookup on entry, never on a rating change.
                 val validIds = listOf(student.id, session.halaqaId).all { id ->
@@ -3867,7 +3883,7 @@ private fun RecitationDialog(
             }
         }
     }
-    val majorErrors = if (legacyTilawah) 0 else (jaliWords.toLong() + jaliLetters + jaliHarakat).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+    val majorErrors = if (legacyTilawah) 0 else (totalJaliWords.toLong() + totalJaliLetters + totalJaliHarakat).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
 
     var tilawahRiwayah by remember(existing?.id) { mutableStateOf(existingTilawah?.optString("riwayah", "hafs")?.takeIf { it.isNotBlank() } ?: "hafs") }
     var lahnJali by remember(existing?.id) { mutableStateOf(existingTilawah?.optInt("lahn_jali", 0)?.coerceAtLeast(0) ?: 0) }
@@ -3877,7 +3893,7 @@ private fun RecitationDialog(
     var waqfRating by remember(existing?.id) { mutableStateOf(existingTilawah?.optInt("waqf_ibtida", 5)?.coerceIn(1, 5) ?: 5) }
     var fluencyRating by remember(existing?.id) { mutableStateOf(existingTilawah?.optInt("fluency", 5)?.coerceIn(1, 5) ?: 5) }
     var tilawahIssues by remember(existing?.id) {
-        val arr = existingTilawah?.optJSONArray("issue_keys")
+        val arr = existingTilawah?.optJSONArray("manual_issue_keys") ?: existingTilawah?.optJSONArray("issue_keys")
         mutableStateOf(
             if (arr == null) emptySet() else (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) }.toSet()
         )
@@ -3930,6 +3946,68 @@ private fun RecitationDialog(
         RecitationParityRules.quranRangeLabel(a.surah, a.ayah, b.surah, b.ayah, start.toIntOrNull(), end.toIntOrNull())
     } ?: manualPageRange?.displayLabel
 
+    // Draft is scoped to the exact account, session, student, record and selected range.
+    // Matching ranges restore automatically after a restart; unmatched ranges never inherit marks.
+    val markRange = selectedQuranRange ?: manualPageRange
+    val markStart = markRange?.start ?: prefillEndpoints?.first
+    val markEnd = markRange?.end ?: prefillEndpoints?.second
+    val rangeSignature = listOf(start, end, markStart?.toString().orEmpty(), markEnd?.toString().orEmpty(),
+        markRange?.orderedSegments?.joinToString(",") { it.compactKey() }.orEmpty(),
+        effectiveQcfLineKeys.joinToString(",")).joinToString("|")
+    val rangeDigest = remember(rangeSignature) {
+        java.security.MessageDigest.getInstance("SHA-256").digest(rangeSignature.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it.toInt() and 255) }
+    }
+    val tilawahDraftKey = if (isTilawah && !legacyTilawah && pageValue > 0.0 && markStart != null && markEnd != null)
+        "tilawah-draft-v2:${session.halaqaId}:${session.id}:${student.id}:${existing?.id ?: "new"}:$rangeDigest:" else null
+    var loadedDraftKey by remember(student.id, session.id, existing?.id) { mutableStateOf<String?>(null) }
+    var draftReadError by remember(student.id, session.id, existing?.id) { mutableStateOf<String?>(null) }
+    var draftRetry by remember(student.id, session.id, existing?.id) { mutableIntStateOf(0) }
+    var restoredDraft by remember(student.id, session.id, existing?.id) { mutableStateOf(false) }
+    val draftReady = tilawahDraftKey != null && tilawahDraftKey == loadedDraftKey && draftReadError == null
+
+    fun insideTilawahRange(surah: Int, ayah: Int, page: Int): Boolean {
+        val pgStart = mushafRangeStartPage ?: return false
+        val pgEnd = markRange?.endPage ?: end.toIntOrNull() ?: return false
+        if (page !in minOf(pgStart, pgEnd)..maxOf(pgStart, pgEnd)) return false
+        val id = runCatching { QuranMetadata.globalAyah(surah, ayah) }.getOrNull() ?: return false
+        fun contains(a: com.mohammedsamir.halaqati.quran.QuranLocation, b: com.mohammedsamir.halaqati.quran.QuranLocation): Boolean {
+            val x = QuranMetadata.globalAyah(a.surah, a.ayah)
+            val y = QuranMetadata.globalAyah(b.surah, b.ayah)
+            return id in minOf(x, y)..maxOf(x, y)
+        }
+        val segments = markRange?.orderedSegments.orEmpty()
+        if (segments.isNotEmpty()) return segments.any { contains(it.start, it.end) }
+        return markStart != null && markEnd != null && contains(markStart, markEnd)
+    }
+
+    LaunchedEffect(tilawahDraftKey, draftOwner, draftRetry) {
+        val key = tilawahDraftKey ?: return@LaunchedEffect
+        loadedDraftKey = null
+        draftReadError = null
+        restoredDraft = false
+        try {
+            val owner = requireNotNull(draftOwner) { "لا يوجد حساب نشط" }
+            val cached = withContext(Dispatchers.IO) {
+                check(AppGraph.repo.currentUserId() == owner) { "تغير الحساب" }
+                AppGraph.cache.get(owner, key)?.let { JSONObject(it) }
+            }
+            if (cached != null) {
+                val rows = cached.optJSONArray("marks") ?: error("مسودة غير صالحة")
+                val restored = TilawahMarkJson.decode(rows)
+                require(restored.all { mark -> com.mohammedsamir.halaqati.quran.MushafEngine.parseWordId(mark.wordId)?.let { insideTilawahRange(it.first, it.second, mark.page) } == true }) { "نطاق المسودة لا يطابق المقرر" }
+                val restoredId = java.util.UUID.fromString(cached.getString("client_id")).toString()
+                require(existing == null || restoredId == existing.id) { "معرف المسودة غير مطابق" }
+                tilawahMarkOriginal = rows
+                tilawahMarks = restored
+                tilawahClientId = restoredId
+                restoredDraft = true
+            }
+            loadedDraftKey = key
+        } catch (e: CancellationException) { throw e }
+        catch (e: Exception) { draftReadError = e.message ?: "تعذر استعادة المسودة" }
+    }
+
     val recitationSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
         onDismissRequest = { if (!saving) close() },
@@ -3969,7 +4047,11 @@ private fun RecitationDialog(
                     val (value, label, icon) = option
                     ProFilterChip(
                         selected = resolvedActivityType == value,
-                        onClick = { resolvedActivityType = value; selectedQuranRange = null; effectiveQcfLineKeys = emptyList(); pages = "0" },
+                        onClick = {
+                            if (value != resolvedActivityType && tilawahMarks.isEmpty()) {
+                                resolvedActivityType = value; selectedQuranRange = null; effectiveQcfLineKeys = emptyList(); pages = "0"
+                            }
+                        },
                         label = label,
                         modifier = itemModifier.fillMaxWidth(),
                         showCheckIcon = false,
@@ -4002,13 +4084,30 @@ private fun RecitationDialog(
                         }
                         Button(
                             onClick = { showQuranPicker = true },
+                            enabled = tilawahMarks.isEmpty() && !saving,
                             modifier = Modifier.fillMaxWidth().heightIn(min = HalaqatiUiTokens.TouchTarget),
                         ) {
                             Icon(Icons.Default.AutoStories, contentDescription = "اختيار النطاق من المصحف")
                             Spacer(Modifier.width(7.dp))
                             Text(if (visibleRangeLabel == null) "اختيار المقرر من المصحف" else "تعديل المقرر")
                         }
-                        if (!isTilawah && pageValue > 0.0001) {
+                        if (isTilawah && !legacyTilawah && pageValue > 0.0001) {
+                            if (restoredDraft) Text("تمت استعادة علامات المسودة المحفوظة محليًا.", style = MaterialTheme.typography.bodySmall)
+                            draftReadError?.let { msg ->
+                                Text(msg, color = MaterialTheme.colorScheme.error)
+                                TextButton(onClick = { draftRetry++ }) { Text("إعادة محاولة استعادة المسودة") }
+                            }
+                            if (tilawahMarks.isNotEmpty()) Text("امحُ العلامات أولاً إذا أردت تغيير نطاق القراءة.", style = MaterialTheme.typography.bodySmall)
+                            OutlinedButton(
+                                onClick = { mushafStartPage = mushafRangeStartPage ?: 1; mushafEpoch++; showMushaf = true },
+                                enabled = draftReady && !saving,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = HalaqatiUiTokens.TouchTarget),
+                            ) {
+                                Icon(Icons.Default.Edit, contentDescription = null)
+                                Spacer(Modifier.width(7.dp))
+                                Text("تعليم أخطاء التلاوة والتصحيحات")
+                            }
+                        } else if (!isTilawah && pageValue > 0.0001) {
                             OutlinedButton(
                                 onClick = { mushafStartPage = mushafRangeStartPage ?: 1; if (mushafSession.isEmpty) mushafEpoch++; showMushaf = true },
                                 modifier = Modifier.fillMaxWidth().heightIn(min = HalaqatiUiTokens.TouchTarget),
@@ -4058,13 +4157,14 @@ private fun RecitationDialog(
                                 TilawahRatingRow("الوقف والابتداء", waqfRating) { waqfRating = it }
                                 TilawahRatingRow("الطلاقة والترتيل", fluencyRating) { fluencyRating = it }
                             } else {
-                                Text("أخطاء اللحن الجلي", style = MaterialTheme.typography.labelLarge)
+                                Text("أخطاء اللحن الجلي (علامات المصحف + الإضافات اليدوية)", style = MaterialTheme.typography.labelLarge)
+                                if (tilawahMarks.isNotEmpty()) Text("على المصحف: ${tilawahMarks.size} علامة · اللحن الخفي: $markedMinorCount. العدادات أدناه تضيف أخطاء غير معلّمة فقط.", style = MaterialTheme.typography.bodySmall)
                                 ResponsiveChipGrid(items = listOf("word", "letter", "harakah"), minItemWidth = 104.dp, maxColumns = 3) { key, itemModifier ->
                                     Box(itemModifier.fillMaxWidth()) {
                                         when (key) {
-                                            "word" -> RecitationCounter("الكلمات", jaliWords, { jaliWords = (jaliWords - 1).coerceAtLeast(0) }, { jaliWords++ })
-                                            "letter" -> RecitationCounter("الحروف", jaliLetters, { jaliLetters = (jaliLetters - 1).coerceAtLeast(0) }, { jaliLetters++ })
-                                            else -> RecitationCounter("الحركات", jaliHarakat, { jaliHarakat = (jaliHarakat - 1).coerceAtLeast(0) }, { jaliHarakat++ })
+                                            "word" -> RecitationCounter("الكلمات", totalJaliWords, { jaliWords = (jaliWords - 1).coerceAtLeast(0) }, { if (jaliWords < Int.MAX_VALUE) jaliWords++ })
+                                            "letter" -> RecitationCounter("الحروف", totalJaliLetters, { jaliLetters = (jaliLetters - 1).coerceAtLeast(0) }, { if (jaliLetters < Int.MAX_VALUE) jaliLetters++ })
+                                            else -> RecitationCounter("الحركات", totalJaliHarakat, { jaliHarakat = (jaliHarakat - 1).coerceAtLeast(0) }, { if (jaliHarakat < Int.MAX_VALUE) jaliHarakat++ })
                                         }
                                     }
                                 }
@@ -4170,7 +4270,7 @@ private fun RecitationDialog(
                     modifier = Modifier.weight(.8f).heightIn(min = 52.dp),
                 ) { Text("إلغاء") }
                 Button(
-                    enabled = !saving && pageValue > 0.0 && (!isTilawah || legacyTilawah || (wardReviewed != null && !previousLoading && (!previousUnavailable || previousAcknowledged) && (previousIssues.isEmpty() || correctionAdherence != null))),
+                    enabled = !saving && pageValue > 0.0 && (!isTilawah || legacyTilawah || (wardReviewed != null && !previousLoading && (!previousUnavailable || previousAcknowledged) && (previousIssues.isEmpty() || correctionAdherence != null) && draftReady)),
                     modifier = Modifier.weight(1.4f).heightIn(min = 52.dp),
                     onClick = {
                         saving = true
@@ -4195,7 +4295,11 @@ private fun RecitationDialog(
                                 val authoritativeQcfLineKeys = authoritativeQuranRange?.qcfLineKeys ?: effectiveQcfLineKeys
                                 val authoritativePages = if (authoritativeQcfLineKeys.isNotEmpty()) authoritativeQcfLineKeys.distinct().size.toDouble() / 15.0 else pageValue
                                 val savedId = withContext(Dispatchers.IO) {
-                                    AppGraph.repo.saveRecitation(
+                                    if (isTilawah && !legacyTilawah) {
+                                        check(draftReady && AppGraph.repo.currentUserId() == draftOwner) { "تعذر تأكيد الحساب أو المسودة" }
+                                        require(tilawahMarks.all { mark -> com.mohammedsamir.halaqati.quran.MushafEngine.parseWordId(mark.wordId)?.let { insideTilawahRange(it.first, it.second, mark.page) } == true }) { "توجد علامات خارج المقرر" }
+                                    }
+                                    val id = AppGraph.repo.saveRecitation(
                                         RecitationDraft(
                                             studentId = student.id,
                                             sessionId = session.id,
@@ -4213,7 +4317,7 @@ private fun RecitationDialog(
                                             smartPlanDate = smartPlanDate,
                                             qcfLineKeys = authoritativeQuranRange?.qcfLineKeys ?: effectiveQcfLineKeys,
                                             inputMethod = authoritativeQuranRange?.inputMethod ?: existing?.inputMethod ?: "pages",
-                                            clientId = existing?.id,
+                                            clientId = if (isTilawah && !legacyTilawah) tilawahClientId else existing?.id,
                                             startSurah = authoritativeQuranRange?.start?.surah,
                                             startAyah = authoritativeQuranRange?.start?.ayah,
                                             endSurah = authoritativeQuranRange?.end?.surah,
@@ -4240,10 +4344,14 @@ private fun RecitationDialog(
                                                 .put("version", 2)
                                                 .put("riwayah", "hafs")
                                                 .put("lahn_jali", majorErrors)
-                                                .put("lahn_khafi", 0)
-                                                .put("jali_words", jaliWords)
-                                                .put("jali_letters", jaliLetters)
-                                                .put("jali_harakat", jaliHarakat)
+                                                .put("lahn_khafi", markedMinorCount)
+                                                .put("jali_words", totalJaliWords)
+                                                .put("jali_letters", totalJaliLetters)
+                                                .put("jali_harakat", totalJaliHarakat)
+                                                .put("manual_jali_words", jaliWords)
+                                                .put("manual_jali_letters", jaliLetters)
+                                                .put("manual_jali_harakat", jaliHarakat)
+                                                .put("marks", TilawahMarkJson.encode(tilawahMarks, tilawahMarkOriginal))
                                                 .put("makharij", makharijRating)
                                                 .put("tajweed", tajweedRating)
                                                 .put("waqf_ibtida", waqfRating)
@@ -4251,7 +4359,8 @@ private fun RecitationDialog(
                                                 .put("correction_adherence", correctionAdherence.takeIf { previousIssues.isNotEmpty() } ?: JSONObject.NULL)
                                                 .put("previous_lookup_status", if (previousUnavailable) "unavailable" else "available")
                                                 .put("previous_issue_keys", org.json.JSONArray(previousIssues.sorted()))
-                                                .put("issue_keys", org.json.JSONArray(tilawahIssues.sorted()))
+                                                .put("manual_issue_keys", org.json.JSONArray(tilawahIssues.sorted()))
+                                                .put("issue_keys", org.json.JSONArray((tilawahIssues + tilawahMarks.filterNot { it.corrected }.map { it.category.key }).sorted()))
                                                 .put("overall_score", kotlin.math.round(tilawahScore * 10.0) / 10.0)
                                                 .put("manual_teacher_assessment", true)
                                             else null,
@@ -4259,6 +4368,11 @@ private fun RecitationDialog(
                                             createdAt = existing?.createdAt,
                                         ),
                                     )
+                                    // The durable existing outbox owns the complete record now. Clearing a
+                                    // local draft is best effort; the stable client id makes retry idempotent.
+                                    if (isTilawah && !legacyTilawah && draftOwner != null && tilawahDraftKey != null)
+                                        runCatching { AppGraph.cache.invalidate(draftOwner, tilawahDraftKey) }
+                                    id
                                 }
                                 onSaved(savedId)
                             } catch (e: kotlinx.coroutines.CancellationException) {
@@ -4304,9 +4418,10 @@ private fun RecitationDialog(
             session = mushafSession,
             rangeStartPage = mushafRangeStartPage,
             rangeEndPage = selectedQuranRange?.endPage ?: end.toIntOrNull(),
-            counters = { mistakeValue to promptValue },
-            score = { MushafScore(safety, recitationEvaluationAr(evaluation), pageValue) },
+            counters = { if (isTilawah) majorErrors to markedMinorCount else mistakeValue to promptValue },
+            score = { MushafScore(effectiveSafety, recitationEvaluationAr(effectiveEvaluation), pageValue) },
             inRange = { s, a, pg ->
+                if (isTilawah) insideTilawahRange(s, a, pg) else {
                 val rng = selectedQuranRange
                 val rs = rng?.start; val re = rng?.end
                 when {
@@ -4317,6 +4432,7 @@ private fun RecitationDialog(
                         sp != null && ep != null && pg in kotlin.math.min(sp, ep)..kotlin.math.max(sp, ep)
                     }
                 }
+                }
             },
             onMark = { dm, dp ->
                 mistakes = ((mistakes.toIntOrNull() ?: 0) + dm).coerceAtLeast(0).toString()
@@ -4324,6 +4440,20 @@ private fun RecitationDialog(
                 mushafTick++
             },
             onDismiss = { showMushaf = false; mushafTick++ },
+            tilawahMarks = tilawahMarks.takeIf { isTilawah && !legacyTilawah },
+            onTilawahMarksChange = { next ->
+                val owner = requireNotNull(draftOwner)
+                val key = requireNotNull(tilawahDraftKey)
+                check(draftReady)
+                val rows = TilawahMarkJson.encode(next, tilawahMarkOriginal)
+                val payload = JSONObject().put("client_id", tilawahClientId).put("marks", rows)
+                withContext(Dispatchers.IO + NonCancellable) {
+                    check(AppGraph.repo.currentUserId() == owner) { "تغير الحساب" }
+                    AppGraph.cache.put(owner, key, payload.toString())
+                }
+                tilawahMarkOriginal = rows
+                tilawahMarks = next
+            },
         )
     }
 }

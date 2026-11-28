@@ -188,7 +188,8 @@ fun MushafMarkingDialog(
     tilawahMarks: List<TilawahMark>? = null,
     onTilawahMarksChange: suspend (List<TilawahMark>) -> Unit = {},
 ) {
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false,
+        dismissOnBackPress = tilawahMarks == null, dismissOnClickOutside = tilawahMarks == null)) {
         MushafScreenContent(session, rangeStartPage, counters, score, inRange, onMark, onDismiss, rangeEndPage = rangeEndPage,
             tilawahMarks = tilawahMarks, onTilawahMarksChange = onTilawahMarksChange)
     }
