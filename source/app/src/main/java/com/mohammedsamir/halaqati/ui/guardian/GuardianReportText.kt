@@ -43,6 +43,19 @@ object GuardianReportText {
             append('\n')
             praise.forEach { append("✨ ").append(it).append('\n') }
         }
+        val education = o.education.filter { it.date.startsWith(String.format(Locale.US, "%04d-%02d", year, month)) }
+        if (education.isNotEmpty()) {
+            append("\n*الأنشطة التربوية*\n")
+            education.forEach { a ->
+                append("• ${a.date} — ${a.title}")
+                if (a.halaqaName.isNotBlank()) append(" · ${a.halaqaName}")
+                a.scores["general"]?.let { append(": $it/5") }
+                append('\n')
+                com.mohammedsamir.halaqati.ui.sessions.EducationScoreRules.detailed.forEach { (key,label) ->
+                    a.scores[key]?.let { append("  $label: $it/5\n") }
+                }
+            }
+        }
         val latest = o.latest.take(3)
         if (latest.isNotEmpty()) {
             append('\n')

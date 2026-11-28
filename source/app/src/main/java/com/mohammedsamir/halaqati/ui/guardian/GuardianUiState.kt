@@ -38,6 +38,11 @@ import org.json.JSONObject
     val quality: Double?,
 )
 
+@Immutable data class GuardianEducationAssessment(
+    val sessionId: String, val date: String, val title: String, val halaqaName: String,
+    val scores: Map<String, Int>,
+)
+
 @Immutable data class GuardianOverview(
     val childName: String,
     val tathbit: Boolean,
@@ -62,6 +67,7 @@ import org.json.JSONObject
     val lastDay: GuardianLastDay? = null,
     val childPhoto: String? = null,
     val program: Boolean = false,
+    val education: List<GuardianEducationAssessment> = emptyList(),
 ) {
     val planComplete: Boolean get() = planActivities.isNotEmpty() && planActivities.filter { it.hasTarget }.let { it.isNotEmpty() && it.all(GuardianPlanActivity::complete) }
 
@@ -144,8 +150,24 @@ import org.json.JSONObject
                     quality = r.doubleOrNull("quality"),
                 )
             }
+            val educationArray = json.optJSONArray("educational_assessments")
+            val education = (0 until (educationArray?.length() ?: 0)).mapNotNull { educationArray?.optJSONObject(it) }
+                .filter { it.optString("session_id").isNotBlank() }
+                .groupBy { it.optString("session_id") }
+                .mapNotNull { (sessionId, rows) ->
+                    val session = rows.firstOrNull()?.optJSONObject("sessions") ?: return@mapNotNull null
+                    val grades = rows.mapNotNull { row ->
+                        val key = row.optString("metric")
+                        val score = row.optInt("score")
+                        if (com.mohammedsamir.halaqati.ui.sessions.EducationScoreRules.valid(key,score)) key to score else null
+                    }.toMap()
+                    if (grades.isEmpty()) null else GuardianEducationAssessment(sessionId,
+                        session.optString("session_date"),session.optString("title").ifBlank { "نشاط تربوي" },
+                        session.optJSONObject("halaqas")?.optString("name").orEmpty(), grades)
+                }.sortedByDescending { it.date }
             return GuardianOverview(
                 childName = student.text("full_name") ?: "طالب",
+                education = education,
                 childPhoto = student.text("photo_path"),
                 tathbit = tathbit,
                 trackLabel = if (program) "" else if (tathbit) "التثبيت" else "الحفظ العام",

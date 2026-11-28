@@ -108,6 +108,14 @@ fun GuardianHomeScreen(
                         if (overview.planTitle != null) item(key = "plan", contentType = "plan") { PlanCard(overview) }
                         item(key = "metrics", contentType = "metrics") { MetricsStrip(overview) }
                         item(key = "weekly", contentType = "weekly") { WeeklySummaryCard(overview) }
+                        if (overview.education.isNotEmpty()) {
+                            item(key = "education-title", contentType = "title") {
+                                Text("الأنشطة التربوية", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            }
+                            items(overview.education.take(8), key = { "education-" + it.sessionId }, contentType = { "education" }) { assessment ->
+                                GuardianEducationCard(assessment)
+                            }
+                        }
                         if (overview.latest.isNotEmpty()) {
                             item(key = "latest-title", contentType = "title") {
                                 Text("آخر التسميعات", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -388,3 +396,28 @@ private fun num(v: Double): String {
 }
 
 private fun shortTime(iso: String): String = com.mohammedsamir.halaqati.ui.components.GazaTime.shortDateTime(iso).takeIf { iso.isNotBlank() }.orEmpty()
+
+
+@Composable
+private fun GuardianEducationCard(a: GuardianEducationAssessment) {
+    ElevatedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.School, null, tint = MaterialTheme.colorScheme.primary)
+                Column(Modifier.weight(1f)) {
+                    Text(a.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(listOf(a.date,a.halaqaName).filter { it.isNotBlank() }.joinToString(" · "), style = MaterialTheme.typography.labelSmall)
+                }
+                a.scores["general"]?.let { Text("$it/5", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
+            }
+            com.mohammedsamir.halaqati.ui.sessions.EducationScoreRules.detailed.forEach { (key,label) ->
+                a.scores[key]?.let { score ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(label, style = MaterialTheme.typography.bodySmall)
+                        Text("$score/5 · ${com.mohammedsamir.halaqati.ui.sessions.EducationScoreRules.label(score)}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+        }
+    }
+}
