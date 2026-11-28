@@ -3420,6 +3420,7 @@ private fun SessionSmartPlanCard(
     onRecite: (String, PlanSnapshot?) -> Unit,
 ) {
     val allowedKeys = SessionWorkflowRules.planKeysForSession(sessionType)
+    val sessionDay = remember(sessionDate) { runCatching { LocalDate.parse(sessionDate) }.getOrNull() }
     val activities = snapshots.flatMap { snapshot ->
         snapshot.activities.filter { it.key in allowedKeys }.map { activity -> snapshot to activity }
     }
@@ -3454,15 +3455,19 @@ private fun SessionSmartPlanCard(
                 }
             }
 
-            (snapshots.mapNotNull { it.lastRecitation } + activities.mapNotNull { (_, activity) -> activity.lastRecitation })
+            val lastRecitation = (snapshots.mapNotNull { it.lastRecitation } + activities.mapNotNull { (_, activity) -> activity.lastRecitation })
                 .distinctBy { it.id }
-                .filter { it.date <= sessionDate && SessionWorkflowRules.matchesRecitation(sessionType, it.activityType) }
-                .maxWithOrNull(compareBy<SmartPlanEngine.Recitation> { it.date }.thenBy { it.createdAt })?.let { last ->
+                .filter { SessionWorkflowRules.eligibleLatest(sessionType, it.activityType, it.date, sessionDay) }
+                .maxWithOrNull(compareBy<SmartPlanEngine.Recitation> { it.date }.thenBy { it.createdAt })
+            lastRecitation?.let { last ->
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text("${if (sessionType == "sard") "آخر سرد" else "آخر تسميع"} · ${last.date}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("${assignmentKindAr(last.activityType)} · ${smartRecitationRangeText(last)}", style = MaterialTheme.typography.bodySmall)
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+            }
+            if (sessionType == "sard" && lastRecitation == null) {
+                Text("لا يوجد سرد سابق ضمن البيانات المتاحة", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             if (tathbit != null) {
@@ -3832,8 +3837,10 @@ private fun RecitationDialog(
     var tilawahMarks by remember(student.id, session.id, existing?.id) { mutableStateOf(TilawahMarkJson.decode(tilawahMarkOriginal)) }
     val draftOwner = remember(student.id, session.id, existing?.id) { AppGraph.repo.currentUserId() }
     var tilawahClientId by remember(student.id, session.id, existing?.id) { mutableStateOf(existing?.id ?: java.util.UUID.randomUUID().toString()) }
-    fun initialManual(key: String, category: TilawahCategory): Int =
-        (existingTilawah?.optInt("manual_$key", (existingTilawah.optInt(key, 0) - TilawahMarks.count(tilawahMarks, category)).coerceAtLeast(0)) ?: 0).coerceAtLeast(0)
+    fun initialManual(key: String, category: TilawahCategory): Int {
+        val assessment = existingTilawah ?: return 0
+        return assessment.optInt("manual_$key", (assessment.optInt(key, 0) - TilawahMarks.count(tilawahMarks, category)).coerceAtLeast(0)).coerceAtLeast(0)
+    }
     var jaliWords by remember(student.id, session.id, existing?.id) { mutableIntStateOf(initialManual("jali_words", TilawahCategory.WORD)) }
     var jaliLetters by remember(student.id, session.id, existing?.id) { mutableIntStateOf(initialManual("jali_letters", TilawahCategory.LETTER)) }
     var jaliHarakat by remember(student.id, session.id, existing?.id) { mutableIntStateOf(initialManual("jali_harakat", TilawahCategory.HARAKAH)) }
@@ -4277,6 +4284,8 @@ private fun RecitationDialog(
                         error = null
                         scope.launch {
                             try {
+                                if (existing == null && SessionWorkflowRules.usesRecitationTools(session.type))
+                                    require(SessionWorkflowRules.matchesRecitation(session.type, resolvedActivityType)) { "نوع التسميع لا يطابق نوع الجلسة" }
                                 val startPage = start.toIntOrNull()
                                 val endPage = end.toIntOrNull()
                                 if (startPage != null && startPage !in 1..604) error("صفحة البداية يجب أن تكون بين 1 و604")

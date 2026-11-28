@@ -32,6 +32,7 @@ object TilawahMarks {
             val mark = TilawahMark(id, page, category, note = note.trim(), subtype = subtype.trim())
             val old = next[mark.markId]
             require(old == null || old.page == page) { "موضع العلامة غير متطابق" }
+            require(old == null || old.occurrences < 99) { "تم بلوغ الحد الأقصى لتكرار هذه العلامة" }
             next[mark.markId] = old?.copy(
                 occurrences = old.occurrences + 1, corrected = false,
                 note = mark.note.ifBlank { old.note }, subtype = mark.subtype.ifBlank { old.subtype },

@@ -82,6 +82,9 @@ object SessionWorkflowRules {
         else -> false
     }
 
+    fun eligibleLatest(sessionType: String, activityType: String, recitationDay: java.time.LocalDate, sessionDay: java.time.LocalDate?): Boolean =
+        sessionDay != null && !recitationDay.isAfter(sessionDay) && matchesRecitation(sessionType, activityType)
+
     fun quickActivities(sessionType: String, program: Boolean, tathbitStudent: Boolean): List<Pair<String, String>> =
         when {
             sessionType == "test" -> listOf("test" to "اختبار")

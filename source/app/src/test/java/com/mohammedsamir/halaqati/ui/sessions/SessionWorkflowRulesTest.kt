@@ -127,4 +127,14 @@ class SessionWorkflowRulesTest {
         assertFalse(SessionWorkflowRules.canTransition("closed","planned"))
         assertFalse(SessionWorkflowRules.canTransition("cancelled","open"))
     }
+
+    @org.junit.Test
+    fun latestRecitationMatchesTypeAndDate() {
+        val day = java.time.LocalDate.parse("2026-11-28")
+        org.junit.Assert.assertTrue(SessionWorkflowRules.eligibleLatest("sard", "sard", day.minusDays(1), day))
+        org.junit.Assert.assertTrue(SessionWorkflowRules.eligibleLatest("sard", "sard", day, day))
+        org.junit.Assert.assertFalse(SessionWorkflowRules.eligibleLatest("sard", "sard", day.plusDays(1), day))
+        org.junit.Assert.assertFalse(SessionWorkflowRules.eligibleLatest("sard", "new_hifz", day, day))
+        org.junit.Assert.assertFalse(SessionWorkflowRules.eligibleLatest("sard", "sard", day, null))
+    }
 }
