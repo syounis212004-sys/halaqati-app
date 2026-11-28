@@ -224,6 +224,7 @@ fun HalaqatiDateField(
                     color = LocalContentColor.current,
                     fontWeight = FontWeight.SemiBold,
                     textDirection = androidx.compose.ui.text.style.TextDirection.Ltr,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Right,
                 ),
                 maxLines = 1,
                 softWrap = false,

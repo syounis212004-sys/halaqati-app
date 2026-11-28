@@ -24,6 +24,27 @@ object SessionWorkflowRules {
         else -> "حالة غير معروفة"
     }
 
+    fun displayStatus(status: String, date: String, archived: Boolean, today: java.time.LocalDate): String {
+        if (archived) return "مؤرشفة"
+        if (status == "cancelled") return "ملغاة"
+        if (status == "closed") return "منتهية"
+        val day = runCatching { java.time.LocalDate.parse(date) }.getOrNull() ?: return statusLabel(status)
+        return when {
+            day.isAfter(today) -> "قادمة"
+            day.isBefore(today) -> "منتهية"
+            status == "planned" -> "قادمة"
+            status == "open" -> "جارية"
+            else -> statusLabel(status)
+        }
+    }
+
+    fun canRecord(status: String, archived: Boolean, date: String, today: java.time.LocalDate): Boolean =
+        !archived && status in setOf("open", "closed") &&
+            runCatching { !java.time.LocalDate.parse(date).isAfter(today) }.getOrDefault(false)
+
+    fun usesRecitationTools(type: String): Boolean =
+        type in setOf("tasmee", "sard", "review", "test", "tajweed", "tilawah")
+
     const val NOT_RECITED_MARKER = "halaqati:not_recited"
 
     enum class StudentState {

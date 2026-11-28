@@ -187,8 +187,20 @@ fun AccountsAndApprovalsScreen(profile: Profile, pending: Int, onRefresh: () -> 
     var approvals by androidx.compose.runtime.saveable.rememberSaveable(profile.id, initialApprovals) { mutableStateOf(initialApprovals) }
     val tabs: @Composable () -> Unit = {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = approvals, onClick = { approvals = true }, label = { Text("طلبات الاعتماد") }, modifier = Modifier.weight(1f))
-            FilterChip(selected = !approvals, onClick = { approvals = false }, label = { Text("الحسابات") }, modifier = Modifier.weight(1f))
+            listOf(true to "طلبات الاعتماد", false to "الحسابات").forEach { (isApprovals, title) ->
+                val selected = approvals == isApprovals
+                FilterChip(
+                    selected = selected, onClick = { approvals = isApprovals },
+                    label = {
+                        Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                            Icon(if (isApprovals) Icons.Default.AssignmentTurnedIn else Icons.Default.Groups, contentDescription = null, modifier = Modifier.size(22.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
+                        }
+                    },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                )
+            }
         }
     }
     if (approvals) ApprovalsScreen(profile, unified = true, tabs = tabs)
