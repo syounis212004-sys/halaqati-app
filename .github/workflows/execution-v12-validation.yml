@@ -124,6 +124,7 @@ jobs:
             source/build/reports/profile/
             ${{ runner.temp }}/gradle-gc.log*
             ${{ runner.temp }}/gradle-crash-*.log
+            ${{ runner.temp }}/gradle-threads-*.log
             source/offline-db/build/reports/
             source/app/build/reports/lint-results-*.xml
             source/app/build/reports/lint-results-*.html
