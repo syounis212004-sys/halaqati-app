@@ -3420,6 +3420,41 @@ class HalaqatiRepository(
             .getOrElse { cached ?: JSONArray() }
     }
 
+
+    /** Relationship rows, not email or legacy primary display pointers, are the authority. */
+    fun guardianLinks(studentId: String, forceRefresh: Boolean = false): List<StudentGuardianRules.GuardianOption> {
+        require(studentId.isNotBlank()) { "الطالب غير صالح" }
+        val query = "select=guardian_id&student_id=eq.$studentId&order=guardian_id.asc"
+        val owner = currentUserId() ?: error("الجلسة غير صالحة")
+        val rows = if (forceRefresh && online()) {
+            withAuthRetry { api.select("student_guardians", query) }.also {
+                cache.put(owner, "table:student_guardians:${query.hashCode()}", it.toString())
+            }
+        } else table("student_guardians", query)
+        val accounts = guardianAccounts(forceRefresh)
+        val options = (0 until accounts.length()).mapNotNull { i -> accounts.optJSONObject(i) }.map { row ->
+            StudentGuardianRules.GuardianOption(
+                id = row.optString("id"),
+                fullName = row.optString("full_name").ifBlank { "ولي أمر مرتبط" },
+                email = row.optString("email").takeIf { it.isNotBlank() && it != "null" },
+                phone = row.optString("phone").takeIf { it.isNotBlank() && it != "null" },
+            )
+        }
+        val ids = (0 until rows.length()).mapNotNull { rows.optJSONObject(it)?.optString("guardian_id") }
+        return StudentGuardianRules.linkedOptions(ids, options)
+    }
+
+    /** Administrative removal needs server confirmation; it must never enter the legacy outbox. */
+    fun unlinkGuardian(studentId: String, guardianId: String, reason: String) {
+        requireConfirmedMutationConnection()
+        require(studentId.isNotBlank() && guardianId.isNotBlank() && reason.isNotBlank())
+        val result = rpcObject("rc_unlink_guardian", JSONObject()
+            .put("p_student_id", studentId).put("p_guardian_id", guardianId).put("p_reason", reason.trim()))
+        check(result.optBoolean("ok", false)) { result.optString("error").ifBlank { "تعذر إزالة الارتباط" } }
+        invalidateTableCache("student_guardians")
+        currentUserId()?.let { cache.invalidate(it, CACHE_GUARDIAN_ACCOUNTS) }
+    }
+
     private fun pendingPrimaryGuardianId(studentId: String): Pair<Boolean, String?> {
         val pending = queueSnapshot(2_000)
             .asSequence()

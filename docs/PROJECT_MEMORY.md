@@ -39,6 +39,10 @@ Source base for knowledge setup: `e900ccb` (RC114 / 2.91.14); code is in `source
 - Exiting the Android session editor leaves unobserved attendance unchanged.
   New session dialogs derive activity choices from the selected scope.
 
+
+- Phase-one Android follow-up: unified admin accounts/approval hub keeps old approval route for deep links; teachers and supervisors retain scoped inboxes. Guardian relationship list uses student_guardians, not primary or email. Legacy single-guardian writes removed from student editor; selective unlink requires acknowledged RPC and reason.
+- Production migrations 20261128111716 (legacy association backfill) and 20261128112140 (explicit equal guardian links) are already applied. Never replay them. Proposed program_stage migration 20261128120300 is separate and not applied by Android development. See [phase-one plan](superpowers/plans/2026-11-28-v12-phase-one-ui.md).
+
 ## Known limitations / unfinished work
 - External CircleCI reports "No configuration was found"; this already occurs
   on baseline `e900ccb`. The independent knowledge GitHub Actions job is the

@@ -61,7 +61,7 @@ fun StudentProfileScreen(
     var recitations by remember(studentId) { mutableStateOf<List<JSONObject>>(emptyList()) }
     var attendance by remember(studentId) { mutableStateOf<List<JSONObject>>(emptyList()) }
     var weekSessions by remember(studentId) { mutableStateOf<List<JSONObject>>(emptyList()) }
-    var guardian by remember(studentId) { mutableStateOf<StudentGuardianRules.GuardianOption?>(null) }
+    var guardians by remember(studentId) { mutableStateOf<List<StudentGuardianRules.GuardianOption>>(emptyList()) }
     var monthlyComment by remember(studentId) { mutableStateOf<JSONObject?>(null) }
     var editFollowUpNote by remember(studentId) { mutableStateOf(false) }
     var loading by remember(studentId) { mutableStateOf(true) }
@@ -129,18 +129,7 @@ fun StudentProfileScreen(
                         "&student_id=eq.$studentId&month_start=eq.$monthStart&limit=1",
                     forceRefresh = force,
                 )
-                val guardianId = AppGraph.repo.primaryGuardianId(studentId, forceRefresh = force)
-                val guardianAccounts = AppGraph.repo.guardianAccounts(forceRefresh = force)
-                val guardianRow = (0 until guardianAccounts.length()).mapNotNull { guardianAccounts.optJSONObject(it) }
-                    .firstOrNull { it.optString("id") == guardianId }
-                val guardianOption = guardianRow?.let {
-                    StudentGuardianRules.GuardianOption(
-                        id = it.optString("id"),
-                        fullName = it.optString("full_name").ifBlank { it.optString("email", "ولي أمر") },
-                        email = it.optString("email").takeIf(String::isNotBlank),
-                        phone = it.optString("phone").takeIf(String::isNotBlank),
-                    )
-                }
+                val guardianOptions = AppGraph.repo.guardianLinks(studentId, forceRefresh = force)
                 val pendingComment = AppGraph.repo.queueSnapshot(500)
                     .filter { it.dedupe == "student-followup:$studentId:$monthStart" }
                     .maxByOrNull { it.created }
@@ -154,7 +143,7 @@ fun StudentProfileScreen(
                     (0 until recitationArray.length()).mapNotNull { recitationArray.optJSONObject(it) },
                     (0 until attendanceArray.length()).mapNotNull { attendanceArray.optJSONObject(it) },
                     (0 until sessionsArray.length()).mapNotNull { sessionsArray.optJSONObject(it) },
-                    guardianOption,
+                    guardianOptions,
                     pendingComment ?: commentArray.optJSONObject(0),
                 )
             }
@@ -165,7 +154,7 @@ fun StudentProfileScreen(
             recitations = result.recitations
             attendance = result.attendance
             weekSessions = result.weekSessions
-            guardian = result.guardian
+            guardians = result.guardians
             monthlyComment = result.monthlyComment
             if (force) com.mohammedsamir.halaqati.data.RefreshGate.mark(gateKey)
             error = null
@@ -310,8 +299,8 @@ fun StudentProfileScreen(
                                 item { QualityAttendanceCard(insight) }
                             }
                             3 -> {
-                                item { GuardianCard(guardian, st) }
-                                item { DataHealthCard(st, guardian, primarySnapshot, attendance, recitations) }
+                                item { GuardianCard(guardians, st) }
+                                item { DataHealthCard(st, guardians, primarySnapshot, attendance, recitations) }
                                 item { FollowUpNoteCard(comment = monthlyComment?.optString("teacher_comment").orEmpty(), onEdit = { editFollowUpNote = true }) }
                                 item {
                                     OutlinedButton(onClick = { navigate("students:${st.id}") }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
@@ -595,17 +584,23 @@ private fun QualityAttendanceCard(insight: StudentInsightEngine.State) {
     }
 }
 
+
 @Composable
-private fun GuardianCard(guardian: StudentGuardianRules.GuardianOption?, student: Student) {
+private fun GuardianCard(guardians: List<StudentGuardianRules.GuardianOption>, student: Student) {
     ElevatedCard(Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Icon(Icons.Default.SupervisorAccount, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-            Column(Modifier.weight(1f)) {
-                Text("ولي الأمر", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                Text(guardian?.fullName ?: "غير مرتبط بحساب ولي أمر", style = MaterialTheme.typography.bodyMedium)
-                val details = listOfNotNull(guardian?.phone ?: student.guardianPhone, guardian?.email ?: student.guardianEmail).joinToString(" · ")
-                if (details.isNotBlank()) Text(details, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.SupervisorAccount, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                Text("أولياء الأمور المرتبطون (${guardians.size})", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             }
+            if (guardians.isEmpty()) Text("لا توجد ارتباطات معروضة", style = MaterialTheme.typography.bodyMedium)
+            guardians.forEach { guardian ->
+                Text(guardian.fullName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                val details = listOfNotNull(guardian.phone, guardian.email).joinToString(" · ")
+                if (details.isNotBlank()) Text(details, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            val contact = listOfNotNull(student.guardianPhone, student.guardianEmail).joinToString(" · ")
+            if (contact.isNotBlank()) Text("بيانات التواصل المسجلة: $contact", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -784,9 +779,9 @@ private fun PhaseProfileLine(icon: ImageVector, title: String, value: String) {
 }
 
 @Composable
-private fun DataHealthCard(student: Student, guardian: StudentGuardianRules.GuardianOption?, snapshot: PlanSnapshot?, attendance: List<JSONObject>, recitations: List<JSONObject>) {
+private fun DataHealthCard(student: Student, guardians: List<StudentGuardianRules.GuardianOption>, snapshot: PlanSnapshot?, attendance: List<JSONObject>, recitations: List<JSONObject>) {
     val issues = buildList {
-        if (guardian == null) add("لا يوجد حساب ولي أمر مرتبط")
+        if (guardians.isEmpty()) add("لا توجد ارتباطات معروضة لأولياء الأمور")
         if (snapshot == null && student.status == "active" && AppGraph.repo.isSmartPlanEligible(student.halaqaId)) add("لا توجد خطة ذكية فعالة")
         if (attendance.isEmpty()) add("لا توجد بيانات حضور هذا الشهر")
         if (recitations.isEmpty()) add("لا توجد تسميعات هذا الشهر")
@@ -834,7 +829,7 @@ private data class ProfilePayload(
     val recitations: List<JSONObject>,
     val attendance: List<JSONObject>,
     val weekSessions: List<JSONObject>,
-    val guardian: StudentGuardianRules.GuardianOption?,
+    val guardians: List<StudentGuardianRules.GuardianOption>,
     val monthlyComment: JSONObject?,
 )
 

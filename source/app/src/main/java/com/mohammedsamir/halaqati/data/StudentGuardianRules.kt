@@ -10,6 +10,11 @@ object StudentGuardianRules {
         val phone: String? = null,
     )
 
+    fun linkedOptions(ids: List<String>, accounts: List<GuardianOption>): List<GuardianOption> {
+        val byId = accounts.associateBy { it.id }
+        return ids.filter { it.isNotBlank() }.distinct().map { id -> byId[id] ?: GuardianOption(id, "ولي أمر مرتبط") }
+    }
+
     private fun normalize(value: String): String = Normalizer.normalize(value.trim().lowercase(), Normalizer.Form.NFD)
         .replace(Regex("\\p{Mn}+"), "")
         .replace('أ', 'ا').replace('إ', 'ا').replace('آ', 'ا')

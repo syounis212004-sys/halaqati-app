@@ -1030,8 +1030,6 @@ private fun StudentDialog(
 private data class StudentEditorMasterData(
     val halaqas: List<JSONObject>,
     val categories: List<JSONObject>,
-    val guardians: List<StudentGuardianRules.GuardianOption>,
-    val currentGuardianId: String?,
     val currentSecondaryHalaqaIds: Set<String>,
 )
 
@@ -1053,9 +1051,6 @@ private fun StudentEditorDialog(
     var gender by remember(student?.id) { mutableStateOf(raw?.optString("gender").orEmpty().ifBlank { student?.gender.orEmpty() }) }
     var guardianPhone by remember(student?.id) { mutableStateOf(raw?.optString("guardian_phone").orEmpty().ifBlank { student?.guardianPhone.orEmpty() }) }
     var guardianEmail by remember(student?.id) { mutableStateOf(raw?.optString("guardian_email").orEmpty().ifBlank { student?.guardianEmail.orEmpty() }) }
-    var guardians by remember(student?.id) { mutableStateOf<List<StudentGuardianRules.GuardianOption>>(emptyList()) }
-    var guardianQuery by remember(student?.id) { mutableStateOf("") }
-    var selectedGuardianId by remember(student?.id) { mutableStateOf<String?>(null) }
     var track by remember(student?.id) { mutableStateOf(raw?.optString("track_code").orEmpty().ifBlank { student?.track ?: "general_hifz" }) }
     var halaqaId by remember(student?.id) { mutableStateOf(raw?.optString("halaqa_id").orEmpty().ifBlank { student?.halaqaId.orEmpty() }) }
     var categoryId by remember(student?.id) { mutableStateOf(raw?.optString("category_id").orEmpty().ifBlank { student?.categoryId.orEmpty() }) }
@@ -1076,44 +1071,17 @@ private fun StudentEditorDialog(
         val master = withContext(Dispatchers.IO) {
             val h = AppGraph.repo.table("halaqas", "select=id,name,active,halaqa_type,starts_on,ends_on,allow_secondary_members&order=name.asc&limit=200")
             val c = AppGraph.repo.table("student_categories", "select=id,halaqa_id,name,active&order=name.asc&limit=500")
-            val g = AppGraph.repo.guardianAccounts()
-            val guardianOptions = (0 until g.length()).mapNotNull { index ->
-                g.optJSONObject(index)?.let { row ->
-                    val id = row.optString("id")
-                    if (id.isBlank()) null else StudentGuardianRules.GuardianOption(
-                        id = id,
-                        fullName = row.optString("full_name").ifBlank { row.optString("email", "ولي أمر") },
-                        email = row.optString("email").takeIf { it.isNotBlank() && it != "null" },
-                        phone = row.optString("phone").takeIf { it.isNotBlank() && it != "null" },
-                    )
-                }
-            }
-            val currentGuardian = student?.id?.let { AppGraph.repo.primaryGuardianId(it) }
             val currentSecondary = student?.id?.let { AppGraph.repo.activeSecondaryHalaqaIds(it) }.orEmpty()
             StudentEditorMasterData(
                 halaqas = (0 until h.length()).mapNotNull { h.optJSONObject(it) },
                 categories = (0 until c.length()).mapNotNull { c.optJSONObject(it) },
-                guardians = guardianOptions,
-                currentGuardianId = currentGuardian,
                 currentSecondaryHalaqaIds = currentSecondary,
             )
         }
         halaqas = master.halaqas
         categories = master.categories
-        guardians = master.guardians
-        selectedGuardianId = master.currentGuardianId
         initialSecondaryHalaqaIds = master.currentSecondaryHalaqaIds - halaqaId
         secondaryHalaqaIds = initialSecondaryHalaqaIds
-        if (selectedGuardianId == null && guardianEmail.isNotBlank()) {
-            selectedGuardianId = guardians.firstOrNull { it.email.equals(guardianEmail, true) }?.id
-        }
-        selectedGuardianId?.let { id ->
-            guardians.firstOrNull { it.id == id }?.let { guardian ->
-                guardianQuery = guardian.fullName
-                guardian.phone?.let { guardianPhone = it }
-                guardian.email?.let { guardianEmail = it }
-            }
-        }
         if (halaqaId.isBlank() && student == null) {
             val activeScopes = halaqas.filter { it.optBoolean("active", true) }.map { it.optString("id") }
             halaqaId = initialHalaqaId?.takeIf { it in activeScopes } ?: activeScopes.singleOrNull().orEmpty()
@@ -1197,18 +1165,7 @@ private fun StudentEditorDialog(
                 }
                 StudentDateField("تاريخ الالتحاق", enrollmentDate, onDate = { enrollmentDate = it })
                 OutlinedTextField(programName, { programName = it }, label = { Text("البرنامج") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                GuardianAutocompleteField(
-                    options = guardians,
-                    query = guardianQuery,
-                    selectedId = selectedGuardianId,
-                    onQuery = { value -> guardianQuery = value; if (guardians.none { it.id == selectedGuardianId && it.fullName == value }) selectedGuardianId = null },
-                    onSelected = { guardian ->
-                        selectedGuardianId = guardian?.id
-                        guardianQuery = guardian?.fullName.orEmpty()
-                        guardian?.phone?.let { guardianPhone = it }
-                        guardian?.email?.let { guardianEmail = it }
-                    },
-                )
+                StateNotice("ارتباطات أولياء الأمور تُعتمد من طلبات الاعتماد. بيانات التواصل أدناه لا تُنشئ ارتباطًا.", "info")
                 OutlinedTextField(guardianPhone, { guardianPhone = it }, label = { Text("جوال ولي الأمر") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 OutlinedTextField(guardianEmail, { guardianEmail = it }, label = { Text("بريد ولي الأمر") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 OutlinedTextField(address, { address = it }, label = { Text("العنوان") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
@@ -1257,9 +1214,6 @@ private fun StudentEditorDialog(
                                 } else {
                                     AppGraph.repo.patch("students", "id=eq.${student.id}", payload, dedupe = "student-full-edit:${student.id}")
                                 }
-                                if (student != null || selectedGuardianId != null) {
-                                    AppGraph.repo.linkPrimaryGuardian(studentId, selectedGuardianId)
-                                }
                                 AppGraph.repo.saveStudentSecondaryMemberships(
                                     studentId,
                                     addedHalaqaIds = secondaryHalaqaIds - initialSecondaryHalaqaIds - halaqaId,
@@ -1278,49 +1232,6 @@ private fun StudentEditorDialog(
         },
         dismissButton = { TextButton(onClick = close, enabled = !saving) { Text("إلغاء") } },
     )
-}
-
-@Composable
-private fun GuardianAutocompleteField(
-    options: List<StudentGuardianRules.GuardianOption>,
-    query: String,
-    selectedId: String?,
-    onQuery: (String) -> Unit,
-    onSelected: (StudentGuardianRules.GuardianOption?) -> Unit,
-) {
-    val selectOptions = remember(options) {
-        options.map { guardian ->
-            val detail = listOfNotNull(guardian.phone, guardian.email).joinToString(" · ")
-            guardian.id to if (detail.isBlank()) guardian.fullName else "${guardian.fullName} · $detail"
-        }
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        HalaqatiLazySelectField(
-            label = "ولي الأمر",
-            selectedKey = selectedId,
-            options = selectOptions,
-            onSelected = { id ->
-                if (id.isBlank()) {
-                    onQuery("")
-                    onSelected(null)
-                } else {
-                    val guardian = options.firstOrNull { it.id == id }
-                    onQuery(guardian?.fullName.orEmpty())
-                    onSelected(guardian)
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            allowEmpty = true,
-            emptyOptionLabel = "بدون ولي أمر مرتبط",
-            searchable = true,
-            leadingIcon = Icons.Default.AccountCircle,
-        )
-        Text(
-            if (options.isEmpty()) "لا توجد حسابات أولياء أمور معتمدة" else "يمكن ربط ولي الأمر نفسه بأكثر من طالب",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
 }
 
 @Composable
@@ -6375,11 +6286,11 @@ fun planTypeAr(value: String) = when (value) {
 
 
 @Composable
-fun UsersScreen(pending: Int, onRefresh: () -> Unit, openApprovals: () -> Unit) {
+fun UsersScreen(pending: Int, onRefresh: () -> Unit, openApprovals: () -> Unit, tabs: @Composable () -> Unit = {}) {
     val scope = rememberCoroutineScope()
     var rows by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
-    var status by remember { mutableStateOf("pending") }
+    var status by remember { mutableStateOf("approved") }
     var query by remember { mutableStateOf("") }
     var message by remember { mutableStateOf<String?>(null) }
     var rejectUser by remember { mutableStateOf<JSONObject?>(null) }
@@ -6451,6 +6362,7 @@ fun UsersScreen(pending: Int, onRefresh: () -> Unit, openApprovals: () -> Unit) 
             onRefresh = { scope.launch { reload(force = true) }; onRefresh() },
             pending = pending,
         )
+        tabs()
         // RC53: one slim search row + one scrolling chip strip (the old 2x2 chip grid and the big link button took a third of the screen).
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             com.mohammedsamir.halaqati.ui.components.CompactSearchField(
@@ -6458,11 +6370,11 @@ fun UsersScreen(pending: Int, onRefresh: () -> Unit, openApprovals: () -> Unit) 
                 modifier = Modifier.weight(1f),
             )
             IconButton(onClick = { linkGuardian = true }, modifier = Modifier.size(48.dp)) {
-                Icon(Icons.Default.FamilyRestroom, contentDescription = "ربط ولي الأمر بالطالب")
+                Icon(Icons.Default.FamilyRestroom, contentDescription = "إدارة ارتباطات أولياء الأمور")
             }
         }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf("pending" to "بانتظار الاعتماد", "approved" to "معتمدة", "rejected" to "مرفوضة", "all" to "الكل").forEach { pair ->
+            listOf("approved" to "معتمدة", "rejected" to "مرفوضة", "all" to "الكل").forEach { pair ->
                 ProFilterChip(status == pair.first, { status = pair.first }, pair.second, showCheckIcon = false)
             }
         }
@@ -6542,7 +6454,7 @@ fun UsersScreen(pending: Int, onRefresh: () -> Unit, openApprovals: () -> Unit) 
                             val guardianRequest = requested == "guardian"
                             val accountActions = buildList {
                                 when (approval) {
-                                    "pending" -> if (guardianRequest) add("review_link") else { add("approve"); add("reject") }
+                                    "pending" -> add("review_link")
                                     "rejected" -> add(if (guardianRequest) "review_link" else "approve_again")
                                     else -> { add("toggle"); add("freeze"); add("role"); if (staff) add("photo") }
                                 }
@@ -6571,7 +6483,7 @@ fun UsersScreen(pending: Int, onRefresh: () -> Unit, openApprovals: () -> Unit) 
                                     if (action == "delete") Icon(Icons.Default.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
                                     Text(
                                         when (action) {
-                                            "review_link" -> "طلبات الربط"
+                                            "review_link" -> "طلبات الاعتماد"
                                             "approve" -> if (busyId == id) "جاري…" else "اعتماد"
                                             "reject" -> "رفض"
                                             "approve_again" -> "اعتماد من جديد"
@@ -6740,106 +6652,102 @@ private fun DeleteAccountDialog(name: String, close: () -> Unit, confirm: () -> 
     )
 }
 
+
 @Composable
 private fun GuardianLinkDialog(close: () -> Unit, onSaved: () -> Unit, initialStudentId: String? = null) {
     val scope = rememberCoroutineScope()
     var students by remember { mutableStateOf<List<Student>>(emptyList()) }
-    var guardians by remember { mutableStateOf<List<StudentGuardianRules.GuardianOption>>(emptyList()) }
     var studentId by remember { mutableStateOf<String?>(null) }
-    var guardianId by remember { mutableStateOf<String?>(null) }
-    var guardianQuery by remember { mutableStateOf("") }
+    var links by remember { mutableStateOf<List<StudentGuardianRules.GuardianOption>>(emptyList()) }
+    var loadedFor by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var removing by remember { mutableStateOf<StudentGuardianRules.GuardianOption?>(null) }
+    val admin = remember { AppGraph.repo.cachedProfile()?.role == UserRole.ADMIN }
 
     LaunchedEffect(initialStudentId) {
         try {
-            val result = withContext(Dispatchers.IO) {
-                val st = AppGraph.repo.students()
-                val ga = AppGraph.repo.guardianAccounts()
-                val options = (0 until ga.length()).mapNotNull { index ->
-                    ga.optJSONObject(index)?.let { row ->
-                        val id = row.optString("id")
-                        if (id.isBlank()) null else StudentGuardianRules.GuardianOption(
-                            id = id,
-                            fullName = row.optString("full_name").ifBlank { row.optString("email", "ولي أمر") },
-                            email = row.optString("email").takeIf { it.isNotBlank() && it != "null" },
-                            phone = row.optString("phone").takeIf { it.isNotBlank() && it != "null" },
-                        )
-                    }
-                }
-                val selectedStudent = initialStudentId?.takeIf { wanted -> st.any { it.id == wanted } } ?: st.firstOrNull()?.id
-                val currentGuardian = selectedStudent?.let { AppGraph.repo.primaryGuardianId(it) }
-                Triple(st, options, selectedStudent to currentGuardian)
-            }
-            students = result.first
-            guardians = result.second
-            studentId = result.third.first
-            guardianId = result.third.second
-            guardianId?.let { id -> guardianQuery = guardians.firstOrNull { it.id == id }?.fullName.orEmpty() }
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            error = e.message ?: "تعذر تحميل بيانات الربط"
-        } finally {
-            loading = false
-        }
+            students = withContext(Dispatchers.IO) { AppGraph.repo.students() }
+            studentId = initialStudentId?.takeIf { id -> students.any { it.id == id } } ?: students.firstOrNull()?.id
+        } catch (e: CancellationException) { throw e }
+        catch (e: Exception) { error = e.message ?: "تعذر تحميل الطلاب" }
+        finally { loading = false }
+    }
+    LaunchedEffect(studentId) {
+        val id = studentId ?: return@LaunchedEffect
+        loading = true
+        error = null
+        links = emptyList()
+        loadedFor = null
+        try {
+            links = withContext(Dispatchers.IO) { AppGraph.repo.guardianLinks(id, forceRefresh = true) }
+            loadedFor = id
+        } catch (e: CancellationException) { throw e }
+        catch (e: Exception) { error = e.message ?: "تعذر تحميل الارتباطات" }
+        finally { loading = false }
     }
 
     HalaqatiAlertDialog(
         onDismissRequest = { if (!saving) close() },
-        title = { Text("ربط ولي الأمر بالطالب") },
+        title = { Text("أولياء الأمور المرتبطون") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.fillMaxWidth().heightIn(max = 480.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                StateNotice("يمكن ربط عدة أولياء أمور بالطالب. إضافة ارتباط جديد تحتاج طلبًا معتمدًا؛ جميع الارتباطات متساوية.", "info")
+                if (!saving && removing == null) CompactFilterSelect("الطالب", studentId.orEmpty(), students.map { it.id to it.fullName }, { studentId = it })
+                else Text(students.firstOrNull { it.id == studentId }?.fullName.orEmpty())
                 if (loading) LoadingSkeleton(rows = 2)
                 error?.let { StateNotice(it, "error") }
-                Text("الطالب", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                CompactFilterSelect(
-                    label = "الطالب",
-                    value = studentId.orEmpty(),
-                    options = students.map { it.id to it.fullName },
-                    onSelected = { id ->
-                        studentId = id
-                        scope.launch {
-                            guardianId = withContext(Dispatchers.IO) { AppGraph.repo.primaryGuardianId(id) }
-                            guardianQuery = guardianId?.let { gid -> guardians.firstOrNull { it.id == gid }?.fullName }.orEmpty()
+                if (!loading && error == null && loadedFor == studentId && studentId != null) {
+                    if (links.isEmpty()) Text("لا توجد ارتباطات معتمدة لهذا الطالب.")
+                    links.forEach { link ->
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Column(Modifier.weight(1f)) {
+                                Text(link.fullName, fontWeight = FontWeight.SemiBold)
+                                val contact = listOfNotNull(link.phone, link.email).joinToString(" · ")
+                                if (contact.isNotBlank()) Text(contact, style = MaterialTheme.typography.bodySmall)
+                            }
+                            if (admin && AppGraph.repo.online()) TextButton(onClick = { removing = link }, enabled = !saving) { Text("إزالة") }
                         }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                GuardianAutocompleteField(
-                    options = guardians,
-                    query = guardianQuery,
-                    selectedId = guardianId,
-                    onQuery = { value -> guardianQuery = value; if (guardians.none { it.id == guardianId && it.fullName == value }) guardianId = null },
-                    onSelected = { guardian -> guardianId = guardian?.id; guardianQuery = guardian?.fullName.orEmpty() },
-                )
+                        HorizontalDivider()
+                    }
+                }
+                if (!AppGraph.repo.online()) Text("اتصل بالإنترنت للتحقق من الارتباطات وإدارتها.", style = MaterialTheme.typography.bodySmall)
             }
         },
-        confirmButton = {
-            Button(
-                enabled = !loading && !saving && !studentId.isNullOrBlank(),
-                onClick = {
-                    val st = studentId ?: return@Button
+        confirmButton = { TextButton(onClick = close, enabled = !saving) { Text("إغلاق") } },
+    )
+    removing?.let { link ->
+        val id = studentId ?: return@let
+        var reason by remember(id, link.id) { mutableStateOf("") }
+        HalaqatiAlertDialog(
+            onDismissRequest = { if (!saving) removing = null },
+            title = { Text("إزالة ارتباط ولي أمر") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("إزالة ارتباط ${link.fullName} فقط. لن تُحذف ارتباطات أولياء الأمور الآخرين أو بيانات الطالب.")
+                    OutlinedTextField(reason, { reason = it }, label = { Text("سبب الإزالة") }, modifier = Modifier.fillMaxWidth())
+                    error?.let { StateNotice(it, "error") }
+                }
+            },
+            confirmButton = {
+                Button(enabled = !saving && reason.isNotBlank(), onClick = {
                     saving = true
+                    error = null
                     scope.launch {
                         try {
-                            withContext(Dispatchers.IO) { AppGraph.repo.linkPrimaryGuardian(st, guardianId) }
+                            withContext(Dispatchers.IO) { AppGraph.repo.unlinkGuardian(id, link.id, reason) }
+                            removing = null
                             onSaved()
-                        } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-                            error = e.message ?: "تعذر ربط ولي الأمر"
-                        } finally {
-                            saving = false
-                        }
+                        } catch (e: CancellationException) { throw e }
+                        catch (e: Exception) { error = e.message ?: "تعذر إزالة الارتباط" }
+                        finally { saving = false }
                     }
-                },
-                modifier = Modifier.heightIn(min = HalaqatiUiTokens.TouchTarget),
-            ) { Text(if (saving) "جاري الحفظ…" else "حفظ الربط") }
-        },
-        dismissButton = { TextButton(onClick = close, enabled = !saving, modifier = Modifier.heightIn(min = HalaqatiUiTokens.TouchTarget)) { Text("إلغاء") } },
-    )
+                }) { Text(if (saving) "جارٍ الإزالة…" else "تأكيد الإزالة") }
+            },
+            dismissButton = { TextButton(onClick = { removing = null }, enabled = !saving) { Text("إلغاء") } },
+        )
+    }
 }
 
 // Keep nullable field initialization in separate FIR control-flow graphs.

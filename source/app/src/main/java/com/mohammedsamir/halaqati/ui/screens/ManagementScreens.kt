@@ -180,12 +180,12 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
                 val isArchived = h.has("archived_at") && !h.isNull("archived_at") && h.optString("archived_at").isNotBlank()
                 val typeLabel = when (hType) {
                     "tajweed", "tilawah" -> com.mohammedsamir.halaqati.plans.ProgramKindRules.TILAWAH_TAJWEED_LABEL
-                    "training" -> "دورة تأهيلية"
+                    "training" -> "تأهيل محفظين"
                     "course" -> "دورة"
                     "other" -> "برنامج"
                     else -> "حلقة أساسية"
                 }
-                val programMeta = if (hType != "regular") listOf(programSpecAr(h.mgmtStr("program_specialization")), programLevelAr(h.mgmtStr("program_level")), programAssessAr(h.mgmtStr("assessment_type"))).filter { it.isNotBlank() }.joinToString(" · ") else ""
+                val programMeta = if (hType != "regular") listOf(programSpecAr(h.mgmtStr("program_specialization")), ProgramKindRules.stageLabel(ProgramKindRules.validStage(hType, h.mgmtStr("program_specialization"), h.mgmtStr("program_stage"))), programLevelAr(h.mgmtStr("program_level")), programAssessAr(h.mgmtStr("assessment_type"))).filter { it.isNotBlank() }.joinToString(" · ") else ""
                 HalaqaManagementCard(
                     data = HalaqaCardData(
                         name = h.optString("name", "حلقة"),
@@ -370,7 +370,7 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
             saving = halaqaSaving,
             errorText = halaqaDialogError,
             close = { if (!halaqaSaving) { addHalaqa = false; editHalaqa = null; halaqaDialogError = null } },
-            save = { name, location, schedule, description, halaqaType, programKind, specialization, programLevel, assessmentType, affectsPrimaryPlan, startsOn, endsOn, logo ->
+            save = { name, location, schedule, description, halaqaType, programKind, specialization, programLevel, assessmentType, programStage, affectsPrimaryPlan, startsOn, endsOn, logo ->
                 scope.launch {
                     halaqaSaving = true
                     halaqaDialogError = null
@@ -391,6 +391,8 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
                                 .put("ends_on", endsOn?.toString() ?: JSONObject.NULL)
                                 .put("allow_secondary_members", true)
                                 .put("active", true)
+                            // Older servers remain compatible until a stage is explicitly selected.
+                            if (programStage != null || editHalaqa?.has("program_stage") == true) obj.put("program_stage", programStage ?: JSONObject.NULL)
                             val oldLogo = editHalaqa?.mgmtStr("logo_path")?.ifBlank { null }
                             if (logo != oldLogo) obj.put("logo_path", logo ?: JSONObject.NULL)
                             val id = editHalaqa?.optString("id")
@@ -816,7 +818,7 @@ private fun HalaqaDialog(
     saving: Boolean = false,
     errorText: String? = null,
     close: () -> Unit,
-    save: (String, String, String, String, String, String, String, String, String, Boolean, LocalDate?, LocalDate?, String?) -> Unit,
+    save: (String, String, String, String, String, String, String, String, String, String?, Boolean, LocalDate?, LocalDate?, String?) -> Unit,
 ) {
     var name by remember(current) { mutableStateOf(current?.optString("name").orEmpty()) }
     var logo by remember(current) { mutableStateOf(current?.mgmtStr("logo_path")?.ifBlank { null }) }
@@ -845,6 +847,8 @@ private fun HalaqaDialog(
         ?: if (halaqaType == "course" || halaqaType == "training") "course" else "continuous"
     val selectedSpecialization = if (!program) "hifz" else specialization.takeIf { value -> specializationOptions.any { it.first == value } }
         ?: when (halaqaType) { "tilawah" -> "tilawah"; "training" -> "teacher_training"; else -> "general" }
+    var programStage by remember(current) { mutableStateOf(current?.mgmtStr("program_stage").orEmpty()) }
+    val recitationFamily = ProgramKindRules.isRecitationFamily(halaqaType, selectedSpecialization)
     var affectsPrimaryPlan by remember(current) { mutableStateOf(current?.optBoolean("affects_primary_plan", false) ?: false) }
     var startsOn by remember(current) { mutableStateOf(current?.optString("starts_on")?.takeIf { it.isNotBlank() && it != "null" }?.let { runCatching { LocalDate.parse(it.take(10)) }.getOrNull() } ?: LocalDate.now()) }
     var endsOn by remember(current) { mutableStateOf(current?.optString("ends_on")?.takeIf { it.isNotBlank() && it != "null" }?.let { runCatching { LocalDate.parse(it.take(10)) }.getOrNull() } ?: LocalDate.now().plusMonths(1)) }
@@ -860,12 +864,20 @@ private fun HalaqaDialog(
             ) {
                 LogoPicker(logo, { logo = it }, Icons.Default.Groups)
                 OutlinedTextField(name, { name = it }, label = { Text("اسم الحلقة") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                Text("نوع الحلقة / البرنامج", style = MaterialTheme.typography.labelLarge)
+                Text("المجال التعليمي", style = MaterialTheme.typography.labelLarge)
                 ResponsiveChipGrid(
-                    items = listOf("regular" to "أساسية", "tilawah" to com.mohammedsamir.halaqati.plans.ProgramKindRules.TILAWAH_TAJWEED_LABEL, "training" to "تأهيل محفظين", "course" to "دورة", "other" to "أخرى"),
+                    items = listOf("regular" to "أساسية", "tilawah" to com.mohammedsamir.halaqati.plans.ProgramKindRules.TILAWAH_TAJWEED_LABEL, "training" to "تأهيل محفظين", "course" to "دورة عامة", "other" to "أخرى"),
                     minItemWidth = 105.dp, maxColumns = 2,
                 ) { pair, itemModifier ->
-                    ProFilterChip(halaqaType == pair.first, { halaqaType = pair.first }, pair.second, itemModifier.fillMaxWidth(), showCheckIcon = false)
+                    ProFilterChip(halaqaType == pair.first, {
+                        if (halaqaType != pair.first) {
+                            halaqaType = pair.first
+                            specialization = when (pair.first) { "tilawah" -> "tilawah"; "training" -> "teacher_training"; "regular" -> "hifz"; else -> "general" }
+                            programKind = if (pair.first in setOf("tilawah", "course", "training")) "course" else "continuous"
+                            programStage = ""
+                            affectsPrimaryPlan = false
+                        }
+                    }, pair.second, itemModifier.fillMaxWidth(), showCheckIcon = false)
                 }
                 if (halaqaType != "regular") {
                     Text("تخصص البرنامج", style = MaterialTheme.typography.labelLarge)
@@ -878,7 +890,20 @@ private fun HalaqaDialog(
                         searchable = true,
                     )
                     HalaqatiLazySelectField("نوع التنفيذ", selectedKind, kindOptions, { programKind = it }, Modifier.fillMaxWidth(), searchable = false)
-                    Text("المستوى", style = MaterialTheme.typography.labelLarge)
+                    if (recitationFamily) {
+                        HalaqatiLazySelectField(
+                            label = "المرحلة التعليمية للتلاوة والتجويد",
+                            selectedKey = ProgramKindRules.validStage(halaqaType, selectedSpecialization, programStage),
+                            options = ProgramKindRules.recitationStages,
+                            onSelected = { programStage = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            allowEmpty = true,
+                            emptyOptionLabel = "لم تُحدد المرحلة",
+                            searchable = false,
+                        )
+                        Text("المرحلة تختلف عن نوع التنفيذ، وتُختار حسب منهج الجهة التعليمية.", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Text("المستوى العام", style = MaterialTheme.typography.labelLarge)
                     ResponsiveChipGrid(items = levelOptions, minItemWidth = 105.dp, maxColumns = 2) { pair, itemModifier ->
                         ProFilterChip(programLevel == pair.first, { programLevel = pair.first }, pair.second, itemModifier.fillMaxWidth(), showCheckIcon = false)
                     }
@@ -888,17 +913,15 @@ private fun HalaqaDialog(
                         options = assessmentOptions,
                         onSelected = { assessmentType = it }, modifier = Modifier.fillMaxWidth(), searchable = false,
                     )
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                    if (!recitationFamily) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                         Column(Modifier.weight(1f)) {
                             Text("يؤثر على الخطة الأساسية", fontWeight = FontWeight.SemiBold)
                             Text("فعّله فقط إذا كان إنجاز هذا البرنامج يجب أن يدخل في تقدم خطة الطالب الأساسية.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Switch(checked = affectsPrimaryPlan, onCheckedChange = { affectsPrimaryPlan = it })
                     }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        HalaqatiDateField("بداية البرنامج", startsOn, { pickStart = true }, Modifier.weight(1f))
-                        HalaqatiDateField("نهاية البرنامج", endsOn, { pickEnd = true }, Modifier.weight(1f))
-                    }
+                    HalaqatiDateField("بداية البرنامج", startsOn, { pickStart = true }, Modifier.fillMaxWidth())
+                    HalaqatiDateField("نهاية البرنامج", endsOn, { pickEnd = true }, Modifier.fillMaxWidth())
                 }
                 OutlinedTextField(location, { location = it }, label = { Text("المكان") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(schedule, { schedule = it }, label = { Text("البرنامج") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -909,7 +932,7 @@ private fun HalaqaDialog(
         },
         confirmButton = {
             Button(
-                onClick = { save(name.trim(), location.trim(), schedule.trim(), description.trim(), halaqaType, selectedKind, selectedSpecialization, if (program) programLevel else "open", if (program) assessmentType else "attendance", affectsPrimaryPlan, startsOn.takeIf { halaqaType != "regular" }, endsOn.takeIf { halaqaType != "regular" }, logo) },
+                onClick = { save(name.trim(), location.trim(), schedule.trim(), description.trim(), halaqaType, selectedKind, selectedSpecialization, if (program) programLevel else "open", if (program) assessmentType else "attendance", ProgramKindRules.validStage(halaqaType, selectedSpecialization, programStage), affectsPrimaryPlan && !recitationFamily, startsOn.takeIf { halaqaType != "regular" }, endsOn.takeIf { halaqaType != "regular" }, logo) },
                 enabled = !saving && name.trim().length >= 2 && (halaqaType == "regular" || !endsOn.isBefore(startsOn)),
             ) {
                 if (saving) { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)) }

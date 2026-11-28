@@ -211,7 +211,8 @@ fun HalaqatiDateField(
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value.toString(), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            Text(value.toString(), style = MaterialTheme.typography.bodyMedium.copy(textDirection = androidx.compose.ui.text.style.TextDirection.Ltr),
+                fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
         }
         Icon(androidx.compose.material.icons.Icons.Default.CalendarMonth, contentDescription = null)
     }
