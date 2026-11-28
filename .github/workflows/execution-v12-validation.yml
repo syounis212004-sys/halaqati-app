@@ -95,15 +95,16 @@ jobs:
             settings.dependencyResolutionManagement.repositories.maven { url = uri(mirror) }
           }
           GRADLE
-          # The in-process Kotlin compiler and Compose IR need more than 4 GiB.
-          # Size the heap to the actual runner, reserving memory for OS and native tooling.
+          # Run 46170855424 stalled in app Kotlin compilation with 8 GiB heap
+          # and ~5.8 GiB available host RAM. Test a bounded larger heap and retain GC evidence.
           available_kib=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)
-          heap_mib=$((available_kib / 1024 - 2304))
-          if [ "$heap_mib" -gt 8192 ]; then heap_mib=8192; fi
+          heap_mib=$((available_kib / 1024 - 4096))
+          if [ "$heap_mib" -gt 10240 ]; then heap_mib=10240; fi
           if [ "$heap_mib" -lt 4608 ]; then heap_mib=4608; fi
           free -h
           echo "Gradle heap: ${heap_mib} MiB"
-          jvm="-Xmx${heap_mib}m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError -Dfile.encoding=UTF-8"
+          jvm="-Xmx${heap_mib}m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError -Dfile.encoding=UTF-8 -Xlog:gc*:file=$RUNNER_TEMP/gradle-gc.log:time,level,tags:filecount=2,filesize=8m -XX:ErrorFile=$RUNNER_TEMP/gradle-crash-%p.log"
+          trap 'status=$?; if [ "$status" -ne 0 ]; then tail -n 50 "$RUNNER_TEMP/gradle-gc.log" 2>/dev/null || true; cat /sys/fs/cgroup/memory.events 2>/dev/null || true; fi' EXIT
           # Exactly one entry task per runner. Gradle resolves its dependencies; no
           # separate full app assemble before tests or lint. This mirrors RC114 fan-out.
           case "$BUILD_STAGE" in
@@ -125,6 +126,8 @@ jobs:
             source/app/build/outputs/apk/debug/app-debug.apk
             source/app/build/test-results/testDebugUnitTest/
             source/build/reports/profile/
+            ${{ runner.temp }}/gradle-gc.log*
+            ${{ runner.temp }}/gradle-crash-*.log
             source/offline-db/build/reports/
             source/app/build/reports/lint-results-*.xml
             source/app/build/reports/lint-results-*.html
