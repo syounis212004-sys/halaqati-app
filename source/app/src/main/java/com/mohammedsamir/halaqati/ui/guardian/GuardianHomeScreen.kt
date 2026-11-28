@@ -13,6 +13,7 @@ import com.mohammedsamir.halaqati.ui.components.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.School
@@ -65,45 +66,37 @@ fun GuardianHomeScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                if (overview == null) item(key = "role-welcome", contentType = "welcome") { com.mohammedsamir.halaqati.ui.components.RoleWelcomeCard(com.mohammedsamir.halaqati.model.UserRole.GUARDIAN) }
-                item(key = "add-child", contentType = "add-child") { com.mohammedsamir.halaqati.ui.screens.AddChildCard() }
-                if (com.mohammedsamir.halaqati.data.ContestsFeature.enabled) item(key = "contests-card", contentType = "contests") { com.mohammedsamir.halaqati.ui.screens.ContestsHomeCard(navigate) }
-                if (state.children.size > 1) {
-                    item(key = "switcher", contentType = "switcher") {
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(state.children, key = { it.id }) { child ->
-                                ProFilterChip(
-                                    selected = child.id == state.selectedId,
-                                    onClick = { vm.select(child.id) },
-                                    label = child.name.substringBefore(' '),
-                                )
+                if (overview == null) {
+                    if (state.children.isEmpty()) item(key = "role-welcome", contentType = "welcome") {
+                        com.mohammedsamir.halaqati.ui.components.RoleWelcomeCard(com.mohammedsamir.halaqati.model.UserRole.GUARDIAN)
+                    }
+                    if (state.children.isNotEmpty()) item(key = "select-child-activity", contentType = "switcher") {
+                        GuardianHomeSelectors(state, vm::select, vm::selectActivity, MaterialTheme.colorScheme.onSurface)
+                    }
+                    if (state.children.isEmpty() && !state.loadingFirst && !state.refreshing && state.message == null) {
+                        item(key = "children-link", contentType = "shortcut") {
+                            OutlinedButton(onClick = { navigate("guardian_profile") }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                                Text("انتقل إلى أبنائي")
                             }
                         }
                     }
+                    state.message?.let { msg -> item(key = "msg", contentType = "notice") { StateNotice(msg, kind = "error") } }
                 }
-                if (state.activities.isNotEmpty()) {
-                    item(key = "activity-switcher", contentType = "switcher") {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("النشاط", style = MaterialTheme.typography.labelMedium)
-                            com.mohammedsamir.halaqati.ui.components.ResponsiveChipGrid(items = state.activities, minItemWidth = 140.dp, maxColumns = 2) { activity, itemModifier ->
-                                ProFilterChip(state.selectedActivity == activity.id, { vm.selectActivity(activity.id) }, activity.name, itemModifier.fillMaxWidth(), showCheckIcon = true)
-                            }
-                        }
-                    }
-                }
-                if (state.stale && overview != null) {
-                    item(key = "stale", contentType = "notice") {
-                        StateNotice("تعرض آخر بيانات محفوظة${overview.updatedAt?.let { " · " + shortTime(it) } ?: ""}", kind = "warning")
-                    }
-                }
-                state.message?.let { msg -> item(key = "msg", contentType = "notice") { StateNotice(msg, kind = "error") } }
                 when {
                     overview == null && (state.loadingFirst || state.refreshing) ->
                         item(key = "loading", contentType = "loading") { LoadingSkeleton(rows = 3) }
                     overview == null && state.children.isEmpty() && state.message == null ->
                         item(key = "empty", contentType = "empty") { EmptyState("لا توجد ملفات طلاب مرتبطة بهذا الحساب") }
                     overview != null -> {
-                        item(key = "today", contentType = "today") { TodayCard(overview) }
+                        item(key = "today", contentType = "today") {
+                            TodayCard(overview) {
+                                GuardianHomeSelectors(state, vm::select, vm::selectActivity, androidx.compose.ui.graphics.Color.White)
+                            }
+                        }
+                        if (state.stale) item(key = "stale", contentType = "notice") {
+                            StateNotice("تعرض آخر بيانات محفوظة${overview.updatedAt?.let { " · " + shortTime(it) } ?: ""}", kind = "warning")
+                        }
+                        state.message?.let { msg -> item(key = "msg", contentType = "notice") { StateNotice(msg, kind = "error") } }
                         item(key = "today-detail", contentType = "today-detail") { TodayDetailGrid(overview) }
                         GuardianPraise.lines(overview).takeIf { it.isNotEmpty() }?.let { praise ->
                             item(key = "praise", contentType = "praise") {
@@ -167,6 +160,74 @@ fun GuardianHomeScreen(
                         }
                     }
                 }
+                if (com.mohammedsamir.halaqati.data.ContestsFeature.enabled) item(key = "contests-card", contentType = "contests") {
+                    com.mohammedsamir.halaqati.ui.screens.ContestsHomeCard(navigate)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GuardianHomeSelectors(
+    state: GuardianHomeUiState,
+    onChild: (String) -> Unit,
+    onActivity: (String) -> Unit,
+    ink: androidx.compose.ui.graphics.Color,
+) {
+    if (state.children.size > 1) {
+        GuardianHomeSelector(
+            label = "الابن",
+            options = state.children.map { it.id to it.name },
+            selected = state.selectedId,
+            onSelect = onChild,
+            ink = ink,
+        )
+    }
+    if (state.activities.isNotEmpty()) {
+        GuardianHomeSelector(
+            label = "النشاط",
+            options = state.activities.map { it.id to it.name },
+            selected = state.selectedActivity,
+            onSelect = onActivity,
+            ink = ink,
+        )
+    }
+}
+
+@Composable
+internal fun GuardianHomeSelector(
+    label: String,
+    options: List<Pair<String, String>>,
+    selected: String?,
+    onSelect: (String) -> Unit,
+    ink: androidx.compose.ui.graphics.Color,
+) {
+    var open by remember(options) { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = ink)
+        Box(Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                onClick = { open = true },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = ink),
+                border = BorderStroke(1.dp, ink.copy(alpha = .45f)),
+            ) {
+                Text(
+                    options.firstOrNull { it.first == selected }?.second ?: "اختر $label",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Icon(androidx.compose.material.icons.Icons.Default.KeyboardArrowDown, contentDescription = null, tint = ink)
+            }
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                options.forEach { (id, name) ->
+                    DropdownMenuItem(
+                        text = { Text(name) },
+                        onClick = { open = false; if (id != selected) onSelect(id) },
+                        trailingIcon = if (id == selected) {{ Icon(Icons.Default.CheckCircle, contentDescription = "محدد") }} else null,
+                    )
+                }
             }
         }
     }
@@ -174,7 +235,7 @@ fun GuardianHomeScreen(
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun TodayCard(o: GuardianOverview) {
+private fun TodayCard(o: GuardianOverview, selectors: @Composable () -> Unit) {
     val attendance = when (o.todayAttendance) {
         "present" -> "حضر اليوم"
         "late" -> "حضر اليوم (متأخر)"
@@ -215,6 +276,7 @@ private fun TodayCard(o: GuardianOverview) {
                         )
                         }
                 }
+                selectors()
                 val activity = if (o.program) "التلاوة" else if (o.tathbit) "التثبيت" else "التسميع"
                 // RC104: today's two states sit side by side under the child (they used to wrap into two tall rows beside the photo).
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
