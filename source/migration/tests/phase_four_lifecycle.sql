@@ -57,3 +57,35 @@ begin
   end if;
 end
 $test$;
+
+-- Daily wrapper: winter and summer local-midnight boundaries, all batches,
+-- duplicate scheduling and manual reopen preservation.
+do $midnight_test$
+declare n integer; test_id uuid := '00000000-0000-0000-0000-000000000018';
+begin
+  insert into public.sessions(id,session_date,status) values(test_id,'2026-11-28','open');
+  if halaqati_lifecycle_private.close_at_gaza_midnight('2026-11-28 21:00+00')<>0 then
+    raise exception 'winter closure before midnight';
+  end if;
+  n:=halaqati_lifecycle_private.close_at_gaza_midnight('2026-11-28 22:00+00');
+  if n<>2 then raise exception 'winter midnight count: %',n; end if;
+  if (select status from public.sessions where id=test_id)<>'closed' then raise exception 'nightly close missing'; end if;
+  update public.sessions set status='open' where id=test_id;
+  if halaqati_lifecycle_private.close_at_gaza_midnight('2026-11-28 22:00+00')<>0
+     or (select status from public.sessions where id=test_id)<>'open' then raise exception 'duplicate nightly run or reopened session changed'; end if;
+  insert into public.sessions(id,session_date,status)
+    select gen_random_uuid(),'2027-07-01','open' from generate_series(1,501);
+  n:=halaqati_lifecycle_private.close_at_gaza_midnight('2027-07-01 21:00+00');
+  -- Also closes the previously future 2026-11-29 session.
+  if n<>502 then raise exception 'summer midnight / multiple batches count: %',n; end if;
+  if halaqati_lifecycle_private.close_at_gaza_midnight('2027-07-01 22:00+00')<>0 then raise exception 'summer second tick did work'; end if;
+  if (select count(*) from halaqati_lifecycle_private.daily_session_closure)<>2
+     or (select closed_count from halaqati_lifecycle_private.daily_session_closure where local_day='2027-07-02')<>502 then
+    raise exception 'daily closure ledger wrong';
+  end if;
+  if has_function_privilege('authenticated','halaqati_lifecycle_private.close_at_gaza_midnight(timestamptz)','EXECUTE')
+     or has_function_privilege('anon','halaqati_lifecycle_private.close_at_gaza_midnight(timestamptz)','EXECUTE') then
+    raise exception 'client can invoke midnight job';
+  end if;
+end
+$midnight_test$;
