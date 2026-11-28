@@ -26,6 +26,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '8.13'
+          cache-read-only: false
       - uses: android-actions/setup-android@v3
         with:
           packages: ''
@@ -46,7 +47,15 @@ jobs:
         env:
           SUPABASE_URL: https://staging.invalid
           SUPABASE_PUBLISHABLE_KEY: offline-fixture
-        run: gradle --no-daemon --console=plain :app:assembleDebug :app:testDebugUnitTest
+        run: |
+          cat > "$RUNNER_TEMP/central-mirror.gradle" <<'GRADLE'
+          gradle.beforeSettings { settings ->
+            def mirror = 'https://maven-central.storage-download.googleapis.com/maven2'
+            settings.pluginManagement.repositories.maven { url = uri(mirror) }
+            settings.dependencyResolutionManagement.repositories.maven { url = uri(mirror) }
+          }
+          GRADLE
+          gradle --no-daemon --console=plain --init-script "$RUNNER_TEMP/central-mirror.gradle" :app:assembleDebug :app:testDebugUnitTest
       - uses: actions/upload-artifact@v4
         if: always()
         with:

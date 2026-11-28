@@ -111,6 +111,7 @@ fun StudentsScreen(
     var categories by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
     var snapshotsByStudent by remember { mutableStateOf<Map<String, PlanSnapshot>>(emptyMap()) }
     var monthStatsByStudent by remember { mutableStateOf<Map<String, JSONObject>>(emptyMap()) }
+    var monthStatsScope by remember { mutableStateOf<String?>(null) }
     var secondaryHalaqasByStudent by remember { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
     var studentFiltersOpen by rememberSaveable { mutableStateOf(false) }
     var expandedStudentId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -235,7 +236,8 @@ fun StudentsScreen(
         }
     }
 
-    LaunchedEffect(rows.map { it.id }.joinToString("|")) {
+    LaunchedEffect(rows.map { it.id }, halaqaFilter) {
+        val requestedScope = halaqaFilter
         if (rows.isEmpty()) {
             snapshotsByStudent = emptyMap()
             monthStatsByStudent = emptyMap()
@@ -244,7 +246,7 @@ fun StudentsScreen(
                 withContext(Dispatchers.IO) {
                     val snapshots = AppGraph.repo.planSnapshots(LocalDate.now()).associateBy { it.student.id }
                     val ym = YearMonth.now()
-                    val summary = AppGraph.repo.reportSummary(ym.atDay(1).toString(), LocalDate.now().toString(), "all", "all", "all")
+                    val summary = AppGraph.repo.reportSummary(ym.atDay(1).toString(), LocalDate.now().toString(), "all", requestedScope, "all")
                     val stats = buildMap<String, JSONObject> {
                         for (i in 0 until summary.length()) summary.optJSONObject(i)?.let { row ->
                             row.optString("student_id").takeIf { it.isNotBlank() }?.let { put(it, row) }
@@ -255,6 +257,7 @@ fun StudentsScreen(
             }.onSuccess { (snapshots, stats) ->
                 snapshotsByStudent = snapshots
                 monthStatsByStudent = stats
+                monthStatsScope = requestedScope
             }
         }
     }
@@ -406,7 +409,7 @@ fun StudentsScreen(
                   com.mohammedsamir.halaqati.ui.components.NourStatStrip(listOf(
                 Triple(rows.count { it.status == "active" }.toString(), "طالب نشط", false),
                 Triple(rows.count { it.status == "active" && it.track == "tathbit" }.toString(), "في التثبيت", false),
-                Triple(rows.count { it.status == "active" && (it.nationalId.isNullOrBlank() || it.dateOfBirth.isNullOrBlank()) }.toString(), "ناقص بيانات الولي", rows.any { it.status == "active" && (it.nationalId.isNullOrBlank() || it.dateOfBirth.isNullOrBlank()) }),
+                Triple(rows.count { it.status == "active" && (it.nationalId.isNullOrBlank() || it.dateOfBirth.isNullOrBlank()) }.toString(), "ناقص الهوية أو الميلاد", rows.any { it.status == "active" && (it.nationalId.isNullOrBlank() || it.dateOfBirth.isNullOrBlank()) }),
             ))
               }
               groupedStudents.forEach { (groupTitle, groupRows) ->
@@ -416,8 +419,14 @@ fun StudentsScreen(
                     }
                 }
                 items(groupRows, key = { it.id }, contentType = { "student" }) { student ->
-                    val halaqaName = halaqas.firstOrNull { it.optString("id") == student.halaqaId }?.optString("name")
-                    val categoryName = categories.firstOrNull { it.optString("id") == student.categoryId }?.optString("name")
+                    val scopeId = halaqaFilter.takeUnless { it == "all" } ?: student.halaqaId
+                    val scopedHalaqa = halaqas.firstOrNull { it.optString("id") == scopeId }
+                    val programContext = if (halaqaFilter == "all" && workKind == com.mohammedsamir.halaqati.plans.WorkMode.PROGRAM) true
+                        else com.mohammedsamir.halaqati.plans.WorkModeRules.isProgramType(scopedHalaqa?.optString("halaqa_type"))
+                    val halaqaName = scopedHalaqa?.optString("name")?.takeUnless {
+                        programContext && !com.mohammedsamir.halaqati.plans.WorkModeRules.isProgramType(scopedHalaqa?.optString("halaqa_type"))
+                    }
+                    val categoryName = categories.firstOrNull { it.optString("id") == student.categoryId && it.optString("halaqa_id") == scopeId }?.optString("name")
                     val secondaryNames = secondaryHalaqasByStudent[student.id].orEmpty()
                         .filter { it != student.halaqaId }
                         .mapNotNull { id -> halaqas.firstOrNull { it.optString("id") == id }?.optString("name") }
@@ -427,8 +436,9 @@ GoldenStudentCard(
                         halaqaName = halaqaName,
                         categoryName = categoryName,
                         secondaryHalaqaNames = secondaryNames,
-                        snapshot = snapshotsByStudent[student.id],
-                        monthStats = monthStatsByStudent[student.id],
+                        snapshot = snapshotsByStudent[student.id]?.takeIf { !programContext && it.plan.halaqaId == scopeId },
+                        monthStats = monthStatsByStudent[student.id]?.takeIf { monthStatsScope == halaqaFilter && (halaqaFilter != "all" || (!programContext && secondaryNames.isEmpty())) },
+                        programContext = programContext,
                         expanded = expandedStudentId == student.id,
                         onToggle = { expandedStudentId = if (expandedStudentId == student.id) null else student.id },
                         onOpenProfile = { openStudentProfile(student.id) },
@@ -1890,6 +1900,7 @@ private fun GoldenStudentCard(
     secondaryHalaqaNames: List<String>,
     snapshot: PlanSnapshot?,
     monthStats: JSONObject?,
+    programContext: Boolean,
     expanded: Boolean,
     onToggle: () -> Unit,
     onOpenProfile: () -> Unit,
@@ -1927,7 +1938,7 @@ private fun GoldenStudentCard(
                             overflow = TextOverflow.Ellipsis,
                         )
                         if (missingGuardianData) {
-                            Icon(Icons.Default.Info, contentDescription = "بيانات الربط بولي الأمر غير مكتملة؛ افتح التفاصيل", tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.padding(top = 2.dp).size(20.dp))
+                            Icon(Icons.Default.Info, contentDescription = "الهوية أو تاريخ الميلاد غير مكتمل", tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.padding(top = 2.dp).size(20.dp))
                         }
                     }
                     // Same three facts as before (track · halaqa · extra programs), now split into a chip row and a quiet line.
@@ -1937,7 +1948,7 @@ private fun GoldenStudentCard(
                         Surface(color = chipBg, contentColor = chipFg, shape = RoundedCornerShape(11.dp)) {
                             Row(Modifier.padding(horizontal = 8.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Icon(if (isTathbit) Icons.Default.PushPin else Icons.Default.MenuBook, contentDescription = null, modifier = Modifier.size(14.dp))
-                                Text(if (isTathbit) "التثبيت" else "الحفظ العام", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, maxLines = 1)
+                                Text(if (programContext) "مشارك في برنامج" else if (isTathbit) "التثبيت" else "الحفظ العام", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, maxLines = 1)
                             }
                         }
                         if (secondaryHalaqaNames.isNotEmpty()) {
@@ -2001,13 +2012,18 @@ private fun GoldenStudentCard(
                         val review = stats.optDouble("review_pages", 0.0)
                         val absence = stats.optInt("absent", 0)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            StudentStatTile(if (isTathbit) "تثبيت" else "حفظ", "${plainNumber(if (isTathbit) tathbit else hifz)} ص", Modifier.weight(1f))
-                            StudentStatTile("مراجعة", "${plainNumber(review)} ص", Modifier.weight(1f))
-                            StudentStatTile("غياب", "$absence", Modifier.weight(1f))
+                            if (!programContext) {
+                                StudentStatTile(if (isTathbit) "تثبيت" else "حفظ", "${plainNumber(if (isTathbit) tathbit else hifz)} ص", Modifier.weight(1f))
+                                StudentStatTile("مراجعة", "${plainNumber(review)} ص", Modifier.weight(1f))
+                            } else {
+                                val pages = stats.optDouble("tilawah_pages", 0.0)
+                                StudentStatTile("التلاوة", if (pages > 0) "${plainNumber(pages)} ص" else "—", Modifier.weight(1f))
+                            }
+                            StudentStatTile("غياب", if (programContext && stats.optInt("sessions", 0) == 0) "—" else "$absence", Modifier.weight(1f))
                         }
                     }
                     // RC53: the supervisor only follows students; recitation and editing belong to the teacher.
-                    if (!readOnly) Button(onClick = onRecitation, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("تسميع اليوم") }
+                    if (!readOnly) Button(onClick = onRecitation, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(if (programContext) "جلسة التلاوة أو الاختبار" else "تسميع اليوم") }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         TextButton(onClick = onOpenProfile, modifier = Modifier.weight(1f)) {
@@ -2015,7 +2031,7 @@ private fun GoldenStudentCard(
                             Spacer(Modifier.width(6.dp))
                             Text("الملف الشخصي", maxLines = 1)
                         }
-                        if (!readOnly) TextButton(onClick = onPlan, modifier = Modifier.weight(1f)) {
+                        if (!readOnly && !programContext) TextButton(onClick = onPlan, modifier = Modifier.weight(1f)) {
                             Icon(Icons.Default.Assignment, contentDescription = null, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(6.dp))
                             Text("الخطة", maxLines = 1)
