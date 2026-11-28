@@ -13,7 +13,7 @@ timeout 300s kotlinc \
   "$ROOT/scripts/kotlin-selftest/SyncPresentationRulesSelfTest.kt" \
   "$ROOT/app/src/main/java/com/mohammedsamir/halaqati/data/SafetyScoring.kt" \
   "$ROOT/app/src/main/java/com/mohammedsamir/halaqati/data/ImportRules.kt" \
-  "$ROOT/app/src/main/java/com/mohammedsamir/halaqati/data/StudentTrackRules.kt" \
+  "$ROOT/offline-db/src/main/java/com/mohammedsamir/halaqati/data/StudentTrackRules.kt" \
   "$ROOT/app/src/main/java/com/mohammedsamir/halaqati/data/DeepLinkRules.kt" \
   "$ROOT/app/src/main/java/com/mohammedsamir/halaqati/data/AuthCallbackRules.kt" \
   "$ROOT/app/src/main/java/com/mohammedsamir/halaqati/data/SmartPlanAlertRules.kt" \

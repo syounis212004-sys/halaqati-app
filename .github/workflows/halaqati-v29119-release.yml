@@ -103,8 +103,11 @@ jobs:
           if [ "$heap_mib" -gt 8192 ]; then heap_mib=8192; fi
           if [ "$heap_mib" -lt 4608 ]; then heap_mib=4608; fi
           jvm="-Xmx${heap_mib}m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError -Dfile.encoding=UTF-8"
-          gradle --no-daemon --max-workers=1 --console=plain "-Dorg.gradle.jvmargs=$jvm" --init-script "$RUNNER_TEMP/central-mirror.gradle" :app:assembleRelease
-          gradle --no-daemon --max-workers=1 --console=plain "-Dorg.gradle.jvmargs=$jvm" --init-script "$RUNNER_TEMP/central-mirror.gradle" :app:lintRelease
+          # Room processing is isolated from the large Compose/application compilation.
+          bash scripts/gradle-with-diagnostics.sh --no-daemon --max-workers=1 --console=plain "-Dorg.gradle.jvmargs=$jvm" --init-script "$RUNNER_TEMP/central-mirror.gradle" :offline-db:assembleRelease
+          git diff --exit-code -- app/schemas
+          bash scripts/gradle-with-diagnostics.sh --no-daemon --max-workers=1 --console=plain "-Dorg.gradle.jvmargs=$jvm" --init-script "$RUNNER_TEMP/central-mirror.gradle" :app:assembleRelease
+          bash scripts/gradle-with-diagnostics.sh --no-daemon --max-workers=1 --console=plain "-Dorg.gradle.jvmargs=$jvm" --init-script "$RUNNER_TEMP/central-mirror.gradle" :app:lintRelease
       - name: Verify identical signer to published APK, package identity and version
         working-directory: source
         env:

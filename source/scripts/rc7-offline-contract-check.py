@@ -4,7 +4,7 @@ root = Path(__file__).resolve().parents[1]
 
 def read(rel): return (root/rel).read_text()
 
-db = read('app/src/main/java/com/mohammedsamir/halaqati/data/OfflineDatabase.kt')
+db = read('offline-db/src/main/java/com/mohammedsamir/halaqati/data/OfflineDatabase.kt')
 repo = read('app/src/main/java/com/mohammedsamir/halaqati/data/HalaqatiRepository.kt')
 graph = read('app/src/main/java/com/mohammedsamir/halaqati/data/AppGraph.kt')
 ui = read('app/src/main/java/com/mohammedsamir/halaqati/ui/screens/CoreScreens.kt')

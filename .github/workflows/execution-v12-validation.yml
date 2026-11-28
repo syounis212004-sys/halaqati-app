@@ -84,9 +84,12 @@ jobs:
           free -h
           echo "Gradle heap: ${heap_mib} MiB"
           jvm="-Xmx${heap_mib}m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError -Dfile.encoding=UTF-8"
-          gradle --no-daemon --max-workers=1 --console=plain "-Dorg.gradle.jvmargs=$jvm" --init-script "$RUNNER_TEMP/central-mirror.gradle" :app:assembleDebug
+          # Room processing is isolated from the large Compose/application compilation.
+          bash scripts/gradle-with-diagnostics.sh --no-daemon --max-workers=1 --console=plain "-Dorg.gradle.jvmargs=$jvm" --init-script "$RUNNER_TEMP/central-mirror.gradle" :offline-db:assembleDebug
+          git diff --exit-code -- app/schemas
+          bash scripts/gradle-with-diagnostics.sh --no-daemon --max-workers=1 --console=plain "-Dorg.gradle.jvmargs=$jvm" --init-script "$RUNNER_TEMP/central-mirror.gradle" :app:assembleDebug
           # Fresh daemon for Robolectric, rather than keeping the large compiler heap resident.
-          gradle --no-daemon --max-workers=1 --console=plain "-Dorg.gradle.jvmargs=$jvm" --init-script "$RUNNER_TEMP/central-mirror.gradle" :app:testDebugUnitTest
+          bash scripts/gradle-with-diagnostics.sh --no-daemon --max-workers=1 --console=plain "-Dorg.gradle.jvmargs=$jvm" --init-script "$RUNNER_TEMP/central-mirror.gradle" :app:testDebugUnitTest
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -94,6 +97,8 @@ jobs:
           path: |
             source/app/build/outputs/apk/debug/app-debug.apk
             source/app/build/test-results/testDebugUnitTest/
+            source/build/reports/profile/
+            source/offline-db/build/reports/
 
   education-sql:
     runs-on: ubuntu-24.04

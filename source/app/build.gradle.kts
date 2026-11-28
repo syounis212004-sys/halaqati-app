@@ -5,7 +5,6 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
-    id("org.jetbrains.kotlin.kapt")
     id("com.google.gms.google-services")
 }
 
@@ -36,6 +35,8 @@ android {
     }
     buildFeatures { compose = true; buildConfig = true }
     testOptions { unitTests { isIncludeAndroidResources = true } }
+    // Committed version-1 schema is the upgrade fixture for the old KAPT database.
+    sourceSets.getByName("test").resources.srcDir("schemas")
     packaging { resources.excludes += setOf("META-INF/LICENSE*", "META-INF/NOTICE*") }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -68,11 +69,6 @@ android {
     }
 }
 
-kapt {
-    correctErrorTypes = true
-    arguments { arg("room.schemaLocation", "$projectDir/schemas") }
-}
-
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
@@ -103,9 +99,7 @@ dependencies {
     // RC108: shimmer sweep for loading placeholders (Apache-2.0); used only inside LoadingSkeleton. 1.3.3 on purpose: 1.4.x/1.5.x pull Compose from 1.9.3 up to 1.11.1.
     implementation("com.valentinilk.shimmer:compose-shimmer:1.3.3")
     implementation("androidx.work:work-runtime-ktx:2.11.2")
-    implementation("androidx.room:room-runtime:2.8.5")
-    implementation("androidx.room:room-ktx:2.8.5")
-    kapt("androidx.room:room-compiler:2.8.5")
+    implementation(project(":offline-db"))
     implementation("androidx.security:security-crypto:1.1.0")
     implementation("androidx.browser:browser:1.9.0")
     implementation("com.google.firebase:firebase-messaging:25.1.1")
