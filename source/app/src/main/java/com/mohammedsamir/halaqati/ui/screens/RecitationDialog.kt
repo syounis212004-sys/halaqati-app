@@ -106,12 +106,13 @@ internal fun RecitationDialog(
     activityTypeOverride: String? = null,
 ) {
     val scope = rememberCoroutineScope()
-    var start by remember(existing?.id, prefillStartPage) { mutableStateOf((existing?.startPage ?: prefillStartPage)?.toString().orEmpty()) }
-    var end by remember(existing?.id, prefillEndPage) { mutableStateOf((existing?.endPage ?: prefillEndPage)?.toString().orEmpty()) }
-    var pages by remember(existing?.id, prefillPages) { mutableStateOf((existing?.pages ?: prefillPages)?.let(::plainNumber) ?: "0") }
-    var mistakes by remember(existing?.id) { mutableStateOf((existing?.mistakes ?: 0).toString()) }
-    var prompts by remember(existing?.id) { mutableStateOf((existing?.prompts ?: 0).toString()) }
-    var note by remember(existing?.id) { mutableStateOf(existing?.teacherNote.orEmpty()) }
+    val recordKey = existing?.id
+    var start by remember(recordKey, prefillStartPage) { mutableStateOf((existing?.startPage ?: prefillStartPage)?.toString().orEmpty()) }
+    var end by remember(recordKey, prefillEndPage) { mutableStateOf((existing?.endPage ?: prefillEndPage)?.toString().orEmpty()) }
+    var pages by remember(recordKey, prefillPages) { mutableStateOf((existing?.pages ?: prefillPages)?.let(::plainNumber) ?: "0") }
+    var mistakes by remember(recordKey) { mutableStateOf((existing?.mistakes ?: 0).toString()) }
+    var prompts by remember(recordKey) { mutableStateOf((existing?.prompts ?: 0).toString()) }
+    var note by remember(recordKey) { mutableStateOf(existing?.teacherNote.orEmpty()) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var showQuranPicker by remember { mutableStateOf(false) }
@@ -119,9 +120,9 @@ internal fun RecitationDialog(
     var showMushaf by remember { mutableStateOf(false) }
     var mushafEpoch by remember { mutableIntStateOf(0) }
     var mushafTick by remember { mutableIntStateOf(0) }
-    var mushafStartPage by remember(existing?.id) { mutableIntStateOf(1) }
-    val mushafSession = remember(student.id, session.id, existing?.id, mushafEpoch) { com.mohammedsamir.halaqati.quran.MushafEngine.Session(mushafStartPage) }
-    var selectedQuranRange by remember(student.id, session.id, existing?.id) {
+    var mushafStartPage by remember(recordKey) { mutableIntStateOf(1) }
+    val mushafSession = remember(student.id, session.id, recordKey, mushafEpoch) { com.mohammedsamir.halaqati.quran.MushafEngine.Session(mushafStartPage) }
+    var selectedQuranRange by remember(student.id, session.id, recordKey) {
         mutableStateOf(existing?.let { row ->
             if (row.qcfLineKeys.isNotEmpty() || row.startSurah == null || row.startAyah == null || row.endSurah == null || row.endAyah == null) null
             else runCatching {
@@ -138,8 +139,8 @@ internal fun RecitationDialog(
             }.getOrNull()
         })
     }
-    var effectiveQcfLineKeys by remember(existing?.id, qcfLineKeys) { mutableStateOf(existing?.qcfLineKeys?.takeIf { it.isNotEmpty() } ?: qcfLineKeys) }
-    var resolvedActivityType by remember(student.id, session.id, activityTypeOverride, existing?.id) {
+    var effectiveQcfLineKeys by remember(recordKey, qcfLineKeys) { mutableStateOf(existing?.qcfLineKeys?.takeIf { it.isNotEmpty() } ?: qcfLineKeys) }
+    var resolvedActivityType by remember(student.id, session.id, activityTypeOverride, recordKey) {
         mutableStateOf(existing?.activityType?.let { old -> runCatching { com.mohammedsamir.halaqati.data.TrackActivityPolicy.recitationActivityFor(student.track, old) }.getOrDefault(old) }
             ?: activityTypeOverride?.let { runCatching { com.mohammedsamir.halaqati.data.TrackActivityPolicy.recitationActivityFor(student.track, it) }.getOrNull() }
             ?: when (session.type) {
@@ -155,51 +156,67 @@ internal fun RecitationDialog(
     val baseTilawahRevision = existingTilawah?.optString("revision")?.takeIf { it.isNotBlank() && it != "null" }
     // Do not silently convert old assessments to the new scoring contract during an edit.
     val legacyTilawah = existing != null && (existingTilawah?.optInt("version", 1) ?: 1) < 2
-    var tilawahMarkOriginal by remember(student.id, session.id, existing?.id) { mutableStateOf(existingTilawah?.optJSONArray("marks")) }
-    var tilawahMarks by remember(student.id, session.id, existing?.id) { mutableStateOf(TilawahMarkJson.decode(tilawahMarkOriginal)) }
-    val draftOwner = remember(student.id, session.id, existing?.id) { AppGraph.repo.currentUserId() }
-    var tilawahClientId by remember(student.id, session.id, existing?.id) { mutableStateOf(existing?.id ?: java.util.UUID.randomUUID().toString()) }
+    var tilawahMarkOriginal by remember(student.id, session.id, recordKey) { mutableStateOf(existingTilawah?.optJSONArray("marks")) }
+    var tilawahMarks by remember(student.id, session.id, recordKey) { mutableStateOf(TilawahMarkJson.decode(tilawahMarkOriginal)) }
+    val draftOwner = remember(student.id, session.id, recordKey) { AppGraph.repo.currentUserId() }
+    var tilawahClientId by remember(student.id, session.id, recordKey) { mutableStateOf(existing?.id ?: java.util.UUID.randomUUID().toString()) }
     fun initialManual(key: String, category: TilawahCategory): Int {
         val assessment = existingTilawah ?: return 0
         return assessment.optInt("manual_$key", (assessment.optInt(key, 0) - TilawahMarks.count(tilawahMarks, category)).coerceAtLeast(0)).coerceAtLeast(0)
     }
-    var jaliWords by remember(student.id, session.id, existing?.id) { mutableIntStateOf(initialManual("jali_words", TilawahCategory.WORD)) }
-    var jaliLetters by remember(student.id, session.id, existing?.id) { mutableIntStateOf(initialManual("jali_letters", TilawahCategory.LETTER)) }
-    var jaliHarakat by remember(student.id, session.id, existing?.id) { mutableIntStateOf(initialManual("jali_harakat", TilawahCategory.HARAKAH)) }
+    val jaliWordsState = remember(student.id, session.id, recordKey) { mutableIntStateOf(initialManual("jali_words", TilawahCategory.WORD)) }
+    var jaliWords by jaliWordsState
+    val jaliLettersState = remember(student.id, session.id, recordKey) { mutableIntStateOf(initialManual("jali_letters", TilawahCategory.LETTER)) }
+    var jaliLetters by jaliLettersState
+    val jaliHarakatState = remember(student.id, session.id, recordKey) { mutableIntStateOf(initialManual("jali_harakat", TilawahCategory.HARAKAH)) }
+    var jaliHarakat by jaliHarakatState
     val totalJaliWords = TilawahMarks.total(jaliWords, tilawahMarks, TilawahCategory.WORD)
     val totalJaliLetters = TilawahMarks.total(jaliLetters, tilawahMarks, TilawahCategory.LETTER)
     val totalJaliHarakat = TilawahMarks.total(jaliHarakat, tilawahMarks, TilawahCategory.HARAKAH)
     val markedMinorCount = tilawahMarks.filterNot { it.category.major }.sumOf { it.occurrences }
-    var wardReviewed by remember(existing?.id) { mutableStateOf(existingTilawah?.takeIf { it.has("ward_reviewed") && !it.isNull("ward_reviewed") }?.optBoolean("ward_reviewed")) }
-    var correctionAdherence by remember(existing?.id) { mutableStateOf(existingTilawah?.takeIf { it.has("correction_adherence") && !it.isNull("correction_adherence") }?.optInt("correction_adherence")?.coerceIn(0, 5)) }
+    val wardReviewedState = remember(recordKey) { mutableStateOf(existingTilawah?.takeIf { it.has("ward_reviewed") && !it.isNull("ward_reviewed") }?.optBoolean("ward_reviewed")) }
+    var wardReviewed by wardReviewedState
+    val correctionAdherenceState = remember(recordKey) { mutableStateOf(existingTilawah?.takeIf { it.has("correction_adherence") && !it.isNull("correction_adherence") }?.optInt("correction_adherence")?.coerceIn(0, 5)) }
+    var correctionAdherence by correctionAdherenceState
     val issueOptions = TilawahCategory.entries.map { it.key to it.label }
-    var previousIssues by remember(student.id, session.id, existing?.id) {
+    var previousIssues by remember(student.id, session.id, recordKey) {
         val arr = existingTilawah?.optJSONArray("previous_issue_keys")
         mutableStateOf(if (arr == null) emptySet<String>() else (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) }.toSet())
     }
-    var previousLoading by remember(student.id, session.id, existing?.id) { mutableStateOf(false) }
-    var previousUnavailable by remember(student.id, session.id, existing?.id) { mutableStateOf(existingTilawah?.optString("previous_lookup_status") == "unavailable") }
-    var previousAcknowledged by remember(student.id, session.id, existing?.id) { mutableStateOf(existing != null) }
-    var previousRetry by remember(student.id, session.id, existing?.id) { mutableIntStateOf(0) }
-    var previousRecordId by remember(student.id, session.id, existing?.id) { mutableStateOf(existingTilawah?.optString("previous_record_id")?.takeIf { it.isNotBlank() && it != "null" }) }
-    var previousMarks by remember(student.id, session.id, existing?.id) { mutableStateOf(TilawahMarkJson.decode(existingTilawah?.optJSONArray("previous_marks"))) }
-    var followedRefs by remember(student.id, session.id, existing?.id) { mutableStateOf(TilawahDraftJson.strings(existingTilawah?.optJSONArray("followed_refs")).toSet()) }
+    var previousLoading by remember(student.id, session.id, recordKey) { mutableStateOf(false) }
+    var previousUnavailable by remember(student.id, session.id, recordKey) { mutableStateOf(existingTilawah?.optString("previous_lookup_status") == "unavailable") }
+    val previousAcknowledgedState = remember(student.id, session.id, recordKey) { mutableStateOf(existing != null) }
+    var previousAcknowledged by previousAcknowledgedState
+    val previousRetryState = remember(student.id, session.id, recordKey) { mutableIntStateOf(0) }
+    var previousRetry by previousRetryState
+    var previousRecordId by remember(student.id, session.id, recordKey) { mutableStateOf(existingTilawah?.optString("previous_record_id")?.takeIf { it.isNotBlank() && it != "null" }) }
+    var previousMarks by remember(student.id, session.id, recordKey) { mutableStateOf(TilawahMarkJson.decode(existingTilawah?.optJSONArray("previous_marks"))) }
+    val followedRefsState = remember(student.id, session.id, recordKey) { mutableStateOf(TilawahDraftJson.strings(existingTilawah?.optJSONArray("followed_refs")).toSet()) }
+    var followedRefs by followedRefsState
     val previousRefs = previousRecordId?.let { TilawahMarks.previousRefs(it, previousMarks) }.orEmpty()
     val majorErrors = if (legacyTilawah) 0 else (totalJaliWords.toLong() + totalJaliLetters + totalJaliHarakat).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
 
-    var tilawahRiwayah by remember(existing?.id) { mutableStateOf(existingTilawah?.optString("riwayah", "hafs")?.takeIf { it.isNotBlank() } ?: "hafs") }
-    var lahnJali by remember(existing?.id) { mutableStateOf(existingTilawah?.optInt("lahn_jali", 0)?.coerceAtLeast(0) ?: 0) }
-    var lahnKhafi by remember(existing?.id) { mutableStateOf(existingTilawah?.optInt("lahn_khafi", 0)?.coerceAtLeast(0) ?: 0) }
-    var makharijRating by remember(existing?.id) { mutableStateOf(existingTilawah?.optInt("makharij", 5)?.coerceIn(1, 5) ?: 5) }
-    var tajweedRating by remember(existing?.id) { mutableStateOf(existingTilawah?.optInt("tajweed", 5)?.coerceIn(1, 5) ?: 5) }
-    var waqfRating by remember(existing?.id) { mutableStateOf(existingTilawah?.optInt("waqf_ibtida", 5)?.coerceIn(1, 5) ?: 5) }
-    var fluencyRating by remember(existing?.id) { mutableStateOf(existingTilawah?.optInt("fluency", 5)?.coerceIn(1, 5) ?: 5) }
-    var tilawahIssues by remember(existing?.id) {
+    val tilawahRiwayahState = remember(recordKey) { mutableStateOf(existingTilawah?.optString("riwayah", "hafs")?.takeIf { it.isNotBlank() } ?: "hafs") }
+    var tilawahRiwayah by tilawahRiwayahState
+    val lahnJaliState = remember(recordKey) { mutableStateOf(existingTilawah?.optInt("lahn_jali", 0)?.coerceAtLeast(0) ?: 0) }
+    var lahnJali by lahnJaliState
+    val lahnKhafiState = remember(recordKey) { mutableStateOf(existingTilawah?.optInt("lahn_khafi", 0)?.coerceAtLeast(0) ?: 0) }
+    var lahnKhafi by lahnKhafiState
+    val makharijRatingState = remember(recordKey) { mutableStateOf(existingTilawah?.optInt("makharij", 5)?.coerceIn(1, 5) ?: 5) }
+    var makharijRating by makharijRatingState
+    val tajweedRatingState = remember(recordKey) { mutableStateOf(existingTilawah?.optInt("tajweed", 5)?.coerceIn(1, 5) ?: 5) }
+    var tajweedRating by tajweedRatingState
+    val waqfRatingState = remember(recordKey) { mutableStateOf(existingTilawah?.optInt("waqf_ibtida", 5)?.coerceIn(1, 5) ?: 5) }
+    var waqfRating by waqfRatingState
+    val fluencyRatingState = remember(recordKey) { mutableStateOf(existingTilawah?.optInt("fluency", 5)?.coerceIn(1, 5) ?: 5) }
+    var fluencyRating by fluencyRatingState
+    val tilawahIssuesState = remember(recordKey) {
         val arr = existingTilawah?.optJSONArray("manual_issue_keys") ?: existingTilawah?.optJSONArray("issue_keys")
         mutableStateOf(
             if (arr == null) emptySet() else (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) }.toSet()
         )
     }
+    var tilawahIssues by tilawahIssuesState
 
     val manualPageRange = remember(start, end, resolvedActivityType, student.track, effectiveQcfLineKeys) {
         if (effectiveQcfLineKeys.isNotEmpty()) null else runCatching {
@@ -219,7 +236,7 @@ internal fun RecitationDialog(
     val mistakeValue = mistakes.toIntOrNull()?.coerceAtLeast(0) ?: 0
     val promptValue = prompts.toIntOrNull()?.coerceAtLeast(0) ?: 0
     // a page the marks put over the per-page limit makes the whole recitation "repeat"; without a mushaf session an old entry keeps its own flag
-    val overLimitPages = remember(mushafTick, mushafSession, existing?.id) {
+    val overLimitPages = remember(mushafTick, mushafSession, recordKey) {
         if (!mushafSession.isEmpty) mushafSession.overLimitPages().map { it.page } else existing?.overLimitPages.orEmpty()
     }
     val safety = SafetyScoring.calculate(pageValue, mistakeValue, promptValue, overLimitPage = overLimitPages.isNotEmpty())
@@ -254,13 +271,13 @@ internal fun RecitationDialog(
     val markEnd = markRange?.end ?: prefillEndpoints?.second
     val tilawahDraftKey = if (isTilawah && !legacyTilawah)
         "tilawah-form-v2:${session.halaqaId}:${session.id}:${student.id}:${existing?.id ?: "new"}:" else null
-    var loadedDraftKey by remember(student.id, session.id, existing?.id) { mutableStateOf<String?>(null) }
-    var draftReadError by remember(student.id, session.id, existing?.id) { mutableStateOf<String?>(null) }
-    var draftWriteError by remember(student.id, session.id, existing?.id) { mutableStateOf<String?>(null) }
-    var draftRetry by remember(student.id, session.id, existing?.id) { mutableIntStateOf(0) }
-    var restoredDraft by remember(student.id, session.id, existing?.id) { mutableStateOf(false) }
-    var restoredHistory by remember(student.id, session.id, existing?.id) { mutableStateOf(false) }
-    val draftMutex = remember(student.id, session.id, existing?.id) { kotlinx.coroutines.sync.Mutex() }
+    var loadedDraftKey by remember(student.id, session.id, recordKey) { mutableStateOf<String?>(null) }
+    var draftReadError by remember(student.id, session.id, recordKey) { mutableStateOf<String?>(null) }
+    var draftWriteError by remember(student.id, session.id, recordKey) { mutableStateOf<String?>(null) }
+    var draftRetry by remember(student.id, session.id, recordKey) { mutableIntStateOf(0) }
+    var restoredDraft by remember(student.id, session.id, recordKey) { mutableStateOf(false) }
+    var restoredHistory by remember(student.id, session.id, recordKey) { mutableStateOf(false) }
+    val draftMutex = remember(student.id, session.id, recordKey) { kotlinx.coroutines.sync.Mutex() }
     val formReady = tilawahDraftKey != null && tilawahDraftKey == loadedDraftKey && draftReadError == null
     val draftReady = formReady && pageValue > 0.0 && markStart != null && markEnd != null
 
@@ -529,109 +546,37 @@ internal fun RecitationDialog(
                 }
 
                 if (isTilawah) {
-                    ElevatedCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .46f)),
-                        shape = RoundedCornerShape(18.dp),
-                    ) {
-                        Column(Modifier.fillMaxWidth().padding(13.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text("تقييم التلاوة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
-                            Text("تقييم يدوي من المحفّظ؛ لا يعتمد على كشف آلي لأحكام التجويد.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            if (legacyTilawah) {
-                                Text("الرواية / القراءة", style = MaterialTheme.typography.labelLarge)
-                                ResponsiveChipGrid(
-                                    items = listOf("hafs" to "حفص عن عاصم", "warsh" to "ورش عن نافع", "qalun" to "قالون عن نافع"),
-                                    minItemWidth = 118.dp,
-                                    maxColumns = 2,
-                                ) { pair, itemModifier ->
-                                    ProFilterChip(
-                                        selected = tilawahRiwayah == pair.first,
-                                        onClick = { tilawahRiwayah = pair.first },
-                                        label = pair.second,
-                                        modifier = itemModifier.fillMaxWidth(),
-                                        showCheckIcon = false,
-                                    )
-                                }
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Box(Modifier.weight(1f)) {
-                                        RecitationCounter("لحن جلي", lahnJali, { lahnJali = (lahnJali - 1).coerceAtLeast(0) }, { lahnJali += 1 })
-                                    }
-                                    Box(Modifier.weight(1f)) {
-                                        RecitationCounter("لحن خفي", lahnKhafi, { lahnKhafi = (lahnKhafi - 1).coerceAtLeast(0) }, { lahnKhafi += 1 })
-                                    }
-                                }
-                                TilawahRatingRow("المخارج والصفات", makharijRating) { makharijRating = it }
-                                TilawahRatingRow("أحكام التجويد", tajweedRating) { tajweedRating = it }
-                                TilawahRatingRow("الوقف والابتداء", waqfRating) { waqfRating = it }
-                                TilawahRatingRow("الطلاقة والترتيل", fluencyRating) { fluencyRating = it }
-                            } else {
-                                Text("أخطاء اللحن الجلي (علامات المصحف + الإضافات اليدوية)", style = MaterialTheme.typography.labelLarge)
-                                if (tilawahMarks.isNotEmpty()) Text("على المصحف: ${tilawahMarks.size} علامة · اللحن الخفي: $markedMinorCount. العدادات أدناه تضيف أخطاء غير معلّمة فقط.", style = MaterialTheme.typography.bodySmall)
-                                ResponsiveChipGrid(items = listOf("word", "letter", "harakah"), minItemWidth = 104.dp, maxColumns = 3) { key, itemModifier ->
-                                    Box(itemModifier.fillMaxWidth()) {
-                                        when (key) {
-                                            "word" -> RecitationCounter("الكلمات", totalJaliWords, { jaliWords = (jaliWords - 1).coerceAtLeast(0) }, { if (jaliWords < Int.MAX_VALUE) jaliWords++ })
-                                            "letter" -> RecitationCounter("الحروف", totalJaliLetters, { jaliLetters = (jaliLetters - 1).coerceAtLeast(0) }, { if (jaliLetters < Int.MAX_VALUE) jaliLetters++ })
-                                            else -> RecitationCounter("الحركات", totalJaliHarakat, { jaliHarakat = (jaliHarakat - 1).coerceAtLeast(0) }, { if (jaliHarakat < Int.MAX_VALUE) jaliHarakat++ })
-                                        }
-                                    }
-                                }
-                                TilawahRatingRow("المخارج والصفات", makharijRating) { makharijRating = it }
-                                TilawahRatingRow("أحكام التجويد", tajweedRating) { tajweedRating = it }
-                                TilawahRatingRow("الوقف والابتداء", waqfRating) { waqfRating = it }
-                                Text("التصحيحات السابقة", style = MaterialTheme.typography.labelLarge)
-                                when {
-                                    previousLoading -> Text("جارٍ تحميل التصحيحات السابقة…", style = MaterialTheme.typography.bodySmall)
-                                    previousUnavailable -> {
-                                        Text("تعذر التحقق من التصحيحات السابقة. لا يعني ذلك عدم وجود تصحيحات.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                                        if (existing == null) {
-                                            TextButton(onClick = { previousRetry++ }) { Text("إعادة المحاولة") }
-                                            ProFilterChip(previousAcknowledged, { previousAcknowledged = !previousAcknowledged }, "متابعة دون التحقق", Modifier.fillMaxWidth(), showCheckIcon = true)
-                                        }
-                                    }
-                                    previousIssues.isEmpty() -> Text("لم تتوفر تصحيحات سابقة في البيانات المتاحة · لا يدخل المعيار في النسبة", style = MaterialTheme.typography.bodySmall)
-                                    else -> {
-                                        Text(previousIssues.map { key -> issueOptions.firstOrNull { it.first == key }?.second ?: key }.joinToString("، "), style = MaterialTheme.typography.bodyMedium)
-                                        previousMarks.filterNot { it.corrected }.forEach { mark ->
-                                            val ref = previousRefs[mark.markId]
-                                            if (ref != null) {
-                                                ProFilterChip(ref in followedRefs, { followedRefs = if (ref in followedRefs) followedRefs - ref else followedRefs + ref },
-                                                    "صُحح: ${mark.category.label} · ص ${mark.page} · ${mark.wordId}", Modifier.fillMaxWidth(), showCheckIcon = true)
-                                            }
-                                        }
-                                        Text("مدى الالتزام بتصحيحات الشيخ السابقة", style = MaterialTheme.typography.labelLarge)
-                                        if (correctionAdherence == null) TextButton(onClick = { correctionAdherence = 5 }) { Text("بدء تقييم الالتزام") }
-                                        correctionAdherence?.let { rating ->
-                                            TilawahRatingRow("الالتزام", rating, minValue = 0) { correctionAdherence = it }
-                                        }
-                                    }
-                                }
-                                Text("هل راجع الطالب الورد؟", style = MaterialTheme.typography.labelLarge)
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    ProFilterChip(wardReviewed == true, { wardReviewed = true }, "نعم", Modifier.weight(1f), showCheckIcon = true)
-                                    ProFilterChip(wardReviewed == false, { wardReviewed = false }, "لا", Modifier.weight(1f), showCheckIcon = true)
-                                }
-                            }
-                            Text("مواضع تحتاج متابعة", style = MaterialTheme.typography.labelLarge)
-                            val tilawahIssueOptions = listOf(
-                                "madd" to "المدود",
-                                "ghunnah" to "الغنة",
-                                "ikhfa_idgham" to "الإخفاء والإدغام",
-                                "qalqalah" to "القلقلة",
-                                "makharij" to "المخارج",
-                                "waqf" to "الوقف والابتداء",
-                            )
-                            ResponsiveChipGrid(items = tilawahIssueOptions, minItemWidth = 126.dp, maxColumns = 2) { pair, itemModifier ->
-                                ProFilterChip(
-                                    selected = pair.first in tilawahIssues,
-                                    onClick = { tilawahIssues = if (pair.first in tilawahIssues) tilawahIssues - pair.first else tilawahIssues + pair.first },
-                                    label = pair.second,
-                                    modifier = itemModifier.fillMaxWidth(),
-                                    showCheckIcon = false,
-                                )
-                            }
-                        }
-                    }
+                    TilawahAssessmentCard(
+                        legacyTilawah = legacyTilawah,
+                        tilawahMarks = tilawahMarks,
+                        markedMinorCount = markedMinorCount,
+                        totalJaliWords = totalJaliWords,
+                        totalJaliLetters = totalJaliLetters,
+                        totalJaliHarakat = totalJaliHarakat,
+                        previousLoading = previousLoading,
+                        previousUnavailable = previousUnavailable,
+                        existing = existing,
+                        previousIssues = previousIssues,
+                        issueOptions = issueOptions,
+                        previousMarks = previousMarks,
+                        previousRefs = previousRefs,
+                        tilawahRiwayahState = tilawahRiwayahState,
+                        lahnJaliState = lahnJaliState,
+                        lahnKhafiState = lahnKhafiState,
+                        makharijRatingState = makharijRatingState,
+                        tajweedRatingState = tajweedRatingState,
+                        waqfRatingState = waqfRatingState,
+                        fluencyRatingState = fluencyRatingState,
+                        jaliWordsState = jaliWordsState,
+                        jaliLettersState = jaliLettersState,
+                        jaliHarakatState = jaliHarakatState,
+                        previousRetryState = previousRetryState,
+                        previousAcknowledgedState = previousAcknowledgedState,
+                        followedRefsState = followedRefsState,
+                        correctionAdherenceState = correctionAdherenceState,
+                        wardReviewedState = wardReviewedState,
+                        tilawahIssuesState = tilawahIssuesState,
+                    )
                 } else {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Box(Modifier.weight(1f)) {
@@ -872,5 +817,158 @@ internal fun RecitationDialog(
                 tilawahMarks = next
             },
         )
+    }
+}
+
+@Composable
+private fun TilawahAssessmentCard(
+    legacyTilawah: Boolean,
+    tilawahMarks: List<TilawahMark>,
+    markedMinorCount: Int,
+    totalJaliWords: Int,
+    totalJaliLetters: Int,
+    totalJaliHarakat: Int,
+    previousLoading: Boolean,
+    previousUnavailable: Boolean,
+    existing: RecitationRow?,
+    previousIssues: Set<String>,
+    issueOptions: List<Pair<String, String>>,
+    previousMarks: List<TilawahMark>,
+    previousRefs: Map<String, String>,
+    tilawahRiwayahState: MutableState<String>,
+    lahnJaliState: MutableState<Int>,
+    lahnKhafiState: MutableState<Int>,
+    makharijRatingState: MutableState<Int>,
+    tajweedRatingState: MutableState<Int>,
+    waqfRatingState: MutableState<Int>,
+    fluencyRatingState: MutableState<Int>,
+    jaliWordsState: MutableState<Int>,
+    jaliLettersState: MutableState<Int>,
+    jaliHarakatState: MutableState<Int>,
+    previousRetryState: MutableState<Int>,
+    previousAcknowledgedState: MutableState<Boolean>,
+    followedRefsState: MutableState<Set<String>>,
+    correctionAdherenceState: MutableState<Int?>,
+    wardReviewedState: MutableState<Boolean?>,
+    tilawahIssuesState: MutableState<Set<String>>,
+) {
+    var tilawahRiwayah by tilawahRiwayahState
+    var lahnJali by lahnJaliState
+    var lahnKhafi by lahnKhafiState
+    var makharijRating by makharijRatingState
+    var tajweedRating by tajweedRatingState
+    var waqfRating by waqfRatingState
+    var fluencyRating by fluencyRatingState
+    var jaliWords by jaliWordsState
+    var jaliLetters by jaliLettersState
+    var jaliHarakat by jaliHarakatState
+    var previousRetry by previousRetryState
+    var previousAcknowledged by previousAcknowledgedState
+    var followedRefs by followedRefsState
+    var correctionAdherence by correctionAdherenceState
+    var wardReviewed by wardReviewedState
+    var tilawahIssues by tilawahIssuesState
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .46f)),
+        shape = RoundedCornerShape(18.dp),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(13.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("تقييم التلاوة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            Text("تقييم يدوي من المحفّظ؛ لا يعتمد على كشف آلي لأحكام التجويد.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (legacyTilawah) {
+                Text("الرواية / القراءة", style = MaterialTheme.typography.labelLarge)
+                ResponsiveChipGrid(
+                    items = listOf("hafs" to "حفص عن عاصم", "warsh" to "ورش عن نافع", "qalun" to "قالون عن نافع"),
+                    minItemWidth = 118.dp,
+                    maxColumns = 2,
+                ) { pair, itemModifier ->
+                    ProFilterChip(
+                        selected = tilawahRiwayah == pair.first,
+                        onClick = { tilawahRiwayah = pair.first },
+                        label = pair.second,
+                        modifier = itemModifier.fillMaxWidth(),
+                        showCheckIcon = false,
+                    )
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.weight(1f)) {
+                        RecitationCounter("لحن جلي", lahnJali, { lahnJali = (lahnJali - 1).coerceAtLeast(0) }, { lahnJali += 1 })
+                    }
+                    Box(Modifier.weight(1f)) {
+                        RecitationCounter("لحن خفي", lahnKhafi, { lahnKhafi = (lahnKhafi - 1).coerceAtLeast(0) }, { lahnKhafi += 1 })
+                    }
+                }
+                TilawahRatingRow("المخارج والصفات", makharijRating) { makharijRating = it }
+                TilawahRatingRow("أحكام التجويد", tajweedRating) { tajweedRating = it }
+                TilawahRatingRow("الوقف والابتداء", waqfRating) { waqfRating = it }
+                TilawahRatingRow("الطلاقة والترتيل", fluencyRating) { fluencyRating = it }
+            } else {
+                Text("أخطاء اللحن الجلي (علامات المصحف + الإضافات اليدوية)", style = MaterialTheme.typography.labelLarge)
+                if (tilawahMarks.isNotEmpty()) Text("على المصحف: ${tilawahMarks.size} علامة · اللحن الخفي: $markedMinorCount. العدادات أدناه تضيف أخطاء غير معلّمة فقط.", style = MaterialTheme.typography.bodySmall)
+                ResponsiveChipGrid(items = listOf("word", "letter", "harakah"), minItemWidth = 104.dp, maxColumns = 3) { key, itemModifier ->
+                    Box(itemModifier.fillMaxWidth()) {
+                        when (key) {
+                            "word" -> RecitationCounter("الكلمات", totalJaliWords, { jaliWords = (jaliWords - 1).coerceAtLeast(0) }, { if (jaliWords < Int.MAX_VALUE) jaliWords++ })
+                            "letter" -> RecitationCounter("الحروف", totalJaliLetters, { jaliLetters = (jaliLetters - 1).coerceAtLeast(0) }, { if (jaliLetters < Int.MAX_VALUE) jaliLetters++ })
+                            else -> RecitationCounter("الحركات", totalJaliHarakat, { jaliHarakat = (jaliHarakat - 1).coerceAtLeast(0) }, { if (jaliHarakat < Int.MAX_VALUE) jaliHarakat++ })
+                        }
+                    }
+                }
+                TilawahRatingRow("المخارج والصفات", makharijRating) { makharijRating = it }
+                TilawahRatingRow("أحكام التجويد", tajweedRating) { tajweedRating = it }
+                TilawahRatingRow("الوقف والابتداء", waqfRating) { waqfRating = it }
+                Text("التصحيحات السابقة", style = MaterialTheme.typography.labelLarge)
+                when {
+                    previousLoading -> Text("جارٍ تحميل التصحيحات السابقة…", style = MaterialTheme.typography.bodySmall)
+                    previousUnavailable -> {
+                        Text("تعذر التحقق من التصحيحات السابقة. لا يعني ذلك عدم وجود تصحيحات.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        if (existing == null) {
+                            TextButton(onClick = { previousRetry++ }) { Text("إعادة المحاولة") }
+                            ProFilterChip(previousAcknowledged, { previousAcknowledged = !previousAcknowledged }, "متابعة دون التحقق", Modifier.fillMaxWidth(), showCheckIcon = true)
+                        }
+                    }
+                    previousIssues.isEmpty() -> Text("لم تتوفر تصحيحات سابقة في البيانات المتاحة · لا يدخل المعيار في النسبة", style = MaterialTheme.typography.bodySmall)
+                    else -> {
+                        Text(previousIssues.map { key -> issueOptions.firstOrNull { it.first == key }?.second ?: key }.joinToString("، "), style = MaterialTheme.typography.bodyMedium)
+                        previousMarks.filterNot { it.corrected }.forEach { mark ->
+                            val ref = previousRefs[mark.markId]
+                            if (ref != null) {
+                                ProFilterChip(ref in followedRefs, { followedRefs = if (ref in followedRefs) followedRefs - ref else followedRefs + ref },
+                                    "صُحح: ${mark.category.label} · ص ${mark.page} · ${mark.wordId}", Modifier.fillMaxWidth(), showCheckIcon = true)
+                            }
+                        }
+                        Text("مدى الالتزام بتصحيحات الشيخ السابقة", style = MaterialTheme.typography.labelLarge)
+                        if (correctionAdherence == null) TextButton(onClick = { correctionAdherence = 5 }) { Text("بدء تقييم الالتزام") }
+                        correctionAdherence?.let { rating ->
+                            TilawahRatingRow("الالتزام", rating, minValue = 0) { correctionAdherence = it }
+                        }
+                    }
+                }
+                Text("هل راجع الطالب الورد؟", style = MaterialTheme.typography.labelLarge)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ProFilterChip(wardReviewed == true, { wardReviewed = true }, "نعم", Modifier.weight(1f), showCheckIcon = true)
+                    ProFilterChip(wardReviewed == false, { wardReviewed = false }, "لا", Modifier.weight(1f), showCheckIcon = true)
+                }
+            }
+            Text("مواضع تحتاج متابعة", style = MaterialTheme.typography.labelLarge)
+            val tilawahIssueOptions = listOf(
+                "madd" to "المدود",
+                "ghunnah" to "الغنة",
+                "ikhfa_idgham" to "الإخفاء والإدغام",
+                "qalqalah" to "القلقلة",
+                "makharij" to "المخارج",
+                "waqf" to "الوقف والابتداء",
+            )
+            ResponsiveChipGrid(items = tilawahIssueOptions, minItemWidth = 126.dp, maxColumns = 2) { pair, itemModifier ->
+                ProFilterChip(
+                    selected = pair.first in tilawahIssues,
+                    onClick = { tilawahIssues = if (pair.first in tilawahIssues) tilawahIssues - pair.first else tilawahIssues + pair.first },
+                    label = pair.second,
+                    modifier = itemModifier.fillMaxWidth(),
+                    showCheckIcon = false,
+                )
+            }
+        }
     }
 }
