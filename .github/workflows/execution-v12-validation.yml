@@ -175,3 +175,31 @@ jobs:
           docker cp source/migration/20261128120800_guardian_activity_overview_v12.sql "$PG_CONTAINER:/tmp/guardian/"
           docker cp source/migration/tests/guardian_activity_overview_v12.sql "$PG_CONTAINER:/tmp/guardian/tests/"
           docker exec "$PG_CONTAINER" psql -U postgres -d guardian_fixture -v ON_ERROR_STOP=1 -f /tmp/guardian/tests/guardian_activity_overview_v12.sql
+
+  independent-scope-sql:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: fixture-only-password
+          POSTGRES_DB: scope_fixture
+        options: >-
+          --health-cmd "pg_isready -U postgres -d scope_fixture"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Verify independent scope role isolation and idempotent session transition
+        env:
+          PG_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          docker exec "$PG_CONTAINER" mkdir -p /tmp/scope/tests /tmp/scope/proposals
+          docker cp source/migration/proposals/phase_four_independent_scope.sql "$PG_CONTAINER:/tmp/scope/proposals/"
+          docker cp source/migration/tests/phase_four_independent_scope.sql "$PG_CONTAINER:/tmp/scope/tests/"
+          docker exec "$PG_CONTAINER" psql -U postgres -d scope_fixture -v ON_ERROR_STOP=1 -f /tmp/scope/tests/phase_four_independent_scope.sql
