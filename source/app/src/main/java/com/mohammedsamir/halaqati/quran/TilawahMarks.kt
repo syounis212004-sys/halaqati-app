@@ -26,21 +26,26 @@ object TilawahMarks {
 
     /** Explicit repeat increments one category on each selected word, never overwrites another category. */
     fun add(current: List<TilawahMark>, ids: List<String>, page: Int, category: TilawahCategory,
-            note: String = "", subtype: String = ""): List<TilawahMark> {
+            note: String = "", subtype: String = "", previousRefs: Map<String, String> = emptyMap()): List<TilawahMark> {
         val next = current.associateBy { it.markId }.toMutableMap()
         ids.distinct().forEach { id ->
-            val mark = TilawahMark(id, page, category, note = note.trim(), subtype = subtype.trim())
+            val mark = TilawahMark(id, page, category, note = note.trim(), subtype = subtype.trim(), previousMarkId = previousRefs["$id:${category.key}"])
             val old = next[mark.markId]
             require(old == null || old.page == page) { "موضع العلامة غير متطابق" }
             require(old == null || old.occurrences < 99) { "تم بلوغ الحد الأقصى لتكرار هذه العلامة" }
             next[mark.markId] = old?.copy(
                 occurrences = old.occurrences + 1, corrected = false,
                 note = mark.note.ifBlank { old.note }, subtype = mark.subtype.ifBlank { old.subtype },
+                previousMarkId = old.previousMarkId ?: mark.previousMarkId,
             ) ?: mark
         }
         require(next.size <= MAX_MARKS) { "تم بلوغ الحد الأقصى للعلامات في هذا التسميع" }
         return next.values.toList()
     }
+
+    /** Follow-up success without inventing an error in the new session. Stored separately from current marks. */
+    fun previousRefs(recordId: String, previous: List<TilawahMark>): Map<String, String> =
+        previous.filterNot { it.corrected }.associate { it.markId to "$recordId:${it.markId}" }
 
     fun remove(current: List<TilawahMark>, id: String): List<TilawahMark> =
         current.filterNot { it.markId == id }

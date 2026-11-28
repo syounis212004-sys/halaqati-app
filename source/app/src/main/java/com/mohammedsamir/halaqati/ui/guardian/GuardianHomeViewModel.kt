@@ -69,6 +69,7 @@ class GuardianHomeViewModel : ViewModel() {
                     message = "تعذر تحميل عضويات الطالب. حدّث الصفحة أو تحقق من الخادم.") }
                 return@launch
             }
+            if (_state.value.selectedId != studentId) return@launch
             val next = selectedActivities[studentId]?.takeIf { id -> activities.any { it.id == id } }
                 ?: activities.firstOrNull { it.primary }?.id ?: activities.singleOrNull()?.id
             _state.update { it.copy(activities = activities, selectedActivity = next, loadingFirst = false, refreshing = false) }
@@ -80,6 +81,7 @@ class GuardianHomeViewModel : ViewModel() {
         val studentId = _state.value.selectedId ?: return
         if (_state.value.activities.none { it.id == id }) return
         overviewJob?.cancel()
+        _state.update { it.copy(selectedActivity = id, overview = null, refreshing = true, message = null) }
         overviewJob = viewModelScope.launch { loadOverview(studentId,id) }
     }
 

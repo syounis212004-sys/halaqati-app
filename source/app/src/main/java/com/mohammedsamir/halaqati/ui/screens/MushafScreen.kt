@@ -186,12 +186,13 @@ fun MushafMarkingDialog(
     onDismiss: () -> Unit,
     rangeEndPage: Int? = null,
     tilawahMarks: List<TilawahMark>? = null,
+    previousTilawahRefs: Map<String, String> = emptyMap(),
     onTilawahMarksChange: suspend (List<TilawahMark>) -> Unit = {},
 ) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false,
         dismissOnBackPress = tilawahMarks == null, dismissOnClickOutside = tilawahMarks == null)) {
         MushafScreenContent(session, rangeStartPage, counters, score, inRange, onMark, onDismiss, rangeEndPage = rangeEndPage,
-            tilawahMarks = tilawahMarks, onTilawahMarksChange = onTilawahMarksChange)
+            tilawahMarks = tilawahMarks, previousTilawahRefs = previousTilawahRefs, onTilawahMarksChange = onTilawahMarksChange)
     }
 }
 
@@ -237,6 +238,7 @@ internal fun MushafScreenContent(
     rangeEndPage: Int? = null,
     readOnly: Boolean = false,
     tilawahMarks: List<TilawahMark>? = null,
+    previousTilawahRefs: Map<String, String> = emptyMap(),
     onTilawahMarksChange: suspend (List<TilawahMark>) -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -460,7 +462,7 @@ internal fun MushafScreenContent(
     tilawahSelection?.let { (ids, pg) ->
         TilawahWordEditor(ids, tilawahMarks.orEmpty(), tilawahBusy, tilawahError,
             onAdd = { category, note, subtype ->
-                try { changeTilawah(TilawahMarks.add(tilawahMarks.orEmpty(), ids, pg, category, note, subtype)) }
+                try { changeTilawah(TilawahMarks.add(tilawahMarks.orEmpty(), ids, pg, category, note, subtype, previousTilawahRefs)) }
                 catch (e: IllegalArgumentException) { tilawahError = e.message ?: "تعذر إضافة العلامة" }
             },
             onCorrect = { changeTilawah(TilawahMarks.correct(tilawahMarks.orEmpty(), it)) },

@@ -60,6 +60,8 @@ import com.mohammedsamir.halaqati.quran.TilawahCategory
 import com.mohammedsamir.halaqati.quran.TilawahMark
 import com.mohammedsamir.halaqati.quran.TilawahMarks
 import com.mohammedsamir.halaqati.quran.TilawahMarkJson
+import com.mohammedsamir.halaqati.quran.TilawahDraftJson
+import kotlinx.coroutines.sync.withLock
 import com.mohammedsamir.halaqati.quran.QuranRangeRequest
 import com.mohammedsamir.halaqati.quran.QuranRangeResult
 import com.mohammedsamir.halaqati.quran.QuranSelection
@@ -3859,37 +3861,10 @@ private fun RecitationDialog(
     var previousUnavailable by remember(student.id, session.id, existing?.id) { mutableStateOf(existingTilawah?.optString("previous_lookup_status") == "unavailable") }
     var previousAcknowledged by remember(student.id, session.id, existing?.id) { mutableStateOf(existing != null) }
     var previousRetry by remember(student.id, session.id, existing?.id) { mutableIntStateOf(0) }
-    LaunchedEffect(student.id, session.id, existing?.id, resolvedActivityType, previousRetry) {
-        if (resolvedActivityType == "tilawah" && existing == null) {
-            previousLoading = true
-            previousUnavailable = false
-            previousAcknowledged = false
-            previousIssues = emptySet()
-            correctionAdherence = null
-            try {
-                // Narrow, account-scoped cached projection, one lookup on entry, never on a rating change.
-                val validIds = listOf(student.id, session.halaqaId).all { id ->
-                    runCatching { java.util.UUID.fromString(id).toString().equals(id, ignoreCase = true) }.getOrDefault(false)
-                }
-                val date = runCatching { LocalDate.parse(session.date).toString() }.getOrNull()
-                if (validIds && date != null) {
-                    val rows = withContext(Dispatchers.IO) {
-                        AppGraph.repo.table(
-                            "recitation_entries",
-                            "select=selection_data,sessions!inner(session_date,halaqa_id,status)&student_id=eq.${student.id}&activity_type=eq.tilawah&sessions.halaqa_id=eq.${session.halaqaId}&sessions.session_date=lt.$date&sessions.status=neq.cancelled&order=sessions(session_date).desc,created_at.desc&limit=1",
-                            requireKnownResult = true,
-                        )
-                    }
-                    val arr = rows.optJSONObject(0)?.optJSONObject("selection_data")?.optJSONObject("tilawah_assessment")?.optJSONArray("issue_keys")
-                    previousIssues = if (arr == null) emptySet() else (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) }.toSet()
-                } else previousUnavailable = true
-            } catch (e: CancellationException) { throw e }
-            catch (e: Exception) { previousUnavailable = true }
-            finally {
-                previousLoading = false
-            }
-        }
-    }
+    var previousRecordId by remember(student.id, session.id, existing?.id) { mutableStateOf(existingTilawah?.optString("previous_record_id")?.takeIf { it.isNotBlank() && it != "null" }) }
+    var previousMarks by remember(student.id, session.id, existing?.id) { mutableStateOf(TilawahMarkJson.decode(existingTilawah?.optJSONArray("previous_marks"))) }
+    var followedRefs by remember(student.id, session.id, existing?.id) { mutableStateOf(TilawahDraftJson.strings(existingTilawah?.optJSONArray("followed_refs")).toSet()) }
+    val previousRefs = previousRecordId?.let { TilawahMarks.previousRefs(it, previousMarks) }.orEmpty()
     val majorErrors = if (legacyTilawah) 0 else (totalJaliWords.toLong() + totalJaliLetters + totalJaliHarakat).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
 
     var tilawahRiwayah by remember(existing?.id) { mutableStateOf(existingTilawah?.optString("riwayah", "hafs")?.takeIf { it.isNotBlank() } ?: "hafs") }
@@ -3953,25 +3928,21 @@ private fun RecitationDialog(
         RecitationParityRules.quranRangeLabel(a.surah, a.ayah, b.surah, b.ayah, start.toIntOrNull(), end.toIntOrNull())
     } ?: manualPageRange?.displayLabel
 
-    // Draft is scoped to the exact account, session, student, record and selected range.
-    // Matching ranges restore automatically after a restart; unmatched ranges never inherit marks.
+    // One durable form per account/session/student/record. The exact range lives in the same payload.
     val markRange = selectedQuranRange ?: manualPageRange
     val markStart = markRange?.start ?: prefillEndpoints?.first
     val markEnd = markRange?.end ?: prefillEndpoints?.second
-    val rangeSignature = listOf(start, end, markStart?.toString().orEmpty(), markEnd?.toString().orEmpty(),
-        markRange?.orderedSegments?.joinToString(",") { it.compactKey() }.orEmpty(),
-        effectiveQcfLineKeys.joinToString(",")).joinToString("|")
-    val rangeDigest = remember(rangeSignature) {
-        java.security.MessageDigest.getInstance("SHA-256").digest(rangeSignature.toByteArray(Charsets.UTF_8))
-            .joinToString("") { "%02x".format(it.toInt() and 255) }
-    }
-    val tilawahDraftKey = if (isTilawah && !legacyTilawah && pageValue > 0.0 && markStart != null && markEnd != null)
-        "tilawah-draft-v2:${session.halaqaId}:${session.id}:${student.id}:${existing?.id ?: "new"}:$rangeDigest:" else null
+    val tilawahDraftKey = if (isTilawah && !legacyTilawah)
+        "tilawah-form-v2:${session.halaqaId}:${session.id}:${student.id}:${existing?.id ?: "new"}:" else null
     var loadedDraftKey by remember(student.id, session.id, existing?.id) { mutableStateOf<String?>(null) }
     var draftReadError by remember(student.id, session.id, existing?.id) { mutableStateOf<String?>(null) }
+    var draftWriteError by remember(student.id, session.id, existing?.id) { mutableStateOf<String?>(null) }
     var draftRetry by remember(student.id, session.id, existing?.id) { mutableIntStateOf(0) }
     var restoredDraft by remember(student.id, session.id, existing?.id) { mutableStateOf(false) }
-    val draftReady = tilawahDraftKey != null && tilawahDraftKey == loadedDraftKey && draftReadError == null
+    var restoredHistory by remember(student.id, session.id, existing?.id) { mutableStateOf(false) }
+    val draftMutex = remember(student.id, session.id, existing?.id) { kotlinx.coroutines.sync.Mutex() }
+    val formReady = tilawahDraftKey != null && tilawahDraftKey == loadedDraftKey && draftReadError == null
+    val draftReady = formReady && pageValue > 0.0 && markStart != null && markEnd != null
 
     fun insideTilawahRange(surah: Int, ayah: Int, page: Int): Boolean {
         val pgStart = mushafRangeStartPage ?: return false
@@ -3988,11 +3959,39 @@ private fun RecitationDialog(
         return markStart != null && markEnd != null && contains(markStart, markEnd)
     }
 
+    fun formPayload(marks: List<TilawahMark> = tilawahMarks): JSONObject = JSONObject()
+        .put("client_id", tilawahClientId).put("start", start).put("end", end)
+        .put("range", markRange?.let(TilawahDraftJson::encodeRange) ?: JSONObject.NULL)
+        .put("lines", org.json.JSONArray(effectiveQcfLineKeys))
+        .put("marks", TilawahMarkJson.encode(marks, tilawahMarkOriginal))
+        .put("words", jaliWords).put("letters", jaliLetters).put("harakat", jaliHarakat)
+        .put("makharij", makharijRating).put("tajweed", tajweedRating).put("waqf", waqfRating)
+        .put("ward", wardReviewed ?: JSONObject.NULL).put("adherence", correctionAdherence ?: JSONObject.NULL)
+        .put("note", note).put("issues", org.json.JSONArray(tilawahIssues.sorted()))
+        .put("history_ready", !previousLoading && (!previousUnavailable || previousAcknowledged))
+        .put("history_unavailable", previousUnavailable).put("history_ack", previousAcknowledged)
+        .put("previous_record_id", previousRecordId ?: JSONObject.NULL)
+        .put("previous_issues", org.json.JSONArray(previousIssues.sorted()))
+        .put("previous_marks", TilawahMarkJson.encode(previousMarks))
+        .put("followed_refs", org.json.JSONArray(followedRefs.sorted()))
+
+    suspend fun persistForm(payload: String) {
+        val owner = requireNotNull(draftOwner)
+        val key = requireNotNull(tilawahDraftKey)
+        draftMutex.withLock {
+            withContext(Dispatchers.IO) {
+                check(AppGraph.repo.currentUserId() == owner) { "تغير الحساب" }
+                AppGraph.cache.put(owner, key, payload)
+            }
+        }
+    }
+
     LaunchedEffect(tilawahDraftKey, draftOwner, draftRetry) {
         val key = tilawahDraftKey ?: return@LaunchedEffect
         loadedDraftKey = null
         draftReadError = null
         restoredDraft = false
+        restoredHistory = false
         try {
             val owner = requireNotNull(draftOwner) { "لا يوجد حساب نشط" }
             val cached = withContext(Dispatchers.IO) {
@@ -4000,14 +3999,33 @@ private fun RecitationDialog(
                 AppGraph.cache.get(owner, key)?.let { JSONObject(it) }
             }
             if (cached != null) {
-                val rows = cached.optJSONArray("marks") ?: error("مسودة غير صالحة")
-                val restored = TilawahMarkJson.decode(rows)
-                require(restored.all { mark -> com.mohammedsamir.halaqati.quran.MushafEngine.parseWordId(mark.wordId)?.let { insideTilawahRange(it.first, it.second, mark.page) } == true }) { "نطاق المسودة لا يطابق المقرر" }
+                val rows = cached.getJSONArray("marks")
                 val restoredId = java.util.UUID.fromString(cached.getString("client_id")).toString()
                 require(existing == null || restoredId == existing.id) { "معرف المسودة غير مطابق" }
+                val range = cached.optJSONObject("range")?.let(TilawahDraftJson::decodeRange)
+                start = cached.optString("start"); end = cached.optString("end")
+                selectedQuranRange = range
+                effectiveQcfLineKeys = range?.qcfLineKeys ?: TilawahDraftJson.strings(cached.optJSONArray("lines"))
                 tilawahMarkOriginal = rows
-                tilawahMarks = restored
+                tilawahMarks = TilawahMarkJson.decode(rows)
                 tilawahClientId = restoredId
+                jaliWords = cached.optInt("words").coerceAtLeast(0)
+                jaliLetters = cached.optInt("letters").coerceAtLeast(0)
+                jaliHarakat = cached.optInt("harakat").coerceAtLeast(0)
+                makharijRating = cached.optInt("makharij", 5).coerceIn(1,5)
+                tajweedRating = cached.optInt("tajweed", 5).coerceIn(1,5)
+                waqfRating = cached.optInt("waqf", 5).coerceIn(1,5)
+                wardReviewed = cached.takeUnless { it.isNull("ward") }?.optBoolean("ward")
+                correctionAdherence = cached.takeUnless { it.isNull("adherence") }?.optInt("adherence")?.coerceIn(0,5)
+                note = cached.optString("note")
+                tilawahIssues = TilawahDraftJson.strings(cached.optJSONArray("issues")).toSet()
+                previousRecordId = cached.optString("previous_record_id").takeIf { it.isNotBlank() && it != "null" }
+                previousIssues = TilawahDraftJson.strings(cached.optJSONArray("previous_issues")).toSet()
+                previousMarks = TilawahMarkJson.decode(cached.optJSONArray("previous_marks"))
+                followedRefs = TilawahDraftJson.strings(cached.optJSONArray("followed_refs")).toSet()
+                previousUnavailable = cached.optBoolean("history_unavailable")
+                previousAcknowledged = cached.optBoolean("history_ack")
+                restoredHistory = cached.optBoolean("history_ready")
                 restoredDraft = true
             }
             loadedDraftKey = key
@@ -4015,9 +4033,67 @@ private fun RecitationDialog(
         catch (e: Exception) { draftReadError = e.message ?: "تعذر استعادة المسودة" }
     }
 
+    LaunchedEffect(formReady, previousRetry, resolvedActivityType) {
+        if (!formReady || existing != null || !isTilawah || (restoredHistory && previousRetry == 0)) return@LaunchedEffect
+        previousLoading = true
+        previousUnavailable = false
+        previousAcknowledged = false
+        try {
+            val validIds = listOf(student.id, session.halaqaId).all { id ->
+                runCatching { java.util.UUID.fromString(id).toString().equals(id, ignoreCase = true) }.getOrDefault(false)
+            }
+            val date = LocalDate.parse(session.date)
+            require(validIds)
+            val rows = withContext(Dispatchers.IO) {
+                AppGraph.repo.table("recitation_entries",
+                    "select=id,selection_data,sessions!inner(session_date,halaqa_id,status)&student_id=eq.${student.id}&activity_type=eq.tilawah&sessions.halaqa_id=eq.${session.halaqaId}&sessions.session_date=lt.$date&sessions.status=neq.cancelled&order=sessions(session_date).desc,created_at.desc&limit=1",
+                    requireKnownResult = true)
+            }
+            val row = rows.optJSONObject(0)
+            val id = row?.optString("id")?.takeIf { it.isNotBlank() }
+            val assessment = row?.optJSONObject("selection_data")?.optJSONObject("tilawah_assessment")
+            val marks = TilawahMarkJson.decode(assessment?.optJSONArray("marks"))
+            val issues = TilawahDraftJson.strings(assessment?.optJSONArray("issue_keys")).toSet() + marks.filterNot { it.corrected }.map { it.category.key }
+            if (previousRecordId != id || previousIssues != issues) {
+                correctionAdherence = null
+                followedRefs = emptySet()
+            }
+            previousRecordId = id
+            previousIssues = issues
+            previousMarks = marks
+            restoredHistory = true
+        } catch (e: CancellationException) { throw e }
+        catch (e: Exception) { previousUnavailable = true }
+        finally { previousLoading = false }
+    }
+
+    val localPayload = if (formReady) formPayload().toString() else null
+    LaunchedEffect(localPayload, saving) {
+        if (localPayload == null || saving) return@LaunchedEffect
+        try {
+            persistForm(localPayload)
+            draftWriteError = null
+        } catch (e: CancellationException) { throw e }
+        catch (e: Exception) { draftWriteError = e.message ?: "تعذر حفظ المسودة محليًا" }
+    }
+    fun closeKeepingDraft() {
+        if (saving) return
+        if (!isTilawah || legacyTilawah) { close(); return }
+        if (!formReady) { close(); return }
+        saving = true
+        scope.launch {
+            try {
+                persistForm(formPayload().toString())
+                close()
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { draftWriteError = e.message ?: "تعذر حفظ المسودة محليًا" }
+            finally { saving = false }
+        }
+    }
+
     val recitationSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
-        onDismissRequest = { if (!saving) close() },
+        onDismissRequest = { closeKeepingDraft() },
         sheetState = recitationSheetState,
         modifier = Modifier.fillMaxHeight(0.97f),
     ) {
@@ -4030,7 +4106,7 @@ private fun RecitationDialog(
                     Text(if (existing == null) "تسميع ${student.fullName}" else "تعديل تسميع ${student.fullName}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text("${session.date} · ${sessionTypeAr(session.type)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                IconButton(onClick = { if (!saving) close() }, enabled = !saving, modifier = Modifier.size(HalaqatiUiTokens.TouchTarget)) {
+                IconButton(onClick = { closeKeepingDraft() }, enabled = !saving, modifier = Modifier.size(HalaqatiUiTokens.TouchTarget)) {
                     Icon(Icons.Default.Close, contentDescription = "إغلاق")
                 }
             }
@@ -4040,6 +4116,9 @@ private fun RecitationDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 error?.let { StateNotice(it, kind = "error") }
+                draftWriteError?.let { StateNotice(it, kind = "error") }
+                draftReadError?.let { StateNotice(it, kind = "error"); TextButton(onClick = { draftRetry++ }) { Text("إعادة محاولة استعادة المسودة") } }
+                if (restoredDraft) Text("تمت استعادة نموذج التقييم المحلي ونطاق القراءة.", style = MaterialTheme.typography.bodySmall)
                 Text("نوع التسميع", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
 
                 val recitationTypes = (if (com.mohammedsamir.halaqati.data.TrackActivityPolicy.isTathbit(student.track)) listOf(
@@ -4055,7 +4134,7 @@ private fun RecitationDialog(
                     ProFilterChip(
                         selected = resolvedActivityType == value,
                         onClick = {
-                            if (value != resolvedActivityType && tilawahMarks.isEmpty()) {
+                            if (value != resolvedActivityType && tilawahMarks.isEmpty() && !isTilawah) {
                                 resolvedActivityType = value; selectedQuranRange = null; effectiveQcfLineKeys = emptyList(); pages = "0"
                             }
                         },
@@ -4091,7 +4170,7 @@ private fun RecitationDialog(
                         }
                         Button(
                             onClick = { showQuranPicker = true },
-                            enabled = tilawahMarks.isEmpty() && !saving,
+                            enabled = tilawahMarks.isEmpty() && !saving && (!isTilawah || legacyTilawah || formReady),
                             modifier = Modifier.fillMaxWidth().heightIn(min = HalaqatiUiTokens.TouchTarget),
                         ) {
                             Icon(Icons.Default.AutoStories, contentDescription = "اختيار النطاق من المصحف")
@@ -4099,7 +4178,7 @@ private fun RecitationDialog(
                             Text(if (visibleRangeLabel == null) "اختيار المقرر من المصحف" else "تعديل المقرر")
                         }
                         if (isTilawah && !legacyTilawah && pageValue > 0.0001) {
-                            if (restoredDraft) Text("تمت استعادة علامات المسودة المحفوظة محليًا.", style = MaterialTheme.typography.bodySmall)
+                            if (restoredDraft) Text("العلامات المستعادة: ${tilawahMarks.size}", style = MaterialTheme.typography.bodySmall)
                             draftReadError?.let { msg ->
                                 Text(msg, color = MaterialTheme.colorScheme.error)
                                 TextButton(onClick = { draftRetry++ }) { Text("إعادة محاولة استعادة المسودة") }
@@ -4191,6 +4270,13 @@ private fun RecitationDialog(
                                     previousIssues.isEmpty() -> Text("لم تتوفر تصحيحات سابقة في البيانات المتاحة · لا يدخل المعيار في النسبة", style = MaterialTheme.typography.bodySmall)
                                     else -> {
                                         Text(previousIssues.map { key -> issueOptions.firstOrNull { it.first == key }?.second ?: key }.joinToString("، "), style = MaterialTheme.typography.bodyMedium)
+                                        previousMarks.filterNot { it.corrected }.forEach { mark ->
+                                            val ref = previousRefs[mark.markId]
+                                            if (ref != null) {
+                                                ProFilterChip(ref in followedRefs, { followedRefs = if (ref in followedRefs) followedRefs - ref else followedRefs + ref },
+                                                    "صُحح: ${mark.category.label} · ص ${mark.page} · ${mark.wordId}", Modifier.fillMaxWidth(), showCheckIcon = true)
+                                            }
+                                        }
                                         Text("مدى الالتزام بتصحيحات الشيخ السابقة", style = MaterialTheme.typography.labelLarge)
                                         if (correctionAdherence == null) TextButton(onClick = { correctionAdherence = 5 }) { Text("بدء تقييم الالتزام") }
                                         correctionAdherence?.let { rating ->
@@ -4272,10 +4358,10 @@ private fun RecitationDialog(
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
-                    onClick = close,
+                    onClick = { closeKeepingDraft() },
                     enabled = !saving,
                     modifier = Modifier.weight(.8f).heightIn(min = 52.dp),
-                ) { Text("إلغاء") }
+                ) { Text(if (isTilawah && !legacyTilawah) "حفظ مسودة" else "إلغاء") }
                 Button(
                     enabled = !saving && pageValue > 0.0 && (!isTilawah || legacyTilawah || (wardReviewed != null && !previousLoading && (!previousUnavailable || previousAcknowledged) && (previousIssues.isEmpty() || correctionAdherence != null) && draftReady)),
                     modifier = Modifier.weight(1.4f).heightIn(min = 52.dp),
@@ -4303,7 +4389,7 @@ private fun RecitationDialog(
                                 }.getOrElse { throw it }
                                 val authoritativeQcfLineKeys = authoritativeQuranRange?.qcfLineKeys ?: effectiveQcfLineKeys
                                 val authoritativePages = if (authoritativeQcfLineKeys.isNotEmpty()) authoritativeQcfLineKeys.distinct().size.toDouble() / 15.0 else pageValue
-                                val savedId = withContext(Dispatchers.IO) {
+                                val savedId = draftMutex.withLock { withContext(Dispatchers.IO) {
                                     if (isTilawah && !legacyTilawah) {
                                         check(draftReady && AppGraph.repo.currentUserId() == draftOwner) { "تعذر تأكيد الحساب أو المسودة" }
                                         require(tilawahMarks.all { mark -> com.mohammedsamir.halaqati.quran.MushafEngine.parseWordId(mark.wordId)?.let { insideTilawahRange(it.first, it.second, mark.page) } == true }) { "توجد علامات خارج المقرر" }
@@ -4368,6 +4454,9 @@ private fun RecitationDialog(
                                                 .put("correction_adherence", correctionAdherence.takeIf { previousIssues.isNotEmpty() } ?: JSONObject.NULL)
                                                 .put("previous_lookup_status", if (previousUnavailable) "unavailable" else "available")
                                                 .put("previous_issue_keys", org.json.JSONArray(previousIssues.sorted()))
+                                                .put("previous_record_id", previousRecordId ?: JSONObject.NULL)
+                                                .put("previous_marks", TilawahMarkJson.encode(previousMarks))
+                                                .put("followed_refs", org.json.JSONArray(followedRefs.sorted()))
                                                 .put("manual_issue_keys", org.json.JSONArray(tilawahIssues.sorted()))
                                                 .put("issue_keys", org.json.JSONArray((tilawahIssues + tilawahMarks.filterNot { it.corrected }.map { it.category.key }).sorted()))
                                                 .put("overall_score", kotlin.math.round(tilawahScore * 10.0) / 10.0)
@@ -4382,7 +4471,7 @@ private fun RecitationDialog(
                                     if (isTilawah && !legacyTilawah && draftOwner != null && tilawahDraftKey != null)
                                         runCatching { AppGraph.cache.invalidate(draftOwner, tilawahDraftKey) }
                                     id
-                                }
+                                } }
                                 onSaved(savedId)
                             } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
@@ -4450,16 +4539,11 @@ private fun RecitationDialog(
             },
             onDismiss = { showMushaf = false; mushafTick++ },
             tilawahMarks = tilawahMarks.takeIf { isTilawah && !legacyTilawah },
+            previousTilawahRefs = previousRefs,
             onTilawahMarksChange = { next ->
-                val owner = requireNotNull(draftOwner)
-                val key = requireNotNull(tilawahDraftKey)
                 check(draftReady)
                 val rows = TilawahMarkJson.encode(next, tilawahMarkOriginal)
-                val payload = JSONObject().put("client_id", tilawahClientId).put("marks", rows)
-                withContext(Dispatchers.IO + NonCancellable) {
-                    check(AppGraph.repo.currentUserId() == owner) { "تغير الحساب" }
-                    AppGraph.cache.put(owner, key, payload.toString())
-                }
+                persistForm(formPayload(next).toString())
                 tilawahMarkOriginal = rows
                 tilawahMarks = next
             },
