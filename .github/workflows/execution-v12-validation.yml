@@ -1,6 +1,7 @@
 name: Execution v1.2 validation
 
 on:
+  workflow_call:
   push:
     branches: [fix/execution-v1-2]
   pull_request:
