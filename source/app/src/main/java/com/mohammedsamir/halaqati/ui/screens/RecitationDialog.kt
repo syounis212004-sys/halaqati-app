@@ -123,33 +123,11 @@ internal fun RecitationDialog(
     var mushafStartPage by remember(recordKey) { mutableIntStateOf(1) }
     val mushafSession = remember(student.id, session.id, recordKey, mushafEpoch) { com.mohammedsamir.halaqati.quran.MushafEngine.Session(mushafStartPage) }
     var selectedQuranRange by remember(student.id, session.id, recordKey) {
-        mutableStateOf(existing?.let { row ->
-            if (row.qcfLineKeys.isNotEmpty() || row.startSurah == null || row.startAyah == null || row.endSurah == null || row.endAyah == null) null
-            else runCatching {
-                QuranCore.engine().calculate(
-                    QuranRangeRequest(
-                        track = student.track,
-                        activityType = row.activityType,
-                        selection = QuranSelection.Ayahs(
-                            com.mohammedsamir.halaqati.quran.QuranLocation(row.startSurah, row.startAyah),
-                            com.mohammedsamir.halaqati.quran.QuranLocation(row.endSurah, row.endAyah),
-                        ),
-                    ),
-                )
-            }.getOrNull()
-        })
+        mutableStateOf(initialRecitationRange(existing, student))
     }
     var effectiveQcfLineKeys by remember(recordKey, qcfLineKeys) { mutableStateOf(existing?.qcfLineKeys?.takeIf { it.isNotEmpty() } ?: qcfLineKeys) }
     var resolvedActivityType by remember(student.id, session.id, activityTypeOverride, recordKey) {
-        mutableStateOf(existing?.activityType?.let { old -> runCatching { com.mohammedsamir.halaqati.data.TrackActivityPolicy.recitationActivityFor(student.track, old) }.getOrDefault(old) }
-            ?: activityTypeOverride?.let { runCatching { com.mohammedsamir.halaqati.data.TrackActivityPolicy.recitationActivityFor(student.track, it) }.getOrNull() }
-            ?: when (session.type) {
-            "sard" -> "sard"
-            "review" -> if (com.mohammedsamir.halaqati.data.TrackActivityPolicy.isTathbit(student.track)) "tathbit" else "review_near"
-            "test" -> "test"
-            "tajweed", "tilawah" -> "tilawah"
-            else -> if (com.mohammedsamir.halaqati.data.TrackActivityPolicy.isTathbit(student.track)) "tathbit" else "new_hifz"
-        })
+        mutableStateOf(initialRecitationActivity(existing, student, session, activityTypeOverride))
     }
 
     val existingTilawah = existing?.tilawahAssessment
@@ -202,13 +180,13 @@ internal fun RecitationDialog(
     var lahnJali by lahnJaliState
     val lahnKhafiState = remember(recordKey) { mutableStateOf(existingTilawah?.optInt("lahn_khafi", 0)?.coerceAtLeast(0) ?: 0) }
     var lahnKhafi by lahnKhafiState
-    val makharijRatingState = remember(recordKey) { mutableStateOf(existingTilawah?.optInt("makharij", 5)?.coerceIn(1, 5) ?: 5) }
+    val makharijRatingState = remember(recordKey) { mutableStateOf(initialTilawahRating(existingTilawah, "makharij")) }
     var makharijRating by makharijRatingState
-    val tajweedRatingState = remember(recordKey) { mutableStateOf(existingTilawah?.optInt("tajweed", 5)?.coerceIn(1, 5) ?: 5) }
+    val tajweedRatingState = remember(recordKey) { mutableStateOf(initialTilawahRating(existingTilawah, "tajweed")) }
     var tajweedRating by tajweedRatingState
-    val waqfRatingState = remember(recordKey) { mutableStateOf(existingTilawah?.optInt("waqf_ibtida", 5)?.coerceIn(1, 5) ?: 5) }
+    val waqfRatingState = remember(recordKey) { mutableStateOf(initialTilawahRating(existingTilawah, "waqf_ibtida")) }
     var waqfRating by waqfRatingState
-    val fluencyRatingState = remember(recordKey) { mutableStateOf(existingTilawah?.optInt("fluency", 5)?.coerceIn(1, 5) ?: 5) }
+    val fluencyRatingState = remember(recordKey) { mutableStateOf(initialTilawahRating(existingTilawah, "fluency")) }
     var fluencyRating by fluencyRatingState
     val tilawahIssuesState = remember(recordKey) {
         val arr = existingTilawah?.optJSONArray("manual_issue_keys") ?: existingTilawah?.optJSONArray("issue_keys")
@@ -972,3 +950,34 @@ private fun TilawahAssessmentCard(
         }
     }
 }
+
+private fun initialRecitationRange(existing: RecitationRow?, student: Student): QuranRangeResult? =
+    existing?.let { row ->
+    if (row.qcfLineKeys.isNotEmpty() || row.startSurah == null || row.startAyah == null || row.endSurah == null || row.endAyah == null) null
+    else runCatching {
+        QuranCore.engine().calculate(
+            QuranRangeRequest(
+                track = student.track,
+                activityType = row.activityType,
+                selection = QuranSelection.Ayahs(
+                    com.mohammedsamir.halaqati.quran.QuranLocation(row.startSurah, row.startAyah),
+                    com.mohammedsamir.halaqati.quran.QuranLocation(row.endSurah, row.endAyah),
+                ),
+            ),
+        )
+    }.getOrNull()
+}
+
+private fun initialRecitationActivity(existing: RecitationRow?, student: Student, session: SessionRow, activityTypeOverride: String?): String =
+    existing?.activityType?.let { old -> runCatching { com.mohammedsamir.halaqati.data.TrackActivityPolicy.recitationActivityFor(student.track, old) }.getOrDefault(old) }
+    ?: activityTypeOverride?.let { runCatching { com.mohammedsamir.halaqati.data.TrackActivityPolicy.recitationActivityFor(student.track, it) }.getOrNull() }
+    ?: when (session.type) {
+    "sard" -> "sard"
+    "review" -> if (com.mohammedsamir.halaqati.data.TrackActivityPolicy.isTathbit(student.track)) "tathbit" else "review_near"
+    "test" -> "test"
+    "tajweed", "tilawah" -> "tilawah"
+    else -> if (com.mohammedsamir.halaqati.data.TrackActivityPolicy.isTathbit(student.track)) "tathbit" else "new_hifz"
+}
+
+private fun initialTilawahRating(assessment: JSONObject?, key: String): Int =
+    assessment?.optInt(key, 5)?.coerceIn(1, 5) ?: 5
