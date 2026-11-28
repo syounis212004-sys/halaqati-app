@@ -3631,7 +3631,7 @@ private fun RecitationCounter(
 }
 
 @Composable
-private fun TilawahRatingRow(label: String, value: Int, onValue: (Int) -> Unit) {
+private fun TilawahRatingRow(label: String, value: Int, minValue: Int = 1, onValue: (Int) -> Unit) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -3639,9 +3639,9 @@ private fun TilawahRatingRow(label: String, value: Int, onValue: (Int) -> Unit) 
         }
         Slider(
             value = value.toFloat(),
-            onValueChange = { onValue(kotlin.math.round(it).toInt().coerceIn(1, 5)) },
-            valueRange = 1f..5f,
-            steps = 3,
+            onValueChange = { onValue(kotlin.math.round(it).toInt().coerceIn(minValue, 5)) },
+            valueRange = minValue.toFloat()..5f,
+            steps = 4 - minValue,
         )
     }
 }
@@ -3821,6 +3821,45 @@ private fun RecitationDialog(
     }
 
     val existingTilawah = existing?.tilawahAssessment
+    // Do not silently convert old assessments to the new scoring contract during an edit.
+    val legacyTilawah = existing != null && (existingTilawah?.optInt("version", 1) ?: 1) < 2
+    var jaliWords by remember(existing?.id) { mutableIntStateOf(existingTilawah?.optInt("jali_words", 0)?.coerceAtLeast(0) ?: 0) }
+    var jaliLetters by remember(existing?.id) { mutableIntStateOf(existingTilawah?.optInt("jali_letters", 0)?.coerceAtLeast(0) ?: 0) }
+    var jaliHarakat by remember(existing?.id) { mutableIntStateOf(existingTilawah?.optInt("jali_harakat", 0)?.coerceAtLeast(0) ?: 0) }
+    var wardReviewed by remember(existing?.id) { mutableStateOf(existingTilawah?.takeIf { it.has("ward_reviewed") && !it.isNull("ward_reviewed") }?.optBoolean("ward_reviewed")) }
+    var correctionAdherence by remember(existing?.id) { mutableStateOf(existingTilawah?.takeIf { it.has("correction_adherence") && !it.isNull("correction_adherence") }?.optInt("correction_adherence")?.coerceIn(0, 5)) }
+    val issueOptions = listOf("madd" to "المدود", "ghunnah" to "الغنة", "ikhfa_idgham" to "الإخفاء والإدغام", "qalqalah" to "القلقلة", "makharij" to "المخارج", "waqf" to "الوقف والابتداء")
+    var previousIssues by remember(student.id, session.id, existing?.id) {
+        val arr = existingTilawah?.optJSONArray("previous_issue_keys")
+        mutableStateOf(if (arr == null) emptySet<String>() else (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) }.toSet())
+    }
+    var previousLoading by remember(student.id, session.id, existing?.id) { mutableStateOf(false) }
+    LaunchedEffect(student.id, session.id, existing?.id, resolvedActivityType) {
+        if (resolvedActivityType == "tilawah" && existing == null) {
+            previousLoading = true
+            try {
+                // Narrow, account-scoped cached projection, one lookup on entry, never on a rating change.
+                val validIds = listOf(student.id, session.halaqaId).all { id ->
+                    runCatching { java.util.UUID.fromString(id).toString().equals(id, ignoreCase = true) }.getOrDefault(false)
+                }
+                val date = runCatching { LocalDate.parse(session.date).toString() }.getOrNull()
+                if (validIds && date != null) {
+                    val rows = withContext(Dispatchers.IO) {
+                        AppGraph.repo.table(
+                            "recitation_entries",
+                            "select=selection_data,sessions!inner(session_date,halaqa_id,status)&student_id=eq.${student.id}&activity_type=eq.tilawah&sessions.halaqa_id=eq.${session.halaqaId}&sessions.session_date=lt.$date&sessions.status=neq.cancelled&order=sessions(session_date).desc,created_at.desc&limit=1",
+                        )
+                    }
+                    val arr = rows.optJSONObject(0)?.optJSONObject("selection_data")?.optJSONObject("tilawah_assessment")?.optJSONArray("issue_keys")
+                    previousIssues = if (arr == null) emptySet() else (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) }.toSet()
+                }
+            } finally {
+                previousLoading = false
+            }
+        }
+    }
+    val majorErrors = if (legacyTilawah) 0 else (jaliWords.toLong() + jaliLetters + jaliHarakat).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+
     var tilawahRiwayah by remember(existing?.id) { mutableStateOf(existingTilawah?.optString("riwayah", "hafs")?.takeIf { it.isNotBlank() } ?: "hafs") }
     var lahnJali by remember(existing?.id) { mutableStateOf(existingTilawah?.optInt("lahn_jali", 0)?.coerceAtLeast(0) ?: 0) }
     var lahnKhafi by remember(existing?.id) { mutableStateOf(existingTilawah?.optInt("lahn_khafi", 0)?.coerceAtLeast(0) ?: 0) }
@@ -3860,7 +3899,9 @@ private fun RecitationDialog(
     val evaluation = SafetyScoring.inferredEvaluation(safety, pageValue > 0.0)
     val isTilawah = resolvedActivityType == "tilawah"
     val tilawahBaseScore = ((makharijRating + tajweedRating + waqfRating + fluencyRating) / 20.0) * 100.0
-    val tilawahScore = (tilawahBaseScore - (lahnJali * 8.0) - (lahnKhafi * 3.0)).coerceIn(0.0, 100.0)
+    val tilawahScore = if (legacyTilawah) (tilawahBaseScore - (lahnJali * 8.0) - (lahnKhafi * 3.0)).coerceIn(0.0, 100.0)
+        else com.mohammedsamir.halaqati.plans.TilawahScoreV2.score(makharijRating, tajweedRating, waqfRating,
+            correctionAdherence.takeIf { previousIssues.isNotEmpty() }, wardReviewed == true, majorErrors)
     val effectiveSafety = if (isTilawah) tilawahScore else safety
     val effectiveEvaluation = if (isTilawah) when {
         tilawahScore >= 90.0 -> "excellent"
@@ -3978,32 +4019,66 @@ private fun RecitationDialog(
                         Column(Modifier.fillMaxWidth().padding(13.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text("تقييم التلاوة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
                             Text("تقييم يدوي من المحفّظ؛ لا يعتمد على كشف آلي لأحكام التجويد.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("الرواية / القراءة", style = MaterialTheme.typography.labelLarge)
-                            ResponsiveChipGrid(
-                                items = listOf("hafs" to "حفص عن عاصم", "warsh" to "ورش عن نافع", "qalun" to "قالون عن نافع"),
-                                minItemWidth = 118.dp,
-                                maxColumns = 2,
-                            ) { pair, itemModifier ->
-                                ProFilterChip(
-                                    selected = tilawahRiwayah == pair.first,
-                                    onClick = { tilawahRiwayah = pair.first },
-                                    label = pair.second,
-                                    modifier = itemModifier.fillMaxWidth(),
-                                    showCheckIcon = false,
-                                )
-                            }
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Box(Modifier.weight(1f)) {
-                                    RecitationCounter("لحن جلي", lahnJali, { lahnJali = (lahnJali - 1).coerceAtLeast(0) }, { lahnJali += 1 })
+                            if (legacyTilawah) {
+                                Text("الرواية / القراءة", style = MaterialTheme.typography.labelLarge)
+                                ResponsiveChipGrid(
+                                    items = listOf("hafs" to "حفص عن عاصم", "warsh" to "ورش عن نافع", "qalun" to "قالون عن نافع"),
+                                    minItemWidth = 118.dp,
+                                    maxColumns = 2,
+                                ) { pair, itemModifier ->
+                                    ProFilterChip(
+                                        selected = tilawahRiwayah == pair.first,
+                                        onClick = { tilawahRiwayah = pair.first },
+                                        label = pair.second,
+                                        modifier = itemModifier.fillMaxWidth(),
+                                        showCheckIcon = false,
+                                    )
                                 }
-                                Box(Modifier.weight(1f)) {
-                                    RecitationCounter("لحن خفي", lahnKhafi, { lahnKhafi = (lahnKhafi - 1).coerceAtLeast(0) }, { lahnKhafi += 1 })
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Box(Modifier.weight(1f)) {
+                                        RecitationCounter("لحن جلي", lahnJali, { lahnJali = (lahnJali - 1).coerceAtLeast(0) }, { lahnJali += 1 })
+                                    }
+                                    Box(Modifier.weight(1f)) {
+                                        RecitationCounter("لحن خفي", lahnKhafi, { lahnKhafi = (lahnKhafi - 1).coerceAtLeast(0) }, { lahnKhafi += 1 })
+                                    }
+                                }
+                                TilawahRatingRow("المخارج والصفات", makharijRating) { makharijRating = it }
+                                TilawahRatingRow("أحكام التجويد", tajweedRating) { tajweedRating = it }
+                                TilawahRatingRow("الوقف والابتداء", waqfRating) { waqfRating = it }
+                                TilawahRatingRow("الطلاقة والترتيل", fluencyRating) { fluencyRating = it }
+                            } else {
+                                Text("أخطاء اللحن الجلي", style = MaterialTheme.typography.labelLarge)
+                                ResponsiveChipGrid(items = listOf("word", "letter", "harakah"), minItemWidth = 104.dp, maxColumns = 3) { key, itemModifier ->
+                                    Box(itemModifier.fillMaxWidth()) {
+                                        when (key) {
+                                            "word" -> RecitationCounter("الكلمات", jaliWords, { jaliWords = (jaliWords - 1).coerceAtLeast(0) }, { jaliWords++ })
+                                            "letter" -> RecitationCounter("الحروف", jaliLetters, { jaliLetters = (jaliLetters - 1).coerceAtLeast(0) }, { jaliLetters++ })
+                                            else -> RecitationCounter("الحركات", jaliHarakat, { jaliHarakat = (jaliHarakat - 1).coerceAtLeast(0) }, { jaliHarakat++ })
+                                        }
+                                    }
+                                }
+                                TilawahRatingRow("المخارج والصفات", makharijRating) { makharijRating = it }
+                                TilawahRatingRow("أحكام التجويد", tajweedRating) { tajweedRating = it }
+                                TilawahRatingRow("الوقف والابتداء", waqfRating) { waqfRating = it }
+                                Text("التصحيحات السابقة", style = MaterialTheme.typography.labelLarge)
+                                when {
+                                    previousLoading -> Text("جارٍ تحميل التصحيحات السابقة…", style = MaterialTheme.typography.bodySmall)
+                                    previousIssues.isEmpty() -> Text("لم تتوفر تصحيحات سابقة · لا يدخل المعيار في النسبة", style = MaterialTheme.typography.bodySmall)
+                                    else -> {
+                                        Text(previousIssues.map { key -> issueOptions.firstOrNull { it.first == key }?.second ?: key }.joinToString("، "), style = MaterialTheme.typography.bodyMedium)
+                                        Text("مدى الالتزام بتصحيحات الشيخ السابقة", style = MaterialTheme.typography.labelLarge)
+                                        if (correctionAdherence == null) TextButton(onClick = { correctionAdherence = 5 }) { Text("بدء تقييم الالتزام") }
+                                        correctionAdherence?.let { rating ->
+                                            TilawahRatingRow("الالتزام", rating, minValue = 0) { correctionAdherence = it }
+                                        }
+                                    }
+                                }
+                                Text("هل راجع الطالب الورد؟", style = MaterialTheme.typography.labelLarge)
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    ProFilterChip(wardReviewed == true, { wardReviewed = true }, "نعم", Modifier.weight(1f), showCheckIcon = true)
+                                    ProFilterChip(wardReviewed == false, { wardReviewed = false }, "لا", Modifier.weight(1f), showCheckIcon = true)
                                 }
                             }
-                            TilawahRatingRow("المخارج والصفات", makharijRating) { makharijRating = it }
-                            TilawahRatingRow("أحكام التجويد", tajweedRating) { tajweedRating = it }
-                            TilawahRatingRow("الوقف والابتداء", waqfRating) { waqfRating = it }
-                            TilawahRatingRow("الطلاقة والترتيل", fluencyRating) { fluencyRating = it }
                             Text("مواضع تحتاج متابعة", style = MaterialTheme.typography.labelLarge)
                             val tilawahIssueOptions = listOf(
                                 "madd" to "المدود",
@@ -4077,7 +4152,7 @@ private fun RecitationDialog(
                     modifier = Modifier.weight(.8f).heightIn(min = 52.dp),
                 ) { Text("إلغاء") }
                 Button(
-                    enabled = !saving && pageValue > 0.0,
+                    enabled = !saving && pageValue > 0.0 && (!isTilawah || legacyTilawah || (wardReviewed != null && !previousLoading && (previousIssues.isEmpty() || correctionAdherence != null))),
                     modifier = Modifier.weight(1.4f).heightIn(min = 52.dp),
                     onClick = {
                         saving = true
@@ -4110,7 +4185,7 @@ private fun RecitationDialog(
                                             startPage = authoritativeQuranRange?.startPage ?: startPage,
                                             endPage = authoritativeQuranRange?.endPage ?: endPage,
                                             pages = authoritativePages,
-                                            mistakes = if (isTilawah) lahnJali + lahnKhafi else mistakeValue,
+                                            mistakes = if (isTilawah) (if (legacyTilawah) lahnJali + lahnKhafi else majorErrors) else mistakeValue,
                                             prompts = if (isTilawah) 0 else promptValue,
                                             evaluation = effectiveEvaluation,
                                             notes = note.trim(),
@@ -4131,7 +4206,7 @@ private fun RecitationDialog(
                                             selectedJuz = authoritativeQuranRange?.selectedJuz.orEmpty(),
                                             traversalDirection = authoritativeQuranRange?.resolvedTraversal?.name,
                                             quranSegments = authoritativeQuranRange?.orderedSegments?.map { it.compactKey() }.orEmpty(),
-                                            tilawahAssessment = if (isTilawah) JSONObject()
+                                            tilawahAssessment = if (isTilawah && legacyTilawah) JSONObject()
                                                 .put("version", 1)
                                                 .put("riwayah", tilawahRiwayah)
                                                 .put("lahn_jali", lahnJali)
@@ -4140,6 +4215,23 @@ private fun RecitationDialog(
                                                 .put("tajweed", tajweedRating)
                                                 .put("waqf_ibtida", waqfRating)
                                                 .put("fluency", fluencyRating)
+                                                .put("issue_keys", org.json.JSONArray(tilawahIssues.sorted()))
+                                                .put("overall_score", kotlin.math.round(tilawahScore * 10.0) / 10.0)
+                                                .put("manual_teacher_assessment", true)
+                                            else if (isTilawah) JSONObject(existingTilawah?.toString() ?: "{}")
+                                                .put("version", 2)
+                                                .put("riwayah", "hafs")
+                                                .put("lahn_jali", majorErrors)
+                                                .put("lahn_khafi", 0)
+                                                .put("jali_words", jaliWords)
+                                                .put("jali_letters", jaliLetters)
+                                                .put("jali_harakat", jaliHarakat)
+                                                .put("makharij", makharijRating)
+                                                .put("tajweed", tajweedRating)
+                                                .put("waqf_ibtida", waqfRating)
+                                                .put("ward_reviewed", wardReviewed == true)
+                                                .put("correction_adherence", correctionAdherence.takeIf { previousIssues.isNotEmpty() } ?: JSONObject.NULL)
+                                                .put("previous_issue_keys", org.json.JSONArray(previousIssues.sorted()))
                                                 .put("issue_keys", org.json.JSONArray(tilawahIssues.sorted()))
                                                 .put("overall_score", kotlin.math.round(tilawahScore * 10.0) / 10.0)
                                                 .put("manual_teacher_assessment", true)
