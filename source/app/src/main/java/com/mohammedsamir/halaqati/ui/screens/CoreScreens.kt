@@ -2060,6 +2060,7 @@ private fun GoldenSessionCard(
     onDelete: () -> Unit,
 ) {
     var menuExpanded by remember(session.id) { mutableStateOf(false) }
+    val displayStatus = SessionWorkflowRules.displayStatus(session.status, session.date, session.archived, LocalDate.now(GazaTime.zone))
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -2068,7 +2069,7 @@ private fun GoldenSessionCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -2076,7 +2077,7 @@ private fun GoldenSessionCard(
                 key = "sessions",
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(34.dp),
+                modifier = Modifier.size(28.dp),
             )
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(session.title.ifBlank { "جلسة اليوم — ${sessionTypeAr(session.type)}" }, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -2084,22 +2085,17 @@ private fun GoldenSessionCard(
                     buildList {
                         add(session.date)
                         add(sessionTypeAr(session.type))
+                        add(displayStatus)
                     }.joinToString(" · "),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                val (stateBg, stateFg) = com.mohammedsamir.halaqati.ui.theme.statusColors(if (session.status == "open" && !session.archived) "success" else "neutral")
-                Surface(color = stateBg, shape = RoundedCornerShape(8.dp)) {
-                    Text(if (session.archived) "مؤرشفة" else SessionWorkflowRules.statusLabel(session.status),
-                        Modifier.padding(horizontal = 8.dp, vertical = 3.dp), color = stateFg, style = MaterialTheme.typography.labelSmall)
-                }
                 if (session.notes.isNotBlank()) {
                     Text(session.notes, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            if (!session.archived) Icon(Icons.Default.ChevronLeft, contentDescription = "فتح الجلسة", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
             Box {
                 IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(HalaqatiUiTokens.TouchTarget)) {
                     Icon(Icons.Default.MoreVert, contentDescription = "خيارات الجلسة")
@@ -2273,8 +2269,12 @@ private fun SessionRosterScreen(
     onChanged: () -> Unit,
 ) {
     // RC27.9: the halaqa decides the kind of session; programs never offer hifz/sard/review or smart plans.
-    val isProgramSession = programSession || session.type in setOf("tajweed", "tilawah")
-    val editable = session.status == "open" && !session.archived
+    val educational = session.type == "lesson"
+    val usesRecitation = SessionWorkflowRules.usesRecitationTools(session.type)
+    val isProgramSession = programSession || session.type in setOf("tajweed", "tilawah") || !usesRecitation
+    val today = LocalDate.now(GazaTime.zone)
+    val displayStatus = SessionWorkflowRules.displayStatus(session.status, session.date, session.archived, today)
+    val editable = SessionWorkflowRules.canRecord(session.status, session.archived, session.date, today)
     val activityDoneLabel = if (isProgramSession) "نشاط مسجل" else "سُمّع"
     val activityMissingLabel = if (isProgramSession) "لم يسجل نشاطًا" else "لم يُسمّع"
     val scope = rememberCoroutineScope()
@@ -2472,8 +2472,8 @@ private fun SessionRosterScreen(
 
     fun stateFor(student: Student): SessionWorkflowRules.StudentState = SessionWorkflowRules.studentState(
         attendanceStatus = attendance[student.id]?.status,
-        participation = notes[student.id]?.participation,
-        hasRecitations = recitations[student.id].orEmpty().any { it.id !in hiddenRecitationIds },
+        participation = notes[student.id]?.participation.takeIf { usesRecitation },
+        hasRecitations = usesRecitation && recitations[student.id].orEmpty().any { it.id !in hiddenRecitationIds },
     )
 
     // The session editor exits without assigning a status to students who have not been observed.
@@ -2533,8 +2533,7 @@ private fun SessionRosterScreen(
                     }
                     Column(Modifier.weight(1f)) {
                         Text(session.title.ifBlank { sessionTypeAr(session.type) }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("${session.date} · ${sessionTypeAr(session.type)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(SessionWorkflowRules.statusLabel(session.status), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        Text("${session.date} · ${sessionTypeAr(session.type)} · $displayStatus", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = { onEditSession(session) }, enabled = !transitioning, modifier = Modifier.size(HalaqatiUiTokens.TouchTarget)) {
                         Icon(Icons.Default.Edit, contentDescription = "تعديل بيانات الجلسة")
@@ -2543,12 +2542,12 @@ private fun SessionRosterScreen(
             }
 
             if (refreshing || transitioning) LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(2.dp))
-            if (!editable) StateNotice("هذه الجلسة للعرض فقط. ابدأها أو أعد فتحها من الزر أدناه لتسجيل البيانات.", "info", modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+            if (!editable) StateNotice("هذه الجلسة للعرض فقط حاليًا.", "info", modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
 
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                placeholder = { Text("ابحث عن طالب للوصول السريع") },
+                placeholder = { Text("ابحث عن طالب", style = MaterialTheme.typography.bodyMedium) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 trailingIcon = if (query.isNotBlank()) { { IconButton(onClick = { query = "" }, modifier = Modifier.size(HalaqatiUiTokens.TouchTarget)) { Icon(Icons.Default.Clear, contentDescription = "مسح البحث") } } } else null,
                 singleLine = true,
@@ -2566,18 +2565,11 @@ private fun SessionRosterScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Column(Modifier.weight(1f).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("ملخص الجلسة · ${sessionSummary.total} طالب", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            SessionMiniTile(present, "حاضر / متأخر", "success", Modifier.weight(1f))
-                            SessionMiniTile(absent, "غائب", "danger", Modifier.weight(1f))
-                            SessionMiniTile(sessionSummary.excused, "معذور", "warning", Modifier.weight(1f))
-                        }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            SessionMiniTile(recited, activityDoneLabel, "success", Modifier.weight(1f))
-                            SessionMiniTile(notRecited, activityMissingLabel, "warning", Modifier.weight(1f))
-                            SessionMiniTile(unmarked, "غير مرصود", "neutral", Modifier.weight(1f))
-                        }
+                    Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        SessionMiniTile(present, "حاضر", "success", Modifier.weight(1f))
+                        SessionMiniTile(absent, "غائب", "danger", Modifier.weight(1f))
+                        SessionMiniTile(sessionSummary.excused, "معذور", "warning", Modifier.weight(1f))
+                        SessionMiniTile(if (usesRecitation) recited else unmarked, if (usesRecitation) "نشاط" else "غير مرصود", "neutral", Modifier.weight(1f))
                     }
                     IconButton(onClick = { sessionFiltersOpen = true }, modifier = Modifier.size(HalaqatiUiTokens.TouchTarget)) {
                         Icon(Icons.Default.Tune, contentDescription = "تصفية وترتيب")
@@ -2591,11 +2583,12 @@ private fun SessionRosterScreen(
                         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).navigationBarsPadding(),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Text("حالة الجلسة والفلترة", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text("حالة الجلسة والفلترة · ${sessionSummary.total} طالب", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         SessionSummaryStrip(summary = sessionSummary, programSession = isProgramSession)
                         Text("حالة الطالب", style = MaterialTheme.typography.labelLarge)
                         ResponsiveChipGrid(
-                            items = listOf("all" to "الكل", "unmarked" to "لم يُرصد", "not_recited" to activityMissingLabel, "present_pending" to if (isProgramSession) "حاضر بلا نشاط" else "حاضر بلا تسميع", "recited" to activityDoneLabel, "absent" to "غائب", "excused" to "معذور"),
+                            items = listOf("all" to "الكل", "unmarked" to "لم يُرصد", "absent" to "غائب", "excused" to "معذور") +
+                                (if (usesRecitation) listOf("not_recited" to activityMissingLabel, "present_pending" to (if (isProgramSession) "حاضر بلا نشاط" else "حاضر بلا تسميع"), "recited" to activityDoneLabel) else emptyList()),
                             minItemWidth = 112.dp, maxColumns = 2,
                         ) { pair, itemModifier ->
                             ProFilterChip(statusFilter == pair.first, { statusFilter = pair.first }, pair.second, itemModifier.fillMaxWidth(), showCheckIcon = false)
@@ -2712,7 +2705,7 @@ private fun SessionRosterScreen(
                                 }
 
                                 // RC58: an open card already shows the last recitation inside the smart-plan block, so it is not repeated here.
-                                recitations[student.id].orEmpty().filterNot { it.id in hiddenRecitationIds }.lastOrNull()
+                                (if (usesRecitation) recitations[student.id].orEmpty() else emptyList()).filterNot { it.id in hiddenRecitationIds }.lastOrNull()
                                     ?.takeUnless { expandedStudentId == student.id && !isProgramSession && planSnapshotsByStudent[student.id]?.isNotEmpty() == true }
                                     ?.let { latest ->
                                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -2777,7 +2770,7 @@ private fun SessionRosterScreen(
                                     }
                                 }
 
-                                recitations[student.id].orEmpty().filterNot { it.id in hiddenRecitationIds }.forEach { rec ->
+                                (if (usesRecitation) recitations[student.id].orEmpty() else emptyList()).filterNot { it.id in hiddenRecitationIds }.forEach { rec ->
                                     Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = .88f), shape = RoundedCornerShape(13.dp), modifier = Modifier.fillMaxWidth()) {
                                         Row(
                                             Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp),
@@ -2833,7 +2826,7 @@ private fun SessionRosterScreen(
                                         ) {
                                             Text("إجراءات الطالب السريعة", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                                             Text(student.fullName, style = MaterialTheme.typography.titleMedium)
-                                            val quickActivities = com.mohammedsamir.halaqati.plans.SessionQuickActivityRules.activities(
+                                            val quickActivities = if (!usesRecitation) emptyList() else com.mohammedsamir.halaqati.plans.SessionQuickActivityRules.activities(
                                                 programSession = isProgramSession,
                                                 tathbitStudent = com.mohammedsamir.halaqati.data.TrackActivityPolicy.isTathbit(student.track),
                                                 planActivityKeys = planSnapshotsByStudent[student.id].orEmpty().flatMap { snap -> snap.activities.map { it.key } }.toSet(),
@@ -2849,7 +2842,7 @@ private fun SessionRosterScreen(
                                                 ) { Text(pair.second) }
                                             }
                                             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                if (session.type != "lesson") {
+                                                if (usesRecitation) {
                                                     OutlinedButton(
                                                         onClick = { quickActionsOpen = false; markNotRecited(student) },
                                                         enabled = status !in setOf("absent", "excused") && state != SessionWorkflowRules.StudentState.RECITED,
@@ -2884,19 +2877,19 @@ private fun SessionRosterScreen(
             }
             }
 
-            Surface(shadowElevation = 4.dp, tonalElevation = 2.dp) {
-                Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    if (editable || SessionWorkflowRules.canTransition(session.status, "open")) {
-                        Button(onClick = { transitionTarget = if (editable) "closed" else "open" },
+            Surface(shadowElevation = 2.dp, tonalElevation = 1.dp) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if ((session.status == "open" && editable) || (session.status == "planned" && session.date == today.toString() && !session.archived)) {
+                        Button(onClick = { transitionTarget = if (session.status == "open") "closed" else "open" },
                             enabled = rosterReady && !transitioning,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = HalaqatiUiTokens.TouchTarget)) {
+                            modifier = Modifier.weight(1f).heightIn(min = HalaqatiUiTokens.TouchTarget)) {
                             if (transitioning) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                            else Icon(Icons.Default.DoneAll, null)
-                            Spacer(Modifier.width(8.dp))
-                            Text(if (editable) "إغلاق الجلسة نهائيًا" else if (session.status == "planned") "بدء الجلسة" else "إعادة فتح الجلسة")
+                            else Icon(Icons.Default.DoneAll, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(if (session.status == "open") "إنهاء الجلسة" else "بدء الجلسة")
                         }
                     }
-                    TextButton(onClick = { closeConfirm = true }, enabled = !transitioning, modifier = Modifier.fillMaxWidth()) { Text(if (editable) "خروج مؤقت" else "الرجوع إلى الجلسات") }
+                    TextButton(onClick = { closeConfirm = true }, enabled = !transitioning, modifier = Modifier.weight(1f).heightIn(min = HalaqatiUiTokens.TouchTarget)) { Text(if (displayStatus == "جارية") "خروج مؤقت" else "رجوع") }
                 }
             }
         }
@@ -2946,10 +2939,10 @@ private fun SessionRosterScreen(
     transitionTarget?.let { target ->
         HalaqatiAlertDialog(
             onDismissRequest = { if (!transitioning) transitionTarget = null },
-            title = { Text(if (target == "closed") "إغلاق الجلسة" else "فتح الجلسة") },
+            title = { Text(if (target == "closed") "إنهاء الجلسة" else "بدء الجلسة") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(if (target == "closed") "سيتم تغيير حالة الجلسة بعد تأكيد الخادم فقط. يبقى غير المرصود غير مرصود، ولا تُسجل غيابات تلقائيًا." else "ستصبح الجلسة قابلة لتسجيل الحضور والأنشطة مجددًا.")
+                    Text(if (target == "closed") "ستصبح الجلسة منتهية بعد تأكيد الخادم. يمكنك تعديل بياناتها لاحقًا، ولن تُسجل غيابات تلقائيًا." else "ستصبح الجلسة قابلة لتسجيل الحضور والأنشطة مجددًا.")
                     if (target == "closed") SessionSummaryStrip(summary = sessionSummary, programSession = isProgramSession)
                     Text("تحتاج هذه العملية اتصالًا بالإنترنت وإتمام مزامنة عمليات هذه الجلسة.", style = MaterialTheme.typography.bodySmall)
                     if (!AppGraph.repo.online()) StateNotice("أنت غير متصل. لا تُغلق الجلسة محليًا حتى لا تختلف حالتها بين الأجهزة.", "warning")
@@ -6977,13 +6970,12 @@ private fun editorPlanSettings(current: PlanRow?): PlanSettingsRow =
 /** RC90: one small coloured number tile of the session summary row. */
 @Composable
 private fun SessionMiniTile(value: Int, label: String, kind: String, modifier: Modifier = Modifier) {
-    // High-contrast pair from the app status palette (text on its own container), instead of a faint tint.
-    val (bg, fg) = com.mohammedsamir.halaqati.ui.theme.statusColors(kind)
-    Column(
-        modifier.clip(RoundedCornerShape(12.dp)).background(bg).padding(vertical = 5.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(value.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = fg)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = fg, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+    val (bg, _) = com.mohammedsamir.halaqati.ui.theme.statusColors(kind)
+    Column(modifier.padding(vertical = 3.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value.toString(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            Box(Modifier.size(6.dp).clip(RoundedCornerShape(3.dp)).background(bg))
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        }
     }
 }
