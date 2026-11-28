@@ -21,7 +21,7 @@ grant select on public.educational_assessments to authenticated;
 
 -- Explicit scope and membership at time of session. No global admin or observer visibility.
 create function halaqati_education_private.may_manage(p_session uuid,p_student uuid)
-returns boolean language sql stable security definer set search_path=pg_catalog,public
+returns boolean language sql stable security definer set search_path=''
 as $$
 select exists(
     select 1 from public.profiles p
@@ -46,7 +46,7 @@ revoke all on function halaqati_education_private.may_manage(uuid,uuid) from pub
 grant execute on function halaqati_education_private.may_manage(uuid,uuid) to authenticated;
 
 create function halaqati_education_private.may_read(p_session uuid,p_student uuid)
-returns boolean language sql stable security definer set search_path=pg_catalog,public
+returns boolean language sql stable security definer set search_path=''
 as $$
 select halaqati_education_private.may_manage(p_session,p_student) or exists(
     select 1 from public.profiles p join public.student_guardians sg on sg.guardian_id=p.id
@@ -60,7 +60,7 @@ create policy educational_assessments_read on public.educational_assessments for
 using (halaqati_education_private.may_read(session_id,student_id));
 
 create function public.rc_save_education_score_v12(p_session_id uuid,p_student_id uuid,p_metric text,p_score smallint,p_only_unrated boolean default false)
-returns jsonb language plpgsql security definer set search_path=pg_catalog,public
+returns jsonb language plpgsql security definer set search_path=''
 as $$
 declare s public.sessions%rowtype; h public.halaqas%rowtype; actual smallint;
 begin
@@ -71,8 +71,13 @@ begin
        or p_score is null or p_score not between 1 and 5 then
         raise exception 'درجة أو معيار غير صالح' using errcode='22023';
     end if;
+    -- Serialize score creation with session scope/type edits, including legacy clients.
     select * into s from public.sessions where id=p_session_id for update;
+    if not found or not halaqati_education_private.may_manage(p_session_id,p_student_id) then
+        raise exception 'لا تملك صلاحية تقييم هذا الطالب في الجلسة' using errcode='42501';
+    end if;
     select * into h from public.halaqas where id=s.halaqa_id;
+    if not found then raise exception 'الجلسة غير متاحة' using errcode='42501'; end if;
     if s.status not in ('open','closed') or s.session_date>(now() at time zone 'Asia/Gaza')::date
        or coalesce(s.activity_data->>'archived','false')='true' or not h.active or h.archived_at is not null
        or not public.assoc_writable(h.association_id) then
@@ -93,4 +98,23 @@ end
 $$;
 revoke all on function public.rc_save_education_score_v12(uuid,uuid,text,smallint,boolean) from public,anon,authenticated;
 grant execute on function public.rc_save_education_score_v12(uuid,uuid,text,smallint,boolean) to authenticated;
+-- The previous session-edit RPC predates educational_assessments. Enforce the
+-- invariant at the table boundary as well, even for older clients and direct writes.
+-- No API permission is granted to the trigger function.
+create function halaqati_education_private.protect_assessed_session_scope()
+returns trigger language plpgsql security definer set search_path=''
+as $
+begin
+    if (new.halaqa_id is distinct from old.halaqa_id
+        or new.session_type is distinct from old.session_type)
+       and exists(select 1 from public.educational_assessments a where a.session_id=old.id) then
+        raise exception 'لا يمكن نقل جلسة تحتوي على تقييمات تربوية أو تغيير نوعها' using errcode='23514';
+    end if;
+    return new;
+end
+$;
+revoke all on function halaqati_education_private.protect_assessed_session_scope() from public,anon,authenticated;
+create trigger protect_assessed_session_scope_v12
+before update of halaqa_id,session_type on public.sessions
+for each row execute function halaqati_education_private.protect_assessed_session_scope();
 commit;
