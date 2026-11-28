@@ -1110,9 +1110,9 @@
     "semantic_hash": ""
   },
   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/MushafDkPage.kt": {
-    "mtime": 1795789970.3606918,
-    "seen": 1795790180.2011917,
-    "ast_hash": "57a9d207d020dafc0ce608f230e7823c",
+    "mtime": 1795796772.480236,
+    "seen": 1795797069.8163414,
+    "ast_hash": "1b6194a4ee516a607bbd1d8c6b871d6a",
     "semantic_hash": ""
   },
   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/MushafDock.kt": {
@@ -1134,9 +1134,9 @@
     "semantic_hash": ""
   },
   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/MushafScreen.kt": {
-    "mtime": 1795789970.3606918,
-    "seen": 1795790180.201195,
-    "ast_hash": "a54e1b9a369f2a9eee741278df74d3f0",
+    "mtime": 1795797653.561567,
+    "seen": 1795838835.666407,
+    "ast_hash": "8e0835dc19d44c93c420728b94850b68",
     "semantic_hash": ""
   },
   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/NativeReportExport.kt": {
@@ -1638,9 +1638,9 @@
     "semantic_hash": ""
   },
   "source/app/src/test/java/com/mohammedsamir/halaqati/ui/DkHitAccuracyTest.kt": {
-    "mtime": 1795789970.3757348,
-    "seen": 1795790180.2012694,
-    "ast_hash": "4841a9426ab73b5ad47dfd0cb3e17b14",
+    "mtime": 1795796772.8802304,
+    "seen": 1795797069.8164375,
+    "ast_hash": "7861201e996cc23def18f38ab0af9c1b",
     "semantic_hash": ""
   },
   "source/app/src/test/java/com/mohammedsamir/halaqati/ui/DkPagePreviewTest.kt": {
@@ -4416,9 +4416,9 @@
     "semantic_hash": ""
   },
   "docs/PROJECT_MEMORY.md": {
-    "mtime": 1795791274.3883047,
-    "seen": 1795791279.397738,
-    "ast_hash": "e391f15c8599e8a2a9a98f182aa55c2a",
+    "mtime": 1795838830.6352742,
+    "seen": 1795838835.6667635,
+    "ast_hash": "12607122cc3bcf4cbd89526c32012791",
     "semantic_hash": ""
   },
   "tools/knowledge/README.md": {
@@ -4431,6 +4431,12 @@
     "mtime": 1795791088.6107044,
     "seen": 1795791101.067977,
     "ast_hash": "b77c1f2f7a9a1427408b1be0d10ce5b6",
+    "semantic_hash": ""
+  },
+  "source/app/src/androidTest/java/com/mohammedsamir/halaqati/ui/MushafMarkRenderingTest.kt": {
+    "mtime": 1795838814.3331234,
+    "seen": 1795838835.6661923,
+    "ast_hash": "b320d57be1b3cffb6d0efe0ace1826ed",
     "semantic_hash": ""
   }
 }

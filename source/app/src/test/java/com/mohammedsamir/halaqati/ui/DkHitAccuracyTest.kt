@@ -87,7 +87,7 @@ class DkHitAccuracyTest {
         rule.setContent {
             MaterialTheme(lightColorScheme()) {
                 Box(Modifier.width(widthDp.dp).height(700.dp).background(pal.pageBg)) {
-                    DkReadyPage(prepared, page, pal, 0, Tool.Tap, session, emptySet(), { _, _, _ -> true }, { session.markWord(it, MarkType.Mistake, pageNo = page) }, { _, _ -> }, {}, {}, null, { _, _ -> }, {})
+                    DkReadyPage(prepared, page, pal, 0, Tool.Tap, emptyMap(), emptySet(), { _, _, _ -> true }, { session.markWord(it, MarkType.Mistake, pageNo = page) }, { _, _ -> }, {}, {}, null, { _, _ -> }, {})
                 }
             }
         }
