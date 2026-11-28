@@ -112,6 +112,7 @@ private const val CACHE_PLAN_RECITATIONS = "plans:recitations"
 private const val CACHE_SESSION_RECITATIONS_PREFIX = "session:recitations:"
 private const val CACHE_SESSION_ATTENDANCE_PREFIX = "session:attendance:"
 private const val CACHE_SESSION_NOTES_PREFIX = "session:notes:"
+private const val CACHE_EDUCATION_PREFIX = "session:education:"
 private const val CACHE_PRIMARY_HALAQA = "meta:primary_halaqa"
 private const val CACHE_PROFILE = "profile:self"
 private const val CACHE_PLAN_EVENTS = "plans:events"
@@ -5059,6 +5060,12 @@ class HalaqatiRepository(
         }.getOrNull()
         if (fresh != null && fresh.length() > 0) {
             localizeGuardianOverview(studentId, fresh)
+            // RLS restricts grades to the linked child; never include private teacher notes.
+            val education = runCatching {
+                withAuthRetry { api.select("educational_assessments",
+                    "select=session_id,student_id,metric,score,sessions!inner(session_date,title,halaqa_id,halaqas(name))&student_id=eq.$studentId&sessions.session_date=gte.${LocalDate.now().minusDays(62)}&order=updated_at.desc&limit=300") }
+            }.getOrNull()
+            if (education != null) fresh.put("educational_assessments", education)
             cache.put(owner, CACHE_GUARDIAN_OVERVIEW_PREFIX + studentId, fresh.toString())
             return fresh
         }
@@ -6059,6 +6066,43 @@ class HalaqatiRepository(
         upsertSessionScopedCache(CACHE_SESSION_ATTENDANCE_PREFIX, sessionId, obj)
     }
 
+    /** Independent educational grades; pending writes remain account-scoped. */
+    fun educationScores(sessionId: String, refresh: Boolean = false): Map<String, Map<String, Int>> {
+        val owner = currentUserId() ?: return emptyMap()
+        val key = CACHE_EDUCATION_PREFIX + sessionId
+        var rows = cache.get(owner, key, null)?.let { JSONArray(it) } ?: JSONArray()
+        if (refresh && online()) {
+            rows = withAuthRetry { api.select("educational_assessments", "select=session_id,student_id,metric,score&session_id=eq.$sessionId&order=student_id.asc,metric.asc&limit=1000") }
+            for (i in 0 until rows.length()) rows.optJSONObject(i)?.let { row ->
+                row.put("id", "${row.optString("student_id")}:${row.optString("metric")}")
+            }
+            cache.put(owner, key, rows.toString())
+        }
+        val result = linkedMapOf<String, MutableMap<String, Int>>()
+        fun put(student: String, metric: String, score: Int) {
+            if (student.isNotBlank() && com.mohammedsamir.halaqati.ui.sessions.EducationScoreRules.valid(metric, score)) {
+                result.getOrPut(student) { linkedMapOf() }[metric] = score
+            }
+        }
+        for (i in 0 until rows.length()) rows.optJSONObject(i)?.let { put(it.optString("student_id"), it.optString("metric"), it.optInt("score")) }
+        queueSnapshot(2000).filter { it.dedupe.orEmpty().startsWith("education:$sessionId:") }.forEach { item ->
+            val obj = item.body?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return@forEach
+            val student = obj.optString("p_student_id")
+            val metric = obj.optString("p_metric")
+            if (!obj.optBoolean("p_only_unrated") || result[student]?.containsKey(metric) != true)
+                put(student, metric, obj.optInt("p_score"))
+        }
+        return result
+    }
+
+    fun saveEducationScore(sessionId: String, studentId: String, metric: String, score: Int, onlyUnrated: Boolean = false) {
+        require(com.mohammedsamir.halaqati.ui.sessions.EducationScoreRules.valid(metric, score)) { "درجة التقييم غير صالحة" }
+        require(sessionId.isNotBlank() && studentId.isNotBlank())
+        val args = JSONObject().put("p_session_id", sessionId).put("p_student_id", studentId)
+            .put("p_metric", metric).put("p_score", score).put("p_only_unrated", onlyUnrated)
+        queued("POST", "/rest/v1/rpc/rc_save_education_score_v12", args, "education:$sessionId:$studentId:$metric")
+    }
+
     fun saveDailyNote(
         sessionId: String,
         studentId: String,
@@ -6575,6 +6619,16 @@ class HalaqatiRepository(
                     }
                     removeSessionFromLocalCache(sessionDeleteId)
                     invalidateSessionDerivedCaches()
+                } else if (item.path == "/rest/v1/rpc/rc_save_education_score_v12" && parsed != null) {
+                    val ack = rpcObject(withAuthRetry { api.raw(item.method, item.path, body) })
+                    val actual = ack.optInt("score")
+                    check(ack.optBoolean("ok") && actual in 1..5) { "لم يؤكد الخادم حفظ التقييم" }
+                    val sid = parsed.optString("p_session_id")
+                    val student = parsed.optString("p_student_id")
+                    val metric = parsed.optString("p_metric")
+                    upsertSessionScopedCache(CACHE_EDUCATION_PREFIX, sid, JSONObject()
+                        .put("id", "$student:$metric").put("session_id", sid).put("student_id", student)
+                        .put("metric", metric).put("score", actual))
                 } else {
                     withAuthRetry { api.raw(item.method, item.path, body) }
                 }
