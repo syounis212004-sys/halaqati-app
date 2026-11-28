@@ -11,16 +11,16 @@ class OfflineQueue(private val db: HalaqatiOfflineDatabase) {
         baseUpdatedAt: String? = null,
         entityTable: String? = null,
         entityId: String? = null,
+        preserveExisting: Boolean = false,
     ) {
         require(ownerUserId.isNotBlank()) { "Offline queue requires an authenticated account" }
         val key = dedupe ?: "${method.uppercase()}:$path:${body.orEmpty().hashCode()}"
-        db.outbox().replaceDedupe(
-            OutboxEntity(
-                ownerUserId = ownerUserId.trim(), method = method.uppercase(), path = path,
-                body = body, createdAt = System.currentTimeMillis(), dedupe = key,
-                baseUpdatedAt = baseUpdatedAt, entityTable = entityTable, entityId = entityId,
-            ),
+        val row = OutboxEntity(
+            ownerUserId = ownerUserId.trim(), method = method.uppercase(), path = path,
+            body = body, createdAt = System.currentTimeMillis(), dedupe = key,
+            baseUpdatedAt = baseUpdatedAt, entityTable = entityTable, entityId = entityId,
         )
+        if (preserveExisting) db.outbox().insertIfAbsent(row) else db.outbox().replaceDedupe(row)
     }
 
     fun size(ownerUserId: String): Int = if (ownerUserId.isBlank()) 0 else db.outbox().count(ownerUserId, OutboxState.PENDING)

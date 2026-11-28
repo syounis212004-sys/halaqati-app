@@ -4102,8 +4102,9 @@ class HalaqatiRepository(
         baseUpdatedAt: String? = null,
         entityTable: String? = null,
         entityId: String? = null,
+        preserveExisting: Boolean = false,
     ) {
-        queue.add(queueOwnerId(), method, path, obj?.toString(), dedupe, baseUpdatedAt, entityTable, entityId)
+        queue.add(queueOwnerId(), method, path, obj?.toString(), dedupe, baseUpdatedAt, entityTable, entityId, preserveExisting)
         signalLocalMutation()
         if (entityTable in setOf("smart_plans", "smart_plan_events", "smart_plan_phases", "smart_plan_phase_states", "recitation_entries", "sessions")) {
             planSnapshotMemoryDate = null
@@ -6151,7 +6152,8 @@ class HalaqatiRepository(
         require(sessionId.isNotBlank() && studentId.isNotBlank())
         val args = JSONObject().put("p_session_id", sessionId).put("p_student_id", studentId)
             .put("p_metric", metric).put("p_score", score).put("p_only_unrated", onlyUnrated)
-        queued("POST", "/rest/v1/rpc/rc_save_education_score_v12", args, "education:$sessionId:$studentId:$metric")
+        queued("POST", "/rest/v1/rpc/rc_save_education_score_v12", args, "education:$sessionId:$studentId:$metric",
+            preserveExisting = onlyUnrated)
     }
 
     fun saveDailyNote(
