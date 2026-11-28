@@ -23,12 +23,14 @@ concurrency:
 jobs:
   validation:
     uses: ./.github/workflows/execution-v12-validation.yml
+    with:
+      release_validation: true
     permissions:
       contents: read
 
   signed:
     if: github.ref == 'refs/heads/main'
-    needs: validation
+    # Compile and sign concurrently with validation, but never publish early.
     runs-on: ubuntu-24.04
     timeout-minutes: 50
     steps:
@@ -104,10 +106,10 @@ jobs:
           if [ "$heap_mib" -lt 4608 ]; then heap_mib=4608; fi
           jvm="-Xmx${heap_mib}m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError -Dfile.encoding=UTF-8"
           # Room processing is isolated from the large Compose/application compilation.
-          bash scripts/gradle-with-diagnostics.sh --no-daemon --max-workers=1 --console=plain "-Dorg.gradle.jvmargs=$jvm" --init-script "$RUNNER_TEMP/central-mirror.gradle" :offline-db:assembleRelease
-          git diff --exit-code -- app/schemas
+          # The reusable validation workflow executes release lint on a different runner.
+          # assembleRelease already builds the Room library transitively.
           bash scripts/gradle-with-diagnostics.sh --no-daemon --max-workers=1 --console=plain "-Dorg.gradle.jvmargs=$jvm" --init-script "$RUNNER_TEMP/central-mirror.gradle" :app:assembleRelease
-          bash scripts/gradle-with-diagnostics.sh --no-daemon --max-workers=1 --console=plain "-Dorg.gradle.jvmargs=$jvm" --init-script "$RUNNER_TEMP/central-mirror.gradle" :app:lintRelease
+          git diff --exit-code -- app/schemas
       - name: Verify identical signer to published APK, package identity and version
         working-directory: source
         env:

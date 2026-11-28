@@ -1,5 +1,8 @@
 package com.mohammedsamir.halaqati.data
 
+// The database implementation lives in :offline-db; its API and package stay stable.
+import com.mohammedsamir.halaqati.data.HalaqatiOfflineDatabase
+
 import com.mohammedsamir.halaqati.plans.SmartPlanEligibility
 import android.content.Context
 import android.net.ConnectivityManager

@@ -1,5 +1,8 @@
 package com.mohammedsamir.halaqati.data
 
+// The database implementation lives in :offline-db; its API and package stay stable.
+import com.mohammedsamir.halaqati.data.HalaqatiOfflineDatabase
+
 import java.time.Duration
 import java.time.Instant
 

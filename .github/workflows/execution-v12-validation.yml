@@ -2,6 +2,11 @@ name: Execution v1.2 validation
 
 on:
   workflow_call:
+    inputs:
+      release_validation:
+        description: Check release lint instead of debug lint
+        type: boolean
+        default: false
   push:
     branches: [fix/execution-v1-2, main]
   pull_request:
@@ -14,8 +19,13 @@ permissions:
 
 jobs:
   android:
+    name: Android / ${{ matrix.stage }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 50
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        stage: [room, package, tests, lint]
     steps:
       - uses: actions/checkout@v6
         with:
@@ -44,11 +54,13 @@ jobs:
           {"project_info":{"project_number":"123456789012","project_id":"halaqati-v12-debug-fixture"},"client":[{"client_info":{"mobilesdk_app_id":"1:123456789012:android:1234567890abcdef","android_client_info":{"package_name":"com.mohammedsamir.halaqati"}},"api_key":[{"current_key":"offline-fixture"}]}],"configuration_version":"1"}
           JSON
       - name: Restore pinned Robolectric API 35 fixture
+        if: matrix.stage == 'tests'
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository/org/robolectric/android-all-instrumented/15-robolectric-12650502-i7
           key: robolectric-api35-33c2d7cc4186
       - name: Verify or fetch Robolectric API 35 fixture
+        if: matrix.stage == 'tests'
         run: |
           set -euo pipefail
           version=15-robolectric-12650502-i7
@@ -61,12 +73,14 @@ jobs:
             printf '%s  %s\n' "$digest" "$jar.part" | sha256sum --check
             mv "$jar.part" "$jar"
           fi
-      - name: Build APK and run unit tests
+      - name: Run independent Gradle stage
         working-directory: source
         env:
           SUPABASE_URL: https://staging.invalid
           SUPABASE_PUBLISHABLE_KEY: offline-fixture
           JAVA_TOOL_OPTIONS: -Drobolectric.dependency.repo.url=https://maven-central.storage-download.googleapis.com/maven2
+          BUILD_STAGE: ${{ matrix.stage }}
+          RELEASE_VALIDATION: ${{ inputs.release_validation || false }}
         run: |
           cat > "$RUNNER_TEMP/central-mirror.gradle" <<'GRADLE'
           gradle.beforeSettings { settings ->
@@ -84,21 +98,47 @@ jobs:
           free -h
           echo "Gradle heap: ${heap_mib} MiB"
           jvm="-Xmx${heap_mib}m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError -Dfile.encoding=UTF-8"
-          # Room processing is isolated from the large Compose/application compilation.
-          bash scripts/gradle-with-diagnostics.sh --no-daemon --max-workers=1 --console=plain "-Dorg.gradle.jvmargs=$jvm" --init-script "$RUNNER_TEMP/central-mirror.gradle" :offline-db:assembleDebug
+          # Exactly one entry task per runner. Gradle resolves its dependencies; no
+          # separate full app assemble before tests or lint. This mirrors RC114 fan-out.
+          case "$BUILD_STAGE" in
+            room) task=:offline-db:assembleDebug ;;
+            package) task=:app:assembleDebug ;;
+            tests) task=:app:testDebugUnitTest ;;
+            lint)
+              if [ "$RELEASE_VALIDATION" = true ]; then task=:app:lintRelease
+              else task=:app:lintDebug; fi ;;
+            *) exit 2 ;;
+          esac
+          bash scripts/gradle-with-diagnostics.sh --no-daemon --max-workers=1 --console=plain "-Dorg.gradle.jvmargs=$jvm" --init-script "$RUNNER_TEMP/central-mirror.gradle" "$task"
           git diff --exit-code -- app/schemas
-          bash scripts/gradle-with-diagnostics.sh --no-daemon --max-workers=1 --console=plain "-Dorg.gradle.jvmargs=$jvm" --init-script "$RUNNER_TEMP/central-mirror.gradle" :app:assembleDebug
-          # Fresh daemon for Robolectric, rather than keeping the large compiler heap resident.
-          bash scripts/gradle-with-diagnostics.sh --no-daemon --max-workers=1 --console=plain "-Dorg.gradle.jvmargs=$jvm" --init-script "$RUNNER_TEMP/central-mirror.gradle" :app:testDebugUnitTest
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: halaqati-v12-debug-verification
+          name: halaqati-v12-${{ matrix.stage }}
           path: |
             source/app/build/outputs/apk/debug/app-debug.apk
             source/app/build/test-results/testDebugUnitTest/
             source/build/reports/profile/
             source/offline-db/build/reports/
+            source/app/build/reports/lint-results-*.xml
+            source/app/build/reports/lint-results-*.html
+
+  source-gates:
+    name: Source gates / modular build contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - working-directory: source
+        run: |
+          set -euo pipefail
+          python3 scripts/compiler-regression-check.py
+          python3 scripts/rc7-durability-check.py
+          python3 scripts/rc7-offline-contract-check.py
+          python3 scripts/offline-account-scope-check.py
+          python3 scripts/modular-build-contract-check.py
 
   education-sql:
     runs-on: ubuntu-24.04

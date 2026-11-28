@@ -1,5 +1,8 @@
 package com.mohammedsamir.halaqati.data
 
+// The database implementation lives in :offline-db; its API and package stay stable.
+import com.mohammedsamir.halaqati.data.HalaqatiOfflineDatabase
+
 /** Durable account-scoped Room Outbox used by every offline-first mutation. */
 class OfflineQueue(private val db: HalaqatiOfflineDatabase) {
     fun add(
