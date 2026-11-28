@@ -20,12 +20,16 @@ class EducationOutboxPersistenceTest {
     private fun open(name: String) = Room.databaseBuilder(RuntimeEnvironment.getApplication(), HalaqatiOfflineDatabase::class.java, name)
         .allowMainThreadQueries().build()
 
+    private inline fun withDb(db: HalaqatiOfflineDatabase, block: (HalaqatiOfflineDatabase) -> Unit) {
+        try { block(db) } finally { db.close() }
+    }
+
     @Test fun bulkDoesNotReplacePendingOrBlockedIndividualAndSurvivesRestart() {
         val context = RuntimeEnvironment.getApplication()
         val name = "education-outbox-persistence-test.db"
         context.deleteDatabase(name)
         try {
-            open(name).use { db ->
+            withDb(open(name)) { db ->
                 val queue = OfflineQueue(db)
                 queue.add("account-a","POST",path,body(5,false),key)
                 queue.add("account-a","POST",path,body(2,true),key,preserveExisting=true)
@@ -36,7 +40,7 @@ class EducationOutboxPersistenceTest {
                 queue.add("account-b","POST",path,body(3,true),key,preserveExisting=true)
                 assertTrue(queue.snapshot("account-a").single().blocked)
             }
-            open(name).use { db ->
+            withDb(open(name)) { db ->
                 val queue = OfflineQueue(db)
                 val blocked = queue.snapshot("account-a").single()
                 assertTrue(blocked.blocked)
@@ -52,8 +56,8 @@ class EducationOutboxPersistenceTest {
     }
 
     @Test fun acknowledgementOfOldBulkCannotDiscardNewerIndividualEdit() {
-        Room.inMemoryDatabaseBuilder(RuntimeEnvironment.getApplication(), HalaqatiOfflineDatabase::class.java)
-            .allowMainThreadQueries().build().use { db ->
+        withDb(Room.inMemoryDatabaseBuilder(RuntimeEnvironment.getApplication(), HalaqatiOfflineDatabase::class.java)
+            .allowMainThreadQueries().build()) { db ->
                 val queue = OfflineQueue(db)
                 queue.add("account","POST",path,body(2,true),key,preserveExisting=true)
                 val inFlight = queue.all("account").single()
