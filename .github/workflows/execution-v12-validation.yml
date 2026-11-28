@@ -138,6 +138,15 @@ jobs:
           docker cp source/migration/proposals/phase_four_lifecycle.sql "$PG_CONTAINER:/tmp/lifecycle/proposals/"
           docker cp source/migration/tests/phase_four_lifecycle.sql "$PG_CONTAINER:/tmp/lifecycle/tests/"
           docker exec "$PG_CONTAINER" psql -U postgres -d lifecycle_fixture -v ON_ERROR_STOP=1 -f /tmp/lifecycle/tests/phase_four_lifecycle.sql
+      - name: Test association retirement transaction and relationship preservation
+        env:
+          PG_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          docker exec "$PG_CONTAINER" createdb -U postgres retirement_fixture
+          docker cp source/migration/proposals/phase_four_association_retirement.sql "$PG_CONTAINER:/tmp/lifecycle/proposals/"
+          docker cp source/migration/tests/phase_four_association_retirement.sql "$PG_CONTAINER:/tmp/lifecycle/tests/"
+          docker exec "$PG_CONTAINER" psql -U postgres -d retirement_fixture -v ON_ERROR_STOP=1 -f /tmp/lifecycle/tests/phase_four_association_retirement.sql
 
   guardian-activity-sql:
     runs-on: ubuntu-24.04
