@@ -77,6 +77,7 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
     var supervisors by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
     var teacherLinks by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
     var supervisorLinks by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
+    var displayStaff by remember(profile.id) { mutableStateOf<Map<String, List<JSONObject>>>(emptyMap()) }
     var memberships by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var message by remember { mutableStateOf<String?>(null) }
@@ -124,7 +125,10 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
                     scoped + JSONObject().put("id", profile.id).put("full_name", profile.fullName).put("role", "teacher")
                 } else emptyList()
                 val ml = AppGraph.repo.studentHalaqaMemberships(forceRefresh = true).rows()
-                listOf(h, c, p, tl, sl, ml) to s
+                val display = try { AppGraph.repo.linkedStaffDisplay(h.map { it.optString("id") }.filter { it.isNotBlank() }).rows() }
+                    catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                    catch (_: Exception) { emptyList() }
+                listOf(h, c, p, tl, sl, ml, display) to s
             }
             halaqas = result.first[0]
             categories = result.first[1]
@@ -134,6 +138,7 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
             teacherLinks = result.first[3]
             supervisorLinks = result.first[4]
             memberships = result.first[5]
+            displayStaff = result.first[6].associate { row -> row.optString("halaqa_id") to (row.optJSONArray("staff")?.rows().orEmpty()) }
             students = result.second
             message = null
         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -196,10 +201,15 @@ fun HalaqasManagementScreen(profile: Profile, pending: Int, onRefresh: () -> Uni
                     .map { it.optString("student_id") }.toSet()
                 val hStudents = (primaryStudents + students.filter { it.id in additionalIds && it.status == "active" }).distinctBy { it.id }
                 val hCats = categories.filter { it.optString("halaqa_id") == hid && it.optBoolean("active", true) }
-                val tIds = teacherLinks.filter { it.optString("halaqa_id") == hid }.map { it.optString("teacher_id") }.toSet()
-                val sIds = supervisorLinks.filter { it.optString("halaqa_id") == hid }.map { it.optString("supervisor_id") }.toSet()
-                val tNames = assignedStaffNames(tIds, teachers, profile.id)
-                val sNames = assignedStaffNames(sIds, supervisors, profile.id)
+                val scoped = displayStaff[hid]
+                val tIds = scoped?.filter { it.optString("role") == "teacher" }?.map { it.optString("id") }?.toSet()
+                    ?: teacherLinks.filter { it.optString("halaqa_id") == hid }.map { it.optString("teacher_id") }.toSet()
+                val sIds = scoped?.filter { it.optString("role") == "supervisor" }?.map { it.optString("id") }?.toSet()
+                    ?: (supervisorLinks.filter { it.optString("halaqa_id") == hid }.map { it.optString("supervisor_id") } +
+                        listOfNotNull(h.optString("supervisor_id").takeIf { it.isNotBlank() && it != "null" })).toSet()
+                val own = JSONObject().put("id",profile.id).put("full_name",profile.fullName)
+                val tNames = assignedStaffNames(tIds, (scoped ?: teachers) + own, profile.id)
+                val sNames = assignedStaffNames(sIds, (scoped ?: supervisors) + own, profile.id)
                 val hType = h.mgmtStr("halaqa_type").ifBlank { "regular" }
                 val headerPair = when (hType) {
                     "training" -> HalaqatiGradients.Blue

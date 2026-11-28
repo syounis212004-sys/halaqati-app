@@ -43,6 +43,8 @@ import org.json.JSONObject
     val scores: Map<String, Int>,
 )
 
+@Immutable data class GuardianTilawahSummary(val date: String, val quality: Double?, val major: Int, val minor: Int?, val corrected: Int, val followed: Int, val wardReviewed: Boolean?)
+
 @Immutable data class GuardianOverview(
     val childName: String,
     val tathbit: Boolean,
@@ -68,6 +70,7 @@ import org.json.JSONObject
     val childPhoto: String? = null,
     val program: Boolean = false,
     val education: List<GuardianEducationAssessment> = emptyList(),
+    val tilawahSummary: List<GuardianTilawahSummary> = emptyList(),
 ) {
     val planComplete: Boolean get() = planActivities.isNotEmpty() && planActivities.filter { it.hasTarget }.let { it.isNotEmpty() && it.all(GuardianPlanActivity::complete) }
 
@@ -165,8 +168,16 @@ import org.json.JSONObject
                         session.optString("session_date"),session.optString("title").ifBlank { "نشاط تربوي" },
                         session.optJSONObject("halaqas")?.optString("name").orEmpty(), grades)
                 }.sortedByDescending { it.date }
+            val summary = json.optJSONArray("tilawah_summary")
+            val tilawah = (0 until (summary?.length() ?: 0)).mapNotNull { summary?.optJSONObject(it) }.map { row ->
+                GuardianTilawahSummary(row.optString("date"),row.doubleOrNull("quality"),row.optInt("major").coerceAtLeast(0),
+                    row.optInt("minor").coerceAtLeast(0).takeIf { row.has("minor") && !row.isNull("minor") },
+                    row.optInt("corrected").coerceAtLeast(0),row.optInt("followed").coerceAtLeast(0),
+                    row.optBoolean("ward_reviewed").takeIf { row.has("ward_reviewed") && !row.isNull("ward_reviewed") })
+            }
             return GuardianOverview(
                 childName = student.text("full_name") ?: "طالب",
+                tilawahSummary = tilawah,
                 education = education,
                 childPhoto = student.text("photo_path"),
                 tathbit = tathbit,

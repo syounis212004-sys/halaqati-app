@@ -5081,13 +5081,70 @@ class HalaqatiRepository(
         return cache.get(owner, "${CACHE_GUARDIAN_OVERVIEW_PREFIX}$studentId:$halaqaId", null)?.let { JSONObject(it) }
     }
 
+    private fun missingProjection(e: SupabaseException): Boolean = e.sqlState in setOf("PGRST202", "42883")
+
+    fun linkedStaffDisplay(halaqaIds: Collection<String>): JSONArray {
+        val owner = currentUserId() ?: return JSONArray()
+        val result = JSONArray()
+        halaqaIds.distinct().sorted().chunked(80).forEach { ids ->
+            val key = "linked-staff-v2:" + ids.joinToString(",")
+            val rows = if (!online()) cache.get(owner,key,null)?.let { JSONArray(it) } ?: JSONArray()
+            else try {
+                JSONArray(withAuthRetry { api.rpc("rc_linked_staff_display_v2", JSONObject().put("p_halaqa_ids",JSONArray(ids))) })
+                    .also { cache.put(owner,key,it.toString()) }
+            } catch (e: SupabaseException) {
+                if (missingProjection(e)) JSONArray() else throw e
+            }
+            for (i in 0 until rows.length()) rows.optJSONObject(i)?.let { row ->
+                if (row.optString("halaqa_id") in ids) result.put(row)
+            }
+        }
+        return result
+    }
+
+    /** One batch per roster; account-scoped known-empty results are distinct from missing data. */
+    fun previousTilawahBatch(sessionId: String, studentIds: Collection<String>, forceRefresh: Boolean = false): Map<String, JSONObject> {
+        val owner = currentUserId() ?: return emptyMap()
+        val connected = online()
+        val result = mutableMapOf<String, JSONObject>()
+        val pending = mutableListOf<String>()
+        studentIds.distinct().sorted().forEach { id ->
+            val key = "tilawah-history-v2:$sessionId:$id:"
+            val stored = if (forceRefresh && connected) null else cache.get(owner,key,if (connected) Duration.ofMinutes(5) else null)
+            if (stored == null) pending += id else result[id] = JSONObject(stored)
+        }
+        if (!connected) return result
+        pending.chunked(80).forEach { batch ->
+            val rows = try {
+                JSONArray(withAuthRetry { api.rpc("rc_tilawah_previous_v2", JSONObject()
+                    .put("p_session_id",sessionId).put("p_student_ids",JSONArray(batch))) })
+            } catch (e: SupabaseException) {
+                if (missingProjection(e)) return result else throw e
+            }
+            for (i in 0 until rows.length()) {
+                val row = rows.optJSONObject(i) ?: continue
+                val id = row.optString("student_id")
+                if (id in batch) {
+                    result[id] = row
+                    cache.put(owner,"tilawah-history-v2:$sessionId:$id:",row.toString())
+                }
+            }
+        }
+        return result
+    }
+
     fun guardianActivityOverview(studentId: String, halaqaId: String): JSONObject? {
         require(guardianOwnsCachedChild(studentId)) { "الطالب غير مرتبط بهذا الحساب" }
         if (!online()) return cachedGuardianActivityOverview(studentId,halaqaId)
         val owner = currentUserId() ?: return null
         val args = JSONObject().put("p_student_id",studentId).put("p_halaqa_id",halaqaId)
-        val result = JSONObject(withAuthRetry { api.rpc("rc_guardian_activity_overview_v12",args) })
-        require(result.optJSONObject("student")?.optString("halaqa_id") == halaqaId) { "نطاق البيانات غير مطابق" }
+        val result = try {
+            JSONObject(withAuthRetry { api.rpc("rc_guardian_activity_overview_v13",args) })
+        } catch (e: SupabaseException) {
+            if (!missingProjection(e)) throw e
+            JSONObject(withAuthRetry { api.rpc("rc_guardian_activity_overview_v12",args) })
+        }
+        require(result.optJSONObject("student")?.optString("id") == studentId && result.optJSONObject("student")?.optString("halaqa_id") == halaqaId) { "نطاق البيانات غير مطابق" }
         localizeGuardianOverview(studentId,result)
         cache.put(owner, "${CACHE_GUARDIAN_OVERVIEW_PREFIX}$studentId:$halaqaId", result.toString())
         return result

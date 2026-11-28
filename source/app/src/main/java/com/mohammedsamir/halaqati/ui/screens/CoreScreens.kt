@@ -2315,6 +2315,14 @@ private fun SessionRosterScreen(
     var hiddenRecitationIds by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     var rosterReady by remember(session.id) { mutableStateOf(false) }
+    val rosterHistoryIds = remember(students) { students.map { it.id }.distinct().sorted() }
+    LaunchedEffect(session.id, rosterHistoryIds) {
+        if (session.type in setOf("tilawah","tajweed") && editable && rosterHistoryIds.isNotEmpty()) {
+            try { withContext(Dispatchers.IO) { AppGraph.repo.previousTilawahBatch(session.id, rosterHistoryIds) } }
+            catch (e: CancellationException) { throw e }
+            catch (_: Exception) { /* Form exposes unavailable status and retry. */ }
+        }
+    }
     suspend fun loadRosterLocal(includePlans: Boolean = false) {
         try {
             val result = withContext(Dispatchers.IO) {
@@ -3968,7 +3976,7 @@ private fun RecitationDialog(
         .put("makharij", makharijRating).put("tajweed", tajweedRating).put("waqf", waqfRating)
         .put("ward", wardReviewed ?: JSONObject.NULL).put("adherence", correctionAdherence ?: JSONObject.NULL)
         .put("note", note).put("issues", org.json.JSONArray(tilawahIssues.sorted()))
-        .put("history_ready", !previousLoading && (!previousUnavailable || previousAcknowledged))
+        .put("history_ready", !previousLoading && (restoredHistory || previousAcknowledged || existing != null))
         .put("history_unavailable", previousUnavailable).put("history_ack", previousAcknowledged)
         .put("previous_record_id", previousRecordId ?: JSONObject.NULL)
         .put("previous_issues", org.json.JSONArray(previousIssues.sorted()))
@@ -4042,16 +4050,14 @@ private fun RecitationDialog(
             val validIds = listOf(student.id, session.halaqaId).all { id ->
                 runCatching { java.util.UUID.fromString(id).toString().equals(id, ignoreCase = true) }.getOrDefault(false)
             }
-            val date = LocalDate.parse(session.date)
+            LocalDate.parse(session.date)
             require(validIds)
-            val rows = withContext(Dispatchers.IO) {
-                AppGraph.repo.table("recitation_entries",
-                    "select=id,selection_data,sessions!inner(session_date,halaqa_id,status)&student_id=eq.${student.id}&activity_type=eq.tilawah&sessions.halaqa_id=eq.${session.halaqaId}&sessions.session_date=lt.$date&sessions.status=neq.cancelled&order=sessions(session_date).desc,created_at.desc&limit=1",
-                    requireKnownResult = true)
+            val scoped = withContext(Dispatchers.IO) {
+                AppGraph.repo.previousTilawahBatch(session.id, listOf(student.id), forceRefresh = previousRetry > 0)[student.id]
             }
-            val row = rows.optJSONObject(0)
-            val id = row?.optString("id")?.takeIf { it.isNotBlank() }
-            val assessment = row?.optJSONObject("selection_data")?.optJSONObject("tilawah_assessment")
+            requireNotNull(scoped) { "تعذر التحقق من التصحيحات السابقة" }
+            val id = scoped.optString("record_id").takeIf { it.isNotBlank() && it != "null" }
+            val assessment = scoped.optJSONObject("assessment")
             val marks = TilawahMarkJson.decode(assessment?.optJSONArray("marks"))
             val issues = TilawahDraftJson.strings(assessment?.optJSONArray("issue_keys")).toSet() + marks.filterNot { it.corrected }.map { it.category.key }
             if (previousRecordId != id || previousIssues != issues) {

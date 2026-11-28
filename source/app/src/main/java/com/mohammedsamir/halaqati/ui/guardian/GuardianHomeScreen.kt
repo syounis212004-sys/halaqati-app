@@ -98,6 +98,18 @@ fun GuardianHomeScreen(
                         }
                         state.message?.let { msg -> item(key = "msg", contentType = "notice") { StateNotice(msg, kind = "error") } }
                         item(key = "today-detail", contentType = "today-detail") { TodayDetailGrid(overview) }
+                        if (overview.tilawahSummary.isNotEmpty()) item(key = "tilawah-summary", contentType = "tilawah-summary") {
+                            ElevatedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+                                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text("متابعة التلاوة والتصحيحات", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                    overview.tilawahSummary.forEach { line ->
+                                        Text("${line.date} · ${line.quality?.let { num(it) + "٪" } ?: "غير مقيّم"}", fontWeight = FontWeight.SemiBold)
+                                        Text("جلي: ${line.major}" + (line.minor?.let { " · خفي: $it" } ?: "") + " · صُحح: ${line.corrected} · متابعة: ${line.followed}", style = MaterialTheme.typography.bodySmall)
+                                        line.wardReviewed?.let { Text(if (it) "راجع الورد" else "لم يراجع الورد", style = MaterialTheme.typography.bodySmall) }
+                                    }
+                                }
+                            }
+                        }
                         GuardianPraise.lines(overview).takeIf { it.isNotEmpty() }?.let { praise ->
                             item(key = "praise", contentType = "praise") {
                                 com.mohammedsamir.halaqati.ui.components.InsightCardShell(
@@ -123,7 +135,8 @@ fun GuardianHomeScreen(
                             item(key = "latest-title", contentType = "title") {
                                 Text("آخر التسميعات", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             }
-                            items(overview.latest, key = { "${it.date}:${it.activityLabel}:${it.range}" }, contentType = { "recitation" }) { line ->
+                            items(overview.latest.withIndex().toList(), key = { "${it.index}:${it.value.date}:${it.value.activityLabel}:${it.value.range}" }, contentType = { "recitation" }) { indexed ->
+                                val line = indexed.value
                                 RecitationRow(line)
                             }
                         }
