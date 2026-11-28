@@ -1,11 +1,17 @@
 package com.mohammedsamir.halaqati.ui.sessions
 
+import com.mohammedsamir.halaqati.plans.WorkModeRules
+
 /**
  * RC9.2 session-level rules kept Android-free so the roster state/filter logic can be
  * regression-tested without Compose or Room.
  */
 object SessionWorkflowRules {
     val manualSessionTypes = listOf("tasmee", "sard", "review", "test", "tajweed", "tilawah", "lesson", "other")
+
+    fun manualTypesForScope(halaqaType: String?): List<String> =
+        if (WorkModeRules.isProgramType(halaqaType)) listOf("tilawah", "lesson", "test", "other")
+        else manualSessionTypes.filterNot { it == "tajweed" }
 
     const val NOT_RECITED_MARKER = "halaqati:not_recited"
 

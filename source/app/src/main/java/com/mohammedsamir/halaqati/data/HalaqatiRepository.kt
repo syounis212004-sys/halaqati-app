@@ -1,5 +1,6 @@
 package com.mohammedsamir.halaqati.data
 
+import com.mohammedsamir.halaqati.plans.SmartPlanEligibility
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -5001,8 +5002,11 @@ class HalaqatiRepository(
     /** RC44: the guardian sees the SAME plan figures as the teacher: month facts first, then the plan engine's phase numbers on top. */
     private fun localizeGuardianOverview(studentId: String, json: JSONObject) {
         localizeGuardianMonth(studentId, json)
-        unifyGuardianWithPlan(studentId, json)
-        attachGuardianWard(studentId, json)
+        val halaqaType = json.optJSONObject("student")?.optString("halaqa_type")
+        if (SmartPlanEligibility.isHalaqaType(halaqaType)) {
+            unifyGuardianWithPlan(studentId, json)
+            attachGuardianWard(studentId, json)
+        }
         attachGuardianPhoto(studentId, json)
     }
 
@@ -5072,10 +5076,17 @@ class HalaqatiRepository(
     private fun localizeGuardianMonth(studentId: String, json: JSONObject) {
         runCatching {
             val monthStart = LocalDate.now().withDayOfMonth(1).toString()
+            val student = json.optJSONObject("student") ?: return@runCatching
+            val halaqaId = student.optString("halaqa_id").takeUnless { it.isBlank() || it == "null" }
+                ?: guardianChildren().firstOrNull { it.id == studentId }?.halaqaId
+                ?: return@runCatching
+            val activityFilter = if (SmartPlanEligibility.isHalaqaType(student.optString("halaqa_type"))) ""
+                else "&activity_type=in.(tilawah,test)"
             val rows = table(
                 "recitation_entries",
                 "select=activity_type,start_surah,start_ayah,end_surah,end_ayah,pages_count,evaluation,safety_percentage,mistakes,prompts," +
-                    "sessions!inner(session_date,status)&student_id=eq.$studentId&sessions.session_date=gte.$monthStart&sessions.status=neq.cancelled&limit=3000",
+                    "sessions!inner(session_date,status,halaqa_id)&student_id=eq.$studentId&sessions.halaqa_id=eq.$halaqaId" +
+                    "&sessions.session_date=gte.$monthStart&sessions.status=neq.cancelled$activityFilter&limit=3000",
             )
             val list = (0 until rows.length()).mapNotNull { rows.optJSONObject(it) }
             if (list.isEmpty()) return@runCatching

@@ -1,0 +1,27 @@
+SET LOCAL lock_timeout = '5s';
+DO $patch$
+DECLARE d text; old_part text; new_part text;
+BEGIN
+ SELECT pg_get_functiondef('public.rc182_start_month(date)'::regprocedure) INTO d;
+ old_part := 'and public.rc182_can_manage_halaqa(s.halaqa_id)';
+ new_part := old_part || E'\n       and exists (select 1 from public.halaqas h where h.id=s.halaqa_id and coalesce(h.halaqa_type,''regular'')=''regular'')';
+ IF strpos(d,old_part)=0 OR strpos(d,new_part)>0 THEN RAISE EXCEPTION 'Unexpected rc182 source'; END IF;
+ EXECUTE replace(d,old_part,new_part);
+ SELECT pg_get_functiondef('public.rc152_roll_tathbit_months_core()'::regprocedure) INTO d;
+ old_part := 'and s.withdrawn_at is null';
+ new_part := old_part || E'\n       and exists (select 1 from public.halaqas h where h.id=s.halaqa_id and coalesce(h.halaqa_type,''regular'')=''regular'')';
+ IF strpos(d,old_part)=0 OR strpos(d,new_part)>0 THEN RAISE EXCEPTION 'Unexpected rc152 source'; END IF;
+ EXECUTE replace(d,old_part,new_part);
+END $patch$;
+CREATE SCHEMA IF NOT EXISTS halaqati_repair_private;
+REVOKE ALL ON SCHEMA halaqati_repair_private FROM PUBLIC, anon, authenticated;
+CREATE FUNCTION halaqati_repair_private.guard_plan_program_scope() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $guard$
+BEGIN
+ IF EXISTS (SELECT 1 FROM public.halaqas h WHERE h.id=NEW.halaqa_id AND coalesce(h.halaqa_type,'regular')<>'regular') THEN
+   RAISE EXCEPTION 'خطط الحفظ غير متاحة لهذا البرنامج في الإصدار الحالي' USING ERRCODE='23514';
+ END IF;
+ RETURN NEW;
+END $guard$;
+REVOKE ALL ON FUNCTION halaqati_repair_private.guard_plan_program_scope() FROM PUBLIC, anon, authenticated;
+CREATE TRIGGER zz_halaqati_guard_plan_program_scope BEFORE INSERT OR UPDATE OF halaqa_id ON public.smart_plans FOR EACH ROW EXECUTE FUNCTION halaqati_repair_private.guard_plan_program_scope();

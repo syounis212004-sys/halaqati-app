@@ -33,6 +33,12 @@ Source base for knowledge setup: `e900ccb` (RC114 / 2.91.14); code is in `source
   cached lists can remain readable offline.
 - These are repository facts, not independent verification of production rollout.
 
+- Execution v1.2 candidate separates guardian account review from verified links,
+  and scopes guardian summaries and program recitation independently of memorization.
+  See [staging and rollback](EXECUTION_V12.md). Production ledger copies are historical.
+- Exiting the Android session editor leaves unobserved attendance unchanged.
+  New session dialogs derive activity choices from the selected scope.
+
 ## Known limitations / unfinished work
 - External CircleCI reports "No configuration was found"; this already occurs
   on baseline `e900ccb`. The independent knowledge GitHub Actions job is the
@@ -45,7 +51,6 @@ Source base for knowledge setup: `e900ccb` (RC114 / 2.91.14); code is in `source
 - All supported documentation has structural sections/links; seven selected
   architecture/decision documents have semantic enrichment. No full-text LLM
   rescan is needed for ordinary future tasks.
-- No application build, database mutation, UI change or release is part of this setup.
 
 ## Knowledge workflow
 - Mandatory: bootstrap/status → bounded Graphify query → targeted source read.

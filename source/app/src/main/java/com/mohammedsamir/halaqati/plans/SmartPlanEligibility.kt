@@ -20,6 +20,14 @@ object ProgramKindRules {
     const val TILAWAH_TAJWEED_LABEL = "التلاوة والتجويد"
     fun canonical(type: String?): String = if (type == "tajweed") "tilawah" else type.orEmpty().ifBlank { "regular" }
     fun isTilawahTajweed(type: String?): Boolean = type == "tajweed" || type == "tilawah"
+
+    fun specialization(value: String?): String = when (value) {
+        "intensive_hifz" -> "hifz_intensive"
+        "tajweed_applied" -> "tajweed_practical"
+        "noorani" -> "noorania"
+        "reading_support" -> "reading_remedial"
+        else -> value.orEmpty()
+    }
 }
 
 /**
