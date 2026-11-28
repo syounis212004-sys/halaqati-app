@@ -463,7 +463,7 @@ private fun MainShell(
 @Composable
 private fun FeatureRouter(destination:AppDestination,profile:Profile,sync:SyncState,onSync:()->Unit,navigate:(String)->Unit,onLogout:()->Unit,deepLinkedStudentId:String?,onStudentFocusConsumed:()->Unit){
     when(destination.route){
-        "home"->if (profile.role == com.mohammedsamir.halaqati.model.UserRole.SUPERVISOR) SupervisorHomeScreen(profile,sync.pending,onSync,navigate) else if (profile.role == com.mohammedsamir.halaqati.model.UserRole.OBSERVER) com.mohammedsamir.halaqati.ui.screens.DonorHomeScreen(profile,sync.pending,onSync,navigate) else if (profile.role == com.mohammedsamir.halaqati.model.UserRole.GUARDIAN) com.mohammedsamir.halaqati.ui.guardian.GuardianHomeScreen(navigate) else DashboardScreen(profile,sync,navigate,onSync)
+        "home"->if (profile.role == com.mohammedsamir.halaqati.model.UserRole.SUPERVISOR) SupervisorHomeScreen(profile,sync.pending,onSync,navigate) else if (profile.role == com.mohammedsamir.halaqati.model.UserRole.OBSERVER) com.mohammedsamir.halaqati.ui.screens.DonorHomeScreen(profile,sync.pending,onSync,navigate) else if (profile.role == com.mohammedsamir.halaqati.model.UserRole.GUARDIAN) com.mohammedsamir.halaqati.ui.guardian.GuardianHomeScreen(navigate, vm = androidx.lifecycle.viewmodel.compose.viewModel(key = "guardian:${profile.id}")) else DashboardScreen(profile,sync,navigate,onSync)
         "observer_requests"->ObserverRequestsAdminScreen(profile)
         "contests"->com.mohammedsamir.halaqati.ui.screens.ContestsScreen(profile,sync.pending,onSync)
         "contribute"->com.mohammedsamir.halaqati.ui.screens.ContributeScreen(profile,sync.pending,onSync,navigate)
@@ -487,7 +487,7 @@ private fun FeatureRouter(destination:AppDestination,profile:Profile,sync:SyncSt
         "sync_center"->SyncCenterScreen(sync,onSync)
         "supervision"->StaffMonitorScreen(profile,sync.pending,onSync,navigate)
         "visits"->SupervisorVisitsScreen(profile,sync.pending,onSync)
-        "users"->UsersScreen(sync.pending,onSync)
+        "users"->UsersScreen(sync.pending,onSync,openApprovals={ navigate("approvals") })
         "approvals"->ApprovalsScreen(profile)
         "mushaf"->com.mohammedsamir.halaqati.ui.screens.MushafHomeScreen()
         "quran"->QuranCalculatorScreen()

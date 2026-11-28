@@ -1,0 +1,56 @@
+name: Execution v1.2 validation
+
+on:
+  push:
+    branches: [fix/execution-v1-2]
+  pull_request:
+    paths:
+      - 'source/**'
+      - '.github/workflows/execution-v12-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.13'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+      - name: Prepare debug fixtures
+        run: |
+          set -euo pipefail
+          sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+          curl -fsSL --retry 4 -o "$RUNNER_TEMP/madina.json" https://digitalkhatt.org/assets/layouts/madina.json
+          echo "5de6e0c60d8a402b37483fed4f799eeefaebd5edd94b67ff1ac8d8e9ba5ff358  $RUNNER_TEMP/madina.json" | sha256sum -c -
+          python3 -I source/scripts/dk/make_dk_assets.py "$RUNNER_TEMP/madina.json" source/app/src/main/assets/dk
+          python3 -I source/scripts/dk/verify_pack.py source/app/src/main/assets/dk
+          python3 source/scripts/fetch-cairo-font.py
+          cat > source/app/google-services.json <<'JSON'
+          {"project_info":{"project_number":"123456789012","project_id":"halaqati-v12-debug-fixture"},"client":[{"client_info":{"mobilesdk_app_id":"1:123456789012:android:1234567890abcdef","android_client_info":{"package_name":"com.mohammedsamir.halaqati"}},"api_key":[{"current_key":"offline-fixture"}]}],"configuration_version":"1"}
+          JSON
+      - name: Build APK and run unit tests
+        working-directory: source
+        env:
+          SUPABASE_URL: https://staging.invalid
+          SUPABASE_PUBLISHABLE_KEY: offline-fixture
+        run: gradle --no-daemon --console=plain :app:assembleDebug :app:testDebugUnitTest
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: halaqati-v12-debug-verification
+          path: |
+            source/app/build/outputs/apk/debug/app-debug.apk
+            source/app/build/test-results/testDebugUnitTest/

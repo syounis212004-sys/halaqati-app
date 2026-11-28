@@ -463,6 +463,7 @@ GoldenStudentCard(
 
     if (add) {
         StudentDialog(
+            initialHalaqaId = halaqaFilter.takeUnless { it == "all" },
             close = { add = false },
             onSaved = {
                 add = false
@@ -931,8 +932,8 @@ private fun StudentFullEditDialog(student: Student, raw: JSONObject?, close: () 
 }
 
 @Composable
-private fun StudentDialog(close: () -> Unit, onSaved: () -> Unit) {
-    StudentEditorDialog(student = null, raw = null, close = close, onSaved = onSaved)
+private fun StudentDialog(initialHalaqaId: String?, close: () -> Unit, onSaved: () -> Unit) {
+    StudentEditorDialog(student = null, raw = null, close = close, onSaved = onSaved, initialHalaqaId = initialHalaqaId)
 }
 
 private data class StudentEditorMasterData(
@@ -944,7 +945,13 @@ private data class StudentEditorMasterData(
 )
 
 @Composable
-private fun StudentEditorDialog(student: Student?, raw: JSONObject?, close: () -> Unit, onSaved: () -> Unit) {
+private fun StudentEditorDialog(
+    student: Student?,
+    raw: JSONObject?,
+    close: () -> Unit,
+    onSaved: () -> Unit,
+    initialHalaqaId: String? = null,
+) {
     val scope = rememberCoroutineScope()
     var fullName by remember(student?.id) { mutableStateOf(raw?.optString("full_name").orEmpty().ifBlank { student?.fullName.orEmpty() }) }
     var nationalId by remember(student?.id) { mutableStateOf(raw?.optString("national_id").orEmpty().ifBlank { student?.nationalId.orEmpty() }) }
@@ -968,7 +975,8 @@ private fun StudentEditorDialog(student: Student?, raw: JSONObject?, close: () -
     var photoPath by remember(student?.id) { mutableStateOf(raw?.optString("photo_path").orEmpty().ifBlank { student?.photoPath.orEmpty() }) }
     var halaqas by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
     var categories by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
-    var secondaryHalaqaIds by remember(student?.id) { mutableStateOf<Set<String>>(emptySet()) }
+    var initialSecondaryHalaqaIds by remember(student?.id) { mutableStateOf(emptySet<String>()) }
+    var secondaryHalaqaIds by remember(student?.id) { mutableStateOf(emptySet<String>()) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -1002,7 +1010,8 @@ private fun StudentEditorDialog(student: Student?, raw: JSONObject?, close: () -
         categories = master.categories
         guardians = master.guardians
         selectedGuardianId = master.currentGuardianId
-        secondaryHalaqaIds = master.currentSecondaryHalaqaIds - halaqaId
+        initialSecondaryHalaqaIds = master.currentSecondaryHalaqaIds - halaqaId
+        secondaryHalaqaIds = initialSecondaryHalaqaIds
         if (selectedGuardianId == null && guardianEmail.isNotBlank()) {
             selectedGuardianId = guardians.firstOrNull { it.email.equals(guardianEmail, true) }?.id
         }
@@ -1013,7 +1022,10 @@ private fun StudentEditorDialog(student: Student?, raw: JSONObject?, close: () -
                 guardian.email?.let { guardianEmail = it }
             }
         }
-        if (halaqaId.isBlank()) halaqaId = halaqas.firstOrNull { it.optBoolean("active", true) }?.optString("id").orEmpty()
+        if (halaqaId.isBlank() && student == null) {
+            val activeScopes = halaqas.filter { it.optBoolean("active", true) }.map { it.optString("id") }
+            halaqaId = initialHalaqaId?.takeIf { it in activeScopes } ?: activeScopes.singleOrNull().orEmpty()
+        }
     }
 
     val visibleCategories = categories.filter { it.optBoolean("active", true) && (halaqaId.isBlank() || it.optString("halaqa_id") == halaqaId) }
@@ -1148,7 +1160,12 @@ private fun StudentEditorDialog(student: Student?, raw: JSONObject?, close: () -
                                 if (student != null || selectedGuardianId != null) {
                                     AppGraph.repo.linkPrimaryGuardian(studentId, selectedGuardianId)
                                 }
-                                AppGraph.repo.saveStudentSecondaryMemberships(studentId, secondaryHalaqaIds - halaqaId, confirmed = student != null)
+                                AppGraph.repo.saveStudentSecondaryMemberships(
+                                    studentId,
+                                    addedHalaqaIds = secondaryHalaqaIds - initialSecondaryHalaqaIds - halaqaId,
+                                    removedHalaqaIds = initialSecondaryHalaqaIds - secondaryHalaqaIds - halaqaId,
+                                    confirmed = student != null,
+                                )
                             }
                             onSaved()
                         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -1686,12 +1703,13 @@ GoldenSessionCard(
             save = { halaqaId, date, type, title ->
                 scope.launch {
                     try {
-                        withContext(Dispatchers.IO) {
+                        val sessionId = withContext(Dispatchers.IO) {
                             AppGraph.repo.createSession(halaqaId, date, type, title)
                         }
                         add = false
                         showArchived = false
                         reload()
+                        activeId = sessionId
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         throw e
                     } catch (e: Exception) {
@@ -2366,44 +2384,7 @@ private fun SessionRosterScreen(
         hasRecitations = recitations[student.id].orEmpty().any { it.id !in hiddenRecitationIds },
     )
 
-    // RC40: closing the session settles everyone: unmarked students become absent; present/late students with no
-    // recitation are recorded as "لم يُسمّع". Runs over the whole roster (not just the filtered view).
-    fun finalizeAndClose() {
-        scope.launch {
-            try {
-                var absentCount = 0
-                var notRecitedCount = 0
-                withContext(Dispatchers.IO) {
-                    for (student in students) {
-                        when (stateFor(student)) {
-                            SessionWorkflowRules.StudentState.UNMARKED -> {
-                                AppGraph.repo.saveAttendance(session.id, student.id, "absent")
-                                absentCount++
-                            }
-                            SessionWorkflowRules.StudentState.PRESENT, SessionWorkflowRules.StudentState.LATE -> {
-                                val n = notes[student.id]
-                                AppGraph.repo.saveDailyNote(
-                                    sessionId = session.id, studentId = student.id,
-                                    behavior = n?.behavior ?: "normal", behaviorScore = n?.behaviorScore,
-                                    teacherComment = n?.teacherComment.orEmpty(), homework = n?.homework.orEmpty(),
-                                    parentVisible = n?.parentVisible ?: true,
-                                    participation = SessionWorkflowRules.NOT_RECITED_MARKER,
-                                )
-                                notRecitedCount++
-                            }
-                            else -> Unit
-                        }
-                    }
-                }
-                if (absentCount + notRecitedCount > 0) onChanged()
-                com.mohammedsamir.halaqati.ui.components.HalaqatiMotionEvents.celebrate()
-                close()
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) { message = e.message ?: "تعذر إغلاق الجلسة" }
-        }
-    }
-
+    // The session editor exits without assigning a status to students who have not been observed.
     fun snapshotForActivity(studentId: String, activityType: String): PlanSnapshot? {
         // Tilawah is an independent quality assessment. It must never inherit a Hifz/Tathbit
         // assignment merely because the student also has an active smart plan.
@@ -2806,7 +2787,7 @@ private fun SessionRosterScreen(
             OutlinedButton(
                 onClick = { closeConfirm = true },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp).heightIn(min = HalaqatiUiTokens.TouchTarget),
-            ) { Icon(Icons.Default.DoneAll, null); Spacer(Modifier.width(6.dp)); Text("إنهاء الجلسة") }
+            ) { Icon(Icons.Default.DoneAll, null); Spacer(Modifier.width(6.dp)); Text("الخروج من الجلسة") }
         }
 
         SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp))
@@ -2852,26 +2833,21 @@ private fun SessionRosterScreen(
     }
 
     if (closeConfirm) {
+        val unmarkedCount = students.count { stateFor(it) == SessionWorkflowRules.StudentState.UNMARKED }
         HalaqatiAlertDialog(
             onDismissRequest = { closeConfirm = false },
-            title = { Text("ملخص الجلسة قبل الإغلاق") },
+            title = { Text("الخروج من الجلسة") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    val autoNotRecited = students.count { stateFor(it).let { st -> st == SessionWorkflowRules.StudentState.PRESENT || st == SessionWorkflowRules.StudentState.LATE } }
-                    val autoAbsent = students.count { stateFor(it) == SessionWorkflowRules.StudentState.UNMARKED }
-                    Text(
-                        if (autoNotRecited + autoAbsent > 0)
-                            "عند الإغلاق يُعتمد تلقائيًا: $autoAbsent غائب (لم يُرصدوا) و$autoNotRecited «لم يُسمّع» (حاضرون بلا تسميع)."
-                        else "اكتمل رصد جميع الطلاب. راجع الملخص ثم أغلق الجلسة عندما تكون جاهزًا."
-                    )
+                    if (unmarkedCount > 0) Text("عدد الطلاب الذين لم يُرصد حضورهم: $unmarkedCount. ستبقى حالتهم غير مرصودة.")
                     SessionSummaryStrip(summary = sessionSummary)
                 }
             },
             confirmButton = {
                 Button(onClick = {
                     closeConfirm = false
-                    finalizeAndClose()
-                }) { Text("إنهاء الجلسة") }
+                    close()
+                }) { Text("خروج") }
             },
             dismissButton = { TextButton(onClick = { closeConfirm = false }) { Text("متابعة الرصد") } },
         )
@@ -6278,7 +6254,7 @@ fun planTypeAr(value: String) = when (value) {
 
 
 @Composable
-fun UsersScreen(pending: Int, onRefresh: () -> Unit) {
+fun UsersScreen(pending: Int, onRefresh: () -> Unit, openApprovals: () -> Unit) {
     val scope = rememberCoroutineScope()
     var rows by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
@@ -6442,10 +6418,11 @@ fun UsersScreen(pending: Int, onRefresh: () -> Unit) {
                             Text("سبب الرفض: $reason", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                         }
                         if (!isAdmin) {
+                            val guardianRequest = requested == "guardian"
                             val accountActions = buildList {
                                 when (approval) {
-                                    "pending" -> { add("approve"); add("reject") }
-                                    "rejected" -> add("approve_again")
+                                    "pending" -> if (guardianRequest) add("review_link") else { add("approve"); add("reject") }
+                                    "rejected" -> add(if (guardianRequest) "review_link" else "approve_again")
                                     else -> { add("toggle"); add("freeze"); add("role"); if (staff) add("photo") }
                                 }
                                 add("delete")
@@ -6455,6 +6432,7 @@ fun UsersScreen(pending: Int, onRefresh: () -> Unit) {
                                 OutlinedButton(
                                     onClick = {
                                         when (action) {
+                                            "review_link" -> openApprovals()
                                             "approve" -> runAccountAction(id, { AppGraph.repo.approveAccount(id, requested) }, "تم اعتماد الحساب")
                                             "reject" -> rejectUser = row
                                             "approve_again" -> runAccountAction(id, { AppGraph.repo.approveAccount(id, requested) }, "تم اعتماد الحساب من جديد")
@@ -6472,6 +6450,7 @@ fun UsersScreen(pending: Int, onRefresh: () -> Unit) {
                                     if (action == "delete") Icon(Icons.Default.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
                                     Text(
                                         when (action) {
+                                            "review_link" -> "طلبات الربط"
                                             "approve" -> if (busyId == id) "جاري…" else "اعتماد"
                                             "reject" -> "رفض"
                                             "approve_again" -> "اعتماد من جديد"

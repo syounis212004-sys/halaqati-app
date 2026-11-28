@@ -49,9 +49,9 @@ fun GuardianHomeScreen(
     val overview = state.overview
 
     Column(Modifier.fillMaxSize()) {
-        AppTopBar(title = "اطمئن على رحلته", kicker = "ولي الأمر · متابعة الأبناء")
+        AppTopBar(title = "اطمئن على رحلته", kicker = "ولي الأمر · متابعة الأبناء", onRefresh = vm::refresh)
         PullToRefreshBox(
-            isRefreshing = state.refreshing && overview != null,
+            isRefreshing = state.refreshing,
             onRefresh = { vm.refresh() },
             modifier = Modifier.weight(1f).fillMaxWidth(),
         ) {
@@ -90,7 +90,7 @@ fun GuardianHomeScreen(
                 when {
                     overview == null && (state.loadingFirst || state.refreshing) ->
                         item(key = "loading", contentType = "loading") { LoadingSkeleton(rows = 3) }
-                    overview == null && state.children.isEmpty() && !state.loadingFirst ->
+                    overview == null && state.children.isEmpty() && state.message == null ->
                         item(key = "empty", contentType = "empty") { EmptyState("لا توجد ملفات طلاب مرتبطة بهذا الحساب") }
                     overview != null -> {
                         item(key = "today", contentType = "today") { TodayCard(overview) }

@@ -821,7 +821,8 @@ class HalaqatiRepository(
      * the broad students() master-data endpoint. The server RPC checks student_guardians against
      * auth.uid(); the cache is owner-scoped and is the only offline fallback.
      */
-    fun guardianChildren(forceRefresh: Boolean = false): List<Student> {
+    fun guardianChildren(forceRefresh: Boolean = false, requireFresh: Boolean = false): List<Student> {
+        require(!requireFresh || forceRefresh)
         val owner = currentUserId() ?: return emptyList()
         val cached = cache.get(owner, CACHE_GUARDIAN_CHILDREN, null)
             ?.let { runCatching { studentsFromJson(it) }.getOrNull() }
@@ -829,11 +830,15 @@ class HalaqatiRepository(
             if (online()) scheduleSync()
             return cached
         }
-        if (!online()) return cached.orEmpty()
+        if (!online()) {
+            check(!requireFresh) { "تحديث قائمة الأبناء يحتاج اتصالًا بالإنترنت" }
+            return cached.orEmpty()
+        }
         val fresh = runCatching {
             val arr = runCatching {
                 JSONArray(withAuthRetry { api.rpc("guardian_children", JSONObject()) })
-            }.getOrElse {
+            }.getOrElse { error ->
+                if (requireFresh) throw error
                 // Upgrade-safe fallback before the RC18 migration is applied: query only rows
                 // explicitly linked to auth.uid(), never the broad students endpoint.
                 val links = withAuthRetry {
@@ -847,7 +852,10 @@ class HalaqatiRepository(
             }
             cache.put(owner, CACHE_GUARDIAN_CHILDREN, arr.toString())
             studentsFromJson(arr.toString())
-        }.getOrElse { cached.orEmpty() }
+        }.getOrElse { error ->
+            if (requireFresh) throw error
+            cached.orEmpty()
+        }
         return fresh.filter { it.status == "active" }.sortedBy { it.fullName }
     }
 
@@ -936,13 +944,20 @@ class HalaqatiRepository(
         invalidateTableCache("student_halaqa_memberships")
     }
 
-    fun saveStudentSecondaryMemberships(studentId: String, halaqaIds: Set<String>, confirmed: Boolean = true) {
+    fun saveStudentSecondaryMemberships(
+        studentId: String,
+        addedHalaqaIds: Set<String>,
+        removedHalaqaIds: Set<String>,
+        confirmed: Boolean = true,
+    ) {
         require(studentId.isNotBlank())
+        if (addedHalaqaIds.isEmpty() && removedHalaqaIds.isEmpty()) return
         val existing = studentHalaqaMemberships(studentId = studentId, forceRefresh = online())
         val byHalaqa = (0 until existing.length()).mapNotNull { existing.optJSONObject(it) }
             .associateBy { it.optString("halaqa_id") }
         val today = LocalDate.now().toString()
-        halaqaIds.filter(String::isNotBlank).forEach { hid ->
+        addedHalaqaIds.filter(String::isNotBlank).forEach { hid ->
+            if (byHalaqa[hid]?.optString("status") == "active") return@forEach
             val payload = JSONObject()
                 .put("student_id", studentId)
                 .put("halaqa_id", hid)
@@ -954,8 +969,8 @@ class HalaqatiRepository(
             if (confirmed && online()) writeConfirmed("student_halaqa_memberships", payload, onConflict = "student_id,halaqa_id")
             else write("student_halaqa_memberships", payload, onConflict = "student_id,halaqa_id", dedupe = "student-membership:$studentId:$hid")
         }
-        byHalaqa.forEach { (hid, row) ->
-            if (hid.isBlank() || hid in halaqaIds || row.optString("status") != "active") return@forEach
+        removedHalaqaIds.filter(String::isNotBlank).forEach { hid ->
+            if (byHalaqa[hid]?.optString("status") != "active") return@forEach
             val patch = JSONObject()
                 .put("status", "withdrawn")
                 .put("ended_at", today)
@@ -2055,14 +2070,14 @@ class HalaqatiRepository(
         }
 
     private fun planSnapshotsImpl(today: LocalDate, forceRefresh: Boolean, baseInputsFresh: Boolean): List<PlanSnapshot> {
-        smartPlanIneligibleHalaqaIds()
+        val ineligible = smartPlanIneligibleHalaqaIds()
         if (!forceRefresh && planMemoryValid(today)) {
             if (online()) scheduleSync()
-            return planSnapshotMemory
+            return planSnapshotMemory.filter { it.student.halaqaId !in ineligible && it.plan.halaqaId !in ineligible }
         }
         val rolled = rollTathbitMonthsOncePerDay(today)
-        val students = students(forceRefresh = forceRefresh && !baseInputsFresh)
-        val planRows = plans(forceRefresh = (forceRefresh && !baseInputsFresh) || rolled)
+        val students = students(forceRefresh = forceRefresh && !baseInputsFresh).filter { it.halaqaId !in ineligible }
+        val planRows = plans(forceRefresh = (forceRefresh && !baseInputsFresh) || rolled).filter { it.halaqaId !in ineligible }
         if (students.isEmpty() || planRows.isEmpty()) return emptyList()
         val phaseRows = planPhases(forceRefresh = forceRefresh)
         val phaseStates = planPhaseStates(forceRefresh = forceRefresh)
@@ -2826,13 +2841,14 @@ class HalaqatiRepository(
      */
     /**
      * `table()` for lists that can pass PostgREST's 1000-row response cap (insight screens read thousands of attendance and
-     * recitation rows). Pages of 1000 by `id`, so the query must not carry its own limit/order. shortcut: 20 pages (20,000 rows).
+     * recitation rows). Uses each table's stable sort key. The caller must omit limit/order. Bounded to 20 pages.
      */
     fun tablePaged(name: String, query: String, forceRefresh: Boolean = false): JSONArray {
         val out = JSONArray()
         var offset = 0
+        val order = BackupRules.orderFor(name)
         repeat(20) {
-            val page = table(name, "$query&order=id.asc&limit=1000&offset=$offset", forceRefresh = forceRefresh && offset == 0)
+            val page = table(name, "$query&order=$order.asc&limit=1000&offset=$offset", forceRefresh = forceRefresh)
             for (i in 0 until page.length()) out.put(page.get(i))
             if (page.length() < 1000) return out
             offset += 1000
@@ -2992,7 +3008,7 @@ class HalaqatiRepository(
 
     fun approveAccount(userId: String, role: String) {
         requireDirectAccountConnection()
-        require(role in setOf("guardian", "teacher", "supervisor", "observer")) { "الصلاحية المطلوبة غير صالحة" }
+        require(role in setOf("teacher", "supervisor", "observer")) { "اعتماد ولي الأمر من شاشة طلبات الاعتماد" }
         val uid = store.load()?.userId ?: error("الجلسة غير صالحة")
         withAuthRetry {
             api.patch(

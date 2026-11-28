@@ -12,9 +12,9 @@
     "semantic_hash": ""
   },
   "source/app/build.gradle.kts": {
-    "mtime": 1795839490.7548532,
-    "seen": 1795839539.2285876,
-    "ast_hash": "cac8839850d346a40b87bd4a63f8321b",
+    "mtime": 1795860965.1405563,
+    "seen": 1795861235.5732388,
+    "ast_hash": "b9fa8415e8458f4913f0a14c1db7e665",
     "semantic_hash": ""
   },
   "source/app/schemas/com.mohammedsamir.halaqati.data.HalaqatiOfflineDatabase/1.json": {
@@ -132,9 +132,9 @@
     "semantic_hash": ""
   },
   "source/app/src/main/java/com/mohammedsamir/halaqati/data/HalaqatiRepository.kt": {
-    "mtime": 1795789970.348692,
-    "seen": 1795790180.2010376,
-    "ast_hash": "3aef1133aca81e840ea797b4ba6526e3",
+    "mtime": 1795861362.374507,
+    "seen": 1795861368.695201,
+    "ast_hash": "40c2a4d0504c0146d157c497eee0af32",
     "semantic_hash": ""
   },
   "source/app/src/main/java/com/mohammedsamir/halaqati/data/ImportRules.kt": {
@@ -612,9 +612,9 @@
     "semantic_hash": ""
   },
   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/HalaqatiApp.kt": {
-    "mtime": 1795789970.3539011,
-    "seen": 1795790180.2011182,
-    "ast_hash": "6b2a25d66cea41288461e970c68b5b48",
+    "mtime": 1795860965.140116,
+    "seen": 1795861235.573365,
+    "ast_hash": "226718bc978eeb563129bb3937a8f5f4",
     "semantic_hash": ""
   },
   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/Navigation.kt": {
@@ -918,15 +918,15 @@
     "semantic_hash": ""
   },
   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/guardian/GuardianHomeScreen.kt": {
-    "mtime": 1795789970.35652,
-    "seen": 1795790180.2011626,
-    "ast_hash": "4e89df9ff4d9df6f4470a9c918085f1a",
+    "mtime": 1795860965.1398351,
+    "seen": 1795861235.5734222,
+    "ast_hash": "9e9f6d31011949015dc23c680c438ebb",
     "semantic_hash": ""
   },
   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/guardian/GuardianHomeViewModel.kt": {
-    "mtime": 1795789970.35652,
-    "seen": 1795790180.2011633,
-    "ast_hash": "8e133f799c0624de9aab2003617847ee",
+    "mtime": 1795860965.1396232,
+    "seen": 1795861235.5734231,
+    "ast_hash": "768b2e782c32a9e77ac549eecd18ca9a",
     "semantic_hash": ""
   },
   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/guardian/GuardianPraise.kt": {
@@ -1044,9 +1044,9 @@
     "semantic_hash": ""
   },
   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/CoreScreens.kt": {
-    "mtime": 1795789970.3573468,
-    "seen": 1795790180.2011817,
-    "ast_hash": "2c0f883461f190e125436b859d0a8392",
+    "mtime": 1795861362.3649197,
+    "seen": 1795861368.695357,
+    "ast_hash": "8d7a8f5139f9ba93ef414c3c8328bfe2",
     "semantic_hash": ""
   },
   "source/app/src/main/java/com/mohammedsamir/halaqati/ui/screens/DashboardScreen.kt": {
@@ -4443,6 +4443,30 @@
     "mtime": 1795839490.756919,
     "seen": 1795839539.229353,
     "ast_hash": "957ea22adda1180c0f248ec2bd53e022",
+    "semantic_hash": ""
+  },
+  "source/migration/20261128120000_guardian_link_review_scope.sql": {
+    "mtime": 1795861336.7840369,
+    "seen": 1795861368.695548,
+    "ast_hash": "393c89efe120e2ca2f9f4a33a71741be",
+    "semantic_hash": ""
+  },
+  "source/migration/20261128120100_recitation_program_context.sql": {
+    "mtime": 1795861336.7844222,
+    "seen": 1795861368.6955502,
+    "ast_hash": "54d1738d33127fd88b37e8a6bb53da3d",
+    "semantic_hash": ""
+  },
+  "source/migration/tests/guardian_link_review_scope.sql": {
+    "mtime": 1795861118.937763,
+    "seen": 1795861235.5737731,
+    "ast_hash": "21a78129d2263ea7776f37410568d77e",
+    "semantic_hash": ""
+  },
+  "source/migration/tests/recitation_program_context.sql": {
+    "mtime": 1795861265.4155798,
+    "seen": 1795861296.2519488,
+    "ast_hash": "7d29803834b9c17f23ca6db4e2c74085",
     "semantic_hash": ""
   }
 }
