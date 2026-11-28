@@ -1,7 +1,7 @@
 -- Proposed, not deployed. Additive guardian activity projection; existing RPC remains unchanged.
 begin;
 create function public.rc_guardian_activities_v12(p_student_id uuid)
-returns jsonb language plpgsql stable security definer set search_path=pg_catalog,public as $f$
+returns jsonb language plpgsql stable security definer set search_path='' as $f$
 begin
   if public.current_role() is distinct from 'guardian'::public.app_role or not public.rc18_guardian_owns_student(p_student_id) then
     raise exception 'لا تملك صلاحية عرض هذا الطالب' using errcode='42501';
@@ -20,7 +20,7 @@ CREATE FUNCTION public.rc_guardian_activity_overview_v12(p_student_id uuid, p_ha
  RETURNS jsonb
  LANGUAGE plpgsql
  STABLE SECURITY DEFINER
- SET search_path TO 'public'
+ SET search_path TO ''
 AS $function$
 declare
   v_student record;
@@ -31,13 +31,13 @@ declare
   v_result jsonb;
 begin
   if public.current_role() is distinct from 'guardian'::public.app_role then
-    raise exception 'guardian access only';
+    raise exception 'guardian access only' using errcode='42501';
   end if;
   if not exists (
     select 1 from public.student_guardians sg
     where sg.student_id = p_student_id and sg.guardian_id = auth.uid()
   ) then
-    raise exception 'student is not linked to this guardian';
+    raise exception 'student is not linked to this guardian' using errcode='42501';
   end if;
 
   select s.id, s.full_name, s.track_code, s.status, h.id as halaqa_id,
@@ -51,7 +51,7 @@ begin
      and (s.halaqa_id=h.id or exists(select 1 from public.student_halaqa_memberships m
        where m.student_id=s.id and m.halaqa_id=h.id and m.status='active'));
 
-  if v_student.id is null then raise exception 'student not found'; end if;
+  if v_student.id is null then raise exception 'student not found' using errcode='42501'; end if;
   v_is_program := coalesce(nullif(v_student.halaqa_type, ''), 'regular') <> 'regular';
   v_track := case
     when v_is_program then null
