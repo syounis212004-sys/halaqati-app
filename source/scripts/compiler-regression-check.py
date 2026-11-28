@@ -42,4 +42,12 @@ assert not ('googleid:1.1.1' in app and 'GetSignInWithGoogleOption' in native_go
 properties=(root/'gradle.properties').read_text()
 keys=[line.split('=',1)[0] for line in properties.splitlines() if '=' in line and not line.startswith('#')]
 assert len(keys)==len(set(keys)), 'Duplicate Gradle properties'
+recitation=(root/'app/src/main/java/com/mohammedsamir/halaqati/ui/screens/RecitationDialog.kt').read_text()
+dialog=recitation.split('internal fun RecitationDialog(',1)[1].split('\n@Composable\nprivate fun TilawahAssessmentCard(',1)[0]
+assert 'val recordKey = existing?.id' in dialog
+assert not re.search(r'remember\([^\n)]*existing\?\.id',dialog), 'Repeated nullable recitation key/inline FIR graph returned'
+assert 'TilawahAssessmentCard(' in dialog and 'private fun TilawahAssessmentCard(' in recitation
+assert 'mutableStateOf(initialRecitationRange(' in dialog and 'mutableStateOf(initialRecitationActivity(' in dialog
+assert dialog.count('initialTilawahRating(existingTilawah,') == 4
+
 print('Compiler regression source checks passed (not an APK compile)')
