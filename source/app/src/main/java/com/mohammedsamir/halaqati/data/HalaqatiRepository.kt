@@ -3543,11 +3543,12 @@ class HalaqatiRepository(
         halaqaId: String = "all",
         sessionType: String = "all",
         forceRefresh: Boolean = false,
+        scopedHalaqaIds: Set<String>? = null,
     ): JSONArray {
         require(track in setOf("all", "general_hifz", "tathbit")) { "المسار غير صالح" }
         require(sessionType in setOf("all", "tasmee", "sard", "review", "test", "tajweed", "tilawah", "lesson", "other")) { "نوع اللقاء غير صالح" }
         val trackFilter = if (track == "all") "" else "&${StudentTrackRules.postgrestFilter("students.track_code", track)}"
-        val halaqaFilter = if (halaqaId == "all") "" else "&sessions.halaqa_id=eq.$halaqaId"
+        val halaqaFilter = com.mohammedsamir.halaqati.plans.ReportScopeRules.sessionFilter(halaqaId, scopedHalaqaIds)
         val typeFilter = sessionTypeQuery(sessionType)
         val query = "select=student_id,activity_type,input_method,start_surah,start_ayah,end_surah,end_ayah,start_page,end_page,selected_surahs,selection_data,pages_count,mistakes,prompts,evaluation,safety_percentage,points,teacher_note,created_at," +
             "students!inner(full_name,track_code,halaqa_id,category_id,date_of_birth),sessions!inner(session_date,halaqa_id,session_type,status)" +
@@ -3563,11 +3564,12 @@ class HalaqatiRepository(
         halaqaId: String = "all",
         sessionType: String = "all",
         forceRefresh: Boolean = false,
+        scopedHalaqaIds: Set<String>? = null,
     ): JSONArray {
         require(track in setOf("all", "general_hifz", "tathbit")) { "المسار غير صالح" }
         require(sessionType in setOf("all", "tasmee", "sard", "review", "test", "tajweed", "tilawah", "lesson", "other")) { "نوع اللقاء غير صالح" }
         val trackFilter = if (track == "all") "" else "&${StudentTrackRules.postgrestFilter("students.track_code", track)}"
-        val halaqaFilter = if (halaqaId == "all") "" else "&sessions.halaqa_id=eq.$halaqaId"
+        val halaqaFilter = com.mohammedsamir.halaqati.plans.ReportScopeRules.sessionFilter(halaqaId, scopedHalaqaIds)
         val typeFilter = sessionTypeQuery(sessionType)
         val query = "select=student_id,behavior,behavior_score,teacher_comment,homework,participation,created_at," +
             "students!inner(full_name,track_code,halaqa_id),sessions!inner(session_date,halaqa_id,session_type,status)" +
@@ -3583,10 +3585,11 @@ class HalaqatiRepository(
         track: String = "all",
         halaqaId: String = "all",
         sessionType: String = "all",
+        scopedHalaqaIds: Set<String>? = null,
     ): JSONArray {
         require(track in setOf("all", "general_hifz", "tathbit")) { "المسار غير صالح" }
         val trackFilter = if (track == "all") "" else "&${StudentTrackRules.postgrestFilter("students.track_code", track)}"
-        val halaqaFilter = if (halaqaId == "all") "" else "&sessions.halaqa_id=eq.$halaqaId"
+        val halaqaFilter = com.mohammedsamir.halaqati.plans.ReportScopeRules.sessionFilter(halaqaId, scopedHalaqaIds)
         val typeFilter = sessionTypeQuery(sessionType)
         val query = "select=student_id,status,students!inner(full_name,track_code,halaqa_id),sessions!inner(session_date,halaqa_id,session_type,status)" +
             "&status=in.(absent,excused)&sessions.session_date=gte.$from&sessions.session_date=lte.$to&sessions.status=neq.cancelled" +
@@ -3604,11 +3607,12 @@ class HalaqatiRepository(
         halaqaId: String = "all",
         sessionType: String = "all",
         forceRefresh: Boolean = false,
+        scopedHalaqaIds: Set<String>? = null,
     ): JSONArray {
-        val memoKey = "${currentUserId()}|$from|$to|$track|$halaqaId|$sessionType"
+        val memoKey = "${currentUserId()}|$from|$to|$track|$halaqaId|$sessionType|${com.mohammedsamir.halaqati.plans.ReportScopeRules.cachePart(scopedHalaqaIds)}"
         val now = System.currentTimeMillis()
         if (!forceRefresh) reportSummaryMemo[memoKey]?.takeIf { now - it.at < 60_000L }?.let { return it.rows }
-        return PerfLog.time("reportSummary (compute)") { reportSummaryCompute(from, to, track, halaqaId, sessionType, forceRefresh) }.also {
+        return PerfLog.time("reportSummary (compute)") { reportSummaryCompute(from, to, track, halaqaId, sessionType, forceRefresh, scopedHalaqaIds) }.also {
             reportSummaryMemo[memoKey] = SummaryMemo(System.currentTimeMillis(), it)
         }
     }
@@ -3620,6 +3624,7 @@ class HalaqatiRepository(
         halaqaId: String,
         sessionType: String,
         forceRefresh: Boolean,
+        scopedHalaqaIds: Set<String>?,
     ): JSONArray {
         val start = runCatching { LocalDate.parse(from) }.getOrElse { error("تاريخ البداية غير صالح") }
         val end = runCatching { LocalDate.parse(to) }.getOrElse { error("تاريخ النهاية غير صالح") }
@@ -3655,7 +3660,7 @@ class HalaqatiRepository(
             }
         }
 
-        val sessionHalaqa = if (halaqaId == "all") "" else "&sessions.halaqa_id=eq.$halaqaId"
+        val sessionHalaqa = com.mohammedsamir.halaqati.plans.ReportScopeRules.sessionFilter(halaqaId, scopedHalaqaIds)
         val sessionTypeFilter = sessionTypeQuery(sessionType)
         val sessionFilters = "&sessions.session_date=gte.$from&sessions.session_date=lte.$to&sessions.status=neq.cancelled$sessionHalaqa$sessionTypeFilter"
         val recitations = table(
@@ -3669,11 +3674,18 @@ class HalaqatiRepository(
             "select=student_id,status,sessions!inner(session_date,halaqa_id,session_type,status)$sessionFilters&limit=$REPORT_ROW_CEILING",
             forceRefresh = forceRefresh,
         )
-        val extraPoints = table(
+        // Global bonus points have no activity ID: do not attribute them to a scoped report.
+        val extraPoints = if (scopedHalaqaIds != null) JSONArray() else table(
             "student_points",
             "select=student_id,points&awarded_at=gte.$from&awarded_at=lte.$to&limit=10000",
             forceRefresh = forceRefresh,
         )
+        val scopedMemberIds = scopedHalaqaIds?.let { ids ->
+            val memberships = studentHalaqaMemberships(forceRefresh = forceRefresh)
+            (0 until memberships.length()).mapNotNull { memberships.optJSONObject(it) }
+                .filter { it.optString("status") == "active" && it.optString("halaqa_id") in ids }
+                .map { it.optString("student_id") }.toSet()
+        }
 
         data class Aggregate(
             val student: JSONObject,
@@ -3682,6 +3694,8 @@ class HalaqatiRepository(
             var review: Double = 0.0,
             var sard: Double = 0.0,
             var tilawah: Double = 0.0,
+            var tajweed: Double = 0.0,
+            var testPages: Double = 0.0,
             var mistakes: Int = 0,
             var prompts: Int = 0,
             var recitationPoints: Double = 0.0,
@@ -3698,7 +3712,7 @@ class HalaqatiRepository(
         for (i in 0 until students.length()) {
             val student = students.optJSONObject(i) ?: continue
             val id = student.optString("id")
-            if (id.isNotBlank()) byStudent[id] = Aggregate(student)
+            if (id.isNotBlank() && (scopedHalaqaIds == null || student.optString("halaqa_id") in scopedHalaqaIds || id in scopedMemberIds.orEmpty())) byStudent[id] = Aggregate(student)
         }
         for (i in 0 until attendance.length()) {
             val row = attendance.optJSONObject(i) ?: continue
@@ -3724,13 +3738,16 @@ class HalaqatiRepository(
                 !TrackActivityPolicy.isTathbit(aggregate.student.optString("track_code"))
             ) sardSpanEntries.getOrPut(row.optString("student_id")) { mutableListOf() }.add(hifzSpanEntryOf(row))
             when {
+                row.optString("activity_type") == "tilawah" -> aggregate.tilawah += pages
+                row.optString("activity_type") == "tajweed" -> aggregate.tajweed += pages
+                row.optString("activity_type") == "test" -> aggregate.testPages += pages
                 row.optString("activity_type") == "tathbit" -> aggregate.tathbit += pages
                 // RC15.1: every non-test recitation of a tathbit student (incl. legacy review_far/new_hifz/sard) is tathbit.
                 TrackActivityPolicy.isTathbit(aggregate.student.optString("track_code")) && row.optString("activity_type") != "test" -> aggregate.tathbit += pages
                 row.optString("activity_type") == "new_hifz" -> aggregate.hifz += pages
                 row.optString("activity_type").contains("review") -> aggregate.review += pages
                 row.optString("activity_type") == "sard" -> aggregate.sard += pages
-                else -> aggregate.tilawah += pages
+                else -> Unit
             }
             aggregate.mistakes += row.optInt("mistakes", 0).coerceAtLeast(0)
             aggregate.prompts += row.optInt("prompts", 0).coerceAtLeast(0)
@@ -3754,7 +3771,8 @@ class HalaqatiRepository(
         // Sard achievement out of the Hifz total while preserving the existing activity totals.
         val reportPlans = plans(forceRefresh = forceRefresh).filter { plan ->
             plan.status != "archived" && plan.startDate <= to && plan.endDate >= from &&
-                (halaqaId == "all" || plan.halaqaId == halaqaId)
+                (halaqaId == "all" || plan.halaqaId == halaqaId) &&
+                (scopedHalaqaIds == null || plan.halaqaId in scopedHalaqaIds)
         }
         val reportPhases = planPhases(forceRefresh = forceRefresh).filter { phase ->
             phase.status != "archived" && phase.startDate <= to && phase.endDate >= from
@@ -3782,7 +3800,7 @@ class HalaqatiRepository(
 
         val ordered = byStudent.values.sortedWith(
             compareByDescending<Aggregate> { it.recitationPoints + it.bonusPoints }
-                .thenByDescending { it.hifz + it.tathbit + it.review + it.sard + it.tilawah }
+                .thenByDescending { it.hifz + it.tathbit + it.review + it.sard + it.tilawah + it.tajweed + it.testPages }
                 .thenBy { it.student.optString("full_name") },
         )
         return JSONArray().apply {
@@ -3829,7 +3847,7 @@ class HalaqatiRepository(
                 val sardCompleted = completedFor(sardPhase, a.sard)
                 // Keep the overall total consistent with the same phase-aware values shown
                 // in Hifz/Sard columns instead of mixing legacy aggregates with frozen phases.
-                val totalPages = hifzCompleted + a.tathbit + a.review + sardCompleted + a.tilawah
+                val totalPages = hifzCompleted + a.tathbit + a.review + sardCompleted + a.tilawah + a.tajweed + a.testPages
                 val qualityPercent = if (a.safetyCount > 0) a.safetySum / a.safetyCount else 0.0
                 val qualityLabel = when {
                     a.safetyCount == 0 -> "—"
@@ -3849,6 +3867,8 @@ class HalaqatiRepository(
                         .put("review_pages", kotlin.math.round(a.review * 100.0) / 100.0)
                         .put("sard_pages", kotlin.math.round(sardCompleted * 100.0) / 100.0)
                         .put("tilawah_pages", kotlin.math.round(a.tilawah * 100.0) / 100.0)
+                        .put("tajweed_pages", kotlin.math.round(a.tajweed * 100.0) / 100.0)
+                        .put("test_pages", kotlin.math.round(a.testPages * 100.0) / 100.0)
                         .put("total_pages", kotlin.math.round(totalPages * 100.0) / 100.0)
                         .put("hifz_target_pages", hifzTarget ?: JSONObject.NULL)
                         .put("sard_target_pages", sardTarget ?: JSONObject.NULL)

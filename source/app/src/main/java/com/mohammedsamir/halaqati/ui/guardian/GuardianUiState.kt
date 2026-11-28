@@ -74,7 +74,7 @@ import org.json.JSONObject
     companion object {
         fun activityLabel(raw: String, tathbit: Boolean): String = if (tathbit && raw in setOf("review", "review_near", "review_far")) "تثبيت" else when (raw) {
             "new_hifz", "hifz" -> "حفظ"; "review_near", "review_far", "review" -> "مراجعة"
-            "sard" -> "سرد"; "tilawah" -> "تلاوة"; "tathbit" -> "تثبيت"; "test" -> "اختبار"; else -> "تسميع"
+            "sard" -> "سرد"; "tilawah" -> "تلاوة"; "tajweed" -> "تجويد"; "tathbit" -> "تثبيت"; "test" -> "اختبار"; else -> "تسميع"
         }
 
         private fun JSONObject.intOrNull(key: String): Int? = if (!has(key) || isNull(key)) null else optInt(key).takeIf { it > 0 }

@@ -22,7 +22,7 @@ import java.util.zip.ZipOutputStream
 object NativeReportExport {
     data class Table(val headers: List<String>, val rows: List<List<String>>)
 
-    fun table(source: List<JSONObject>, details: Boolean): Table {
+    fun table(source: List<JSONObject>, details: Boolean, program: Boolean = false): Table {
         return if (details) {
             val headers = listOf("#", "الطالب", "التاريخ", "النشاط", "الصفحات", "التقييم", "السلامة", "الأخطاء", "النقرات")
             val rows = source.mapIndexed { index, row ->
@@ -39,6 +39,15 @@ object NativeReportExport {
                     row.optInt("mistakes", 0).toString(),
                     row.optInt("prompts", 0).toString(),
                 )
+            }
+            Table(headers, rows)
+        } else if (program) {
+            val headers = listOf("#", "الطالب", "التلاوة (صفحات)", "التجويد (صفحات)", "الاختبار (صفحات)", "الحضور", "الغياب", "الغياب بعذر", "نقاط النشاط")
+            val rows = source.mapIndexed { index, row ->
+                listOf((index + 1).toString(), row.optString("student_name", "طالب"),
+                    clean(row.optDouble("tilawah_pages",0.0)), clean(row.optDouble("tajweed_pages",0.0)),
+                    clean(row.optDouble("test_pages",0.0)), (row.optInt("present",0) + row.optInt("late",0)).toString(),
+                    row.optInt("absent",0).toString(),row.optInt("excused",0).toString(),clean(row.optDouble("recitation_points",0.0)))
             }
             Table(headers, rows)
         } else {
@@ -192,6 +201,9 @@ object NativeReportExport {
         "review_near" -> "مراجعة قريبة"
         "review_far" -> "مراجعة بعيدة"
         "sard" -> "سرد"
+        "tathbit" -> "تثبيت"
+        "tilawah" -> "تلاوة"
+        "tajweed" -> "تجويد"
         "test" -> "اختبار"
         else -> v.ifBlank { "—" }
     }

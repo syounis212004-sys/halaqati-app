@@ -86,7 +86,7 @@ begin
       from public.recitation_entries r
       join public.sessions se on se.id = r.session_id and se.status <> 'cancelled'
      where r.student_id = p_student_id and se.halaqa_id = v_student.halaqa_id
-       and (not v_is_program or r.activity_type::text in ('tilawah', 'test'))
+       and (not v_is_program or r.activity_type::text in ('tilawah', 'tajweed', 'test'))
        and se.session_date between least(v_month_start, coalesce(v_plan.start_date, v_month_start)) and p_today
   ), att as (
     select ar.status::text as status, se.session_date
