@@ -572,6 +572,38 @@ jobs:
           sdkmanager --version
           sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
 
+      - name: Verify the pinned Robolectric native test dependency
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          relative=org/robolectric/nativeruntime-dist-compat/1.0.16
+          artifact=nativeruntime-dist-compat-1.0.16
+          local_repo="$RUNNER_TEMP/rc115-maven"
+          mkdir -p "$local_repo/$relative" "${GRADLE_USER_HOME:-$HOME/.gradle}/init.d"
+          for ext in pom jar; do
+            path="$relative/$artifact.$ext"
+            curl -fsSL --retry 4 "https://repo1.maven.org/maven2/$path" -o "$local_repo/$path"
+          done
+          (
+            cd "$local_repo/$relative"
+            sha256sum --check <<'SUMS'
+          053dc5be36c03495d157186588b73952f4098cb9890f75cbd6ee26e36fd83d04  nativeruntime-dist-compat-1.0.16.pom
+          2f4e879b00eed634d0e43353ecff80db4d5ce24b3b213d1e6053cb21b0ced10f  nativeruntime-dist-compat-1.0.16.jar
+          SUMS
+          )
+          cat > "${GRADLE_USER_HOME:-$HOME/.gradle}/init.d/rc115-robolectric.gradle" <<'GRADLE'
+          gradle.settingsEvaluated { settings ->
+            settings.dependencyResolutionManagement.repositories {
+              exclusiveContent {
+                forRepository {
+                  maven { url = new File(System.getenv('RUNNER_TEMP'), 'rc115-maven').toURI() }
+                }
+                filter { includeVersion('org.robolectric', 'nativeruntime-dist-compat', '1.0.16') }
+              }
+            }
+          }
+          GRADLE
+
       - name: Warm the Gradle dependency cache (Maven Central answers 429 to shared runners; retry with a growing pause)
         timeout-minutes: 20
         working-directory: ${{ env.PROJECT_DIR }}
