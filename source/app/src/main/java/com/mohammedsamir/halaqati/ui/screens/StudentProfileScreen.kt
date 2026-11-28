@@ -45,12 +45,69 @@ import org.json.JSONObject
 import java.time.LocalDate
 import java.time.YearMonth
 
+private data class StudentProfileActivity(val id: String, val name: String, val program: Boolean, val primary: Boolean)
+
 @Composable
-fun StudentProfileScreen(
+fun StudentProfileScreen(studentId: String, pending: Int, onBack: () -> Unit, navigate: (String) -> Unit) {
+    var activities by remember(studentId) { mutableStateOf<List<StudentProfileActivity>>(emptyList()) }
+    var selected by rememberSaveable(studentId) { mutableStateOf<String?>(null) }
+    var loadingScopes by remember(studentId) { mutableStateOf(true) }
+    var scopeError by remember(studentId) { mutableStateOf<String?>(null) }
+    var refreshScopes by remember(studentId) { mutableIntStateOf(0) }
+    val epoch by AppGraph.connectivity.syncEpoch.collectAsState()
+    LaunchedEffect(studentId, epoch, refreshScopes) {
+        try {
+            val available = withContext(Dispatchers.IO) {
+                val repo = AppGraph.repo
+                val online = repo.online()
+                val st = repo.students(forceRefresh = online).firstOrNull { it.id == studentId }
+                    ?: error("ملف الطالب غير متاح")
+                val ids = repo.activeSecondaryHalaqaIds(studentId, forceRefresh = online) + listOfNotNull(st.halaqaId)
+                val rows = repo.table("halaqas", "select=id,name,halaqa_type,active&order=name.asc&limit=400", forceRefresh = online)
+                (0 until rows.length()).mapNotNull { rows.optJSONObject(it) }.filter { it.optString("id") in ids }
+                    .map { row -> StudentProfileActivity(row.optString("id"), row.optString("name"),
+                        com.mohammedsamir.halaqati.plans.WorkModeRules.isProgramType(row.optString("halaqa_type")), row.optString("id") == st.halaqaId) }
+                    .sortedByDescending { it.primary }
+            }
+            activities = available
+            selected = selected?.takeIf { id -> available.any { it.id == id } }
+                ?: available.singleOrNull()?.id ?: available.firstOrNull { it.primary }?.id
+            scopeError = null
+        } catch (e: CancellationException) { throw e }
+        catch (e: Exception) { activities = emptyList(); selected = null; scopeError = e.message ?: "تعذر تحميل العضويات" }
+        finally { loadingScopes = false }
+    }
+    val activity = activities.firstOrNull { it.id == selected }
+    if (activity == null) {
+        Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = onBack) { Text("رجوع") }
+            if (loadingScopes) LoadingSkeleton(rows = 3)
+            else {
+                scopeError?.let { StateNotice(it,"warning") }
+                if (activities.isEmpty()) EmptyState("لا يوجد نشاط متاح لهذا الطالب")
+                else {
+                    Text("اختر الحلقة أو البرنامج", style = MaterialTheme.typography.titleMedium)
+                    activities.forEach { a -> OutlinedButton(onClick = { selected = a.id }, modifier = Modifier.fillMaxWidth()) { Text(a.name) } }
+                }
+                TextButton(onClick = { refreshScopes++ }) { Text("تحديث العضويات") }
+            }
+        }
+        return
+    }
+    key(studentId, activity.id) {
+        ScopedStudentProfile(studentId, pending, onBack, navigate, activity, activities, { selected = it })
+    }
+}
+
+@Composable
+private fun ScopedStudentProfile(
     studentId: String,
     pending: Int,
     onBack: () -> Unit,
     navigate: (String) -> Unit,
+    activity: StudentProfileActivity,
+    activities: List<StudentProfileActivity>,
+    onSelect: (String) -> Unit,
 ) {
     var profileTab by rememberSaveable(studentId) { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
@@ -73,7 +130,7 @@ fun StudentProfileScreen(
     suspend fun reload(forceRequested: Boolean) {
         // RC79: opening the profile reads the copy stored on the device. The server is asked once per cycle
         // (after 20:00 Gaza time, or after this device saved new session data) or when the user pulls to refresh.
-        val gateKey = "student:$studentId"
+        val gateKey = "student:$studentId:${activity.id}"
         val force = forceRequested || com.mohammedsamir.halaqati.data.RefreshGate.due(gateKey)
         if (forceRequested) refreshing = true else loading = student == null
         try {
@@ -85,12 +142,12 @@ fun StudentProfileScreen(
                 val monthStart = monthStartDate.toString()
                 val students = AppGraph.repo.students(forceRefresh = force)
                 val st = students.firstOrNull { it.id == studentId } ?: error("لم يتم العثور على الطالب")
-                val allPlans = AppGraph.repo.plans(forceRefresh = force)
+                val allPlans = if (activity.program) emptyList() else AppGraph.repo.plans(forceRefresh = force)
                 val scopePriority = mapOf("halaqa" to 1, "category" to 2, "student" to 3)
                 val currentPlan = allPlans.filter { p ->
                     val ps = runCatching { LocalDate.parse(p.startDate) }.getOrNull()
                     val pe = runCatching { LocalDate.parse(p.endDate) }.getOrNull()
-                    ps != null && pe != null && ps <= today && pe >= monthStartDate && p.halaqaId == st.halaqaId &&
+                    ps != null && pe != null && ps <= today && pe >= monthStartDate && p.halaqaId == activity.id &&
                         when (p.scopeType) {
                             "student" -> p.studentId == st.id
                             "category" -> !p.categoryId.isNullOrBlank() && p.categoryId == st.categoryId
@@ -98,38 +155,39 @@ fun StudentProfileScreen(
                         }
                 }.maxByOrNull { scopePriority[it.scopeType] ?: 0 }
                 currentPlan?.let { runCatching { AppGraph.repo.reconcilePlanPhaseLifecycle(it.id, today) } }
-                val studentSnapshots = AppGraph.repo.planSnapshots(today, forceRefresh = force).filter { it.student.id == studentId }
+                val studentSnapshots = if (activity.program) emptyList() else AppGraph.repo.planSnapshots(today, forceRefresh = force).filter { it.student.id == studentId && it.plan.halaqaId == activity.id }
                 val studentPhases = currentPlan?.let { AppGraph.repo.planPhases(it.id, forceRefresh = force) }.orEmpty()
-                val studentPhaseStates = AppGraph.repo.planPhaseStates(studentId, forceRefresh = force)
+                val studentPhaseStates = if (activity.program) emptyList() else AppGraph.repo.planPhaseStates(studentId, forceRefresh = force)
+                    .filter { state -> studentPhases.any { it.id == state.phaseId } }
                 val recitationArray = AppGraph.repo.table(
                     "recitation_entries",
                     "select=id,phase_id,activity_type,start_surah,start_ayah,end_surah,end_ayah,start_page,end_page,pages_count,evaluation,mistakes,prompts,safety_percentage,created_at," +
-                        "sessions!inner(session_date,session_type,title)" +
-                        "&student_id=eq.$studentId&sessions.session_date=gte.$historyFrom&sessions.session_date=lte.${today}" +
+                        "sessions!inner(session_date,session_type,title,halaqa_id)" +
+                        "&student_id=eq.$studentId&sessions.halaqa_id=eq.${activity.id}&sessions.session_date=gte.$historyFrom&sessions.session_date=lte.${today}" +
                         "&order=created_at.desc&limit=1000",
                     forceRefresh = force, preferCache = !force,
                 )
                 val attendanceArray = AppGraph.repo.table(
                     "attendance_records",
-                    "select=status,arrival_minutes_late,excuse_reason,recorded_at,sessions!inner(session_date)" +
-                        "&student_id=eq.$studentId&sessions.session_date=gte.$historyFrom&sessions.session_date=lte.${today}" +
+                    "select=status,arrival_minutes_late,excuse_reason,recorded_at,sessions!inner(session_date,halaqa_id)" +
+                        "&student_id=eq.$studentId&sessions.halaqa_id=eq.${activity.id}&sessions.session_date=gte.$historyFrom&sessions.session_date=lte.${today}" +
                         "&order=recorded_at.desc&limit=1000",
                     forceRefresh = force, preferCache = !force,
                 )
                 val currentWeekEnd = currentWeekStart.plusDays(6)
                 val sessionsArray = AppGraph.repo.table(
                     "sessions",
-                    "select=id,session_date,session_type,title,status&halaqa_id=eq.${st.halaqaId}" +
+                    "select=id,session_date,session_type,title,status&halaqa_id=eq.${activity.id}" +
                         "&session_date=gte.${currentWeekStart}&session_date=lte.${currentWeekEnd}&order=session_date.asc&limit=100",
                     forceRefresh = force,
                 )
-                val commentArray = AppGraph.repo.table(
+                val commentArray = if (!activity.primary) org.json.JSONArray() else AppGraph.repo.table(
                     "monthly_comments",
                     "select=id,student_id,month_start,teacher_comment,supervisor_comment,overall_rating,updated_at" +
                         "&student_id=eq.$studentId&month_start=eq.$monthStart&limit=1",
                     forceRefresh = force,
                 )
-                val guardianOptions = AppGraph.repo.guardianLinks(studentId, forceRefresh = force)
+                val guardianOptions = if (activity.primary) AppGraph.repo.guardianLinks(studentId, forceRefresh = force) else emptyList()
                 val pendingComment = AppGraph.repo.queueSnapshot(500)
                     .filter { it.dedupe == "student-followup:$studentId:$monthStart" }
                     .maxByOrNull { it.created }
@@ -144,7 +202,7 @@ fun StudentProfileScreen(
                     (0 until attendanceArray.length()).mapNotNull { attendanceArray.optJSONObject(it) },
                     (0 until sessionsArray.length()).mapNotNull { sessionsArray.optJSONObject(it) },
                     guardianOptions,
-                    pendingComment ?: commentArray.optJSONObject(0),
+                    if (activity.primary) pendingComment ?: commentArray.optJSONObject(0) else null,
                 )
             }
             student = result.student
@@ -259,15 +317,24 @@ fun StudentProfileScreen(
                 ) {
                     error?.let { item { StateNotice(it, "warning") } }
                     student?.let { st ->
-                        item { StudentHero(st, insight, primarySnapshot) }
+                        item { StudentHero(st, insight, primarySnapshot, activity.program, activity.name) }
                         item {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("النشاط المعروض", style = MaterialTheme.typography.labelMedium)
+                                com.mohammedsamir.halaqati.ui.components.ResponsiveChipGrid(items = activities, minItemWidth = 140.dp, maxColumns = 2) { a, itemModifier ->
+                                    com.mohammedsamir.halaqati.ui.components.ProFilterChip(a.id == activity.id, { onSelect(a.id) }, a.name, itemModifier.fillMaxWidth(), showCheckIcon = true)
+                                }
+                            }
+                        }
+                        item {
+                            val tabs = if (activity.program) listOf(0 to "نظرة عامة", 2 to "السجل", 3 to "العضوية") else listOf(0 to "نظرة عامة", 1 to "الخطة والتقدم", 2 to "السجل", 3 to "البيانات")
                             ScrollableTabRow(
-                                selectedTabIndex = profileTab,
+                                selectedTabIndex = tabs.indexOfFirst { it.first == profileTab }.coerceAtLeast(0),
                                 edgePadding = 0.dp,
                                 containerColor = MaterialTheme.colorScheme.background,
                                 divider = {},
                             ) {
-                                listOf("نظرة عامة", "الخطة والتقدم", "السجل", "البيانات").forEachIndexed { index, label ->
+                                tabs.forEach { (index, label) ->
                                     Tab(selected = profileTab == index, onClick = { profileTab = index },
                                         text = { Text(label, style = MaterialTheme.typography.labelLarge) })
                                 }
@@ -275,14 +342,14 @@ fun StudentProfileScreen(
                         }
                         when (profileTab) {
                             0 -> {
-                                item { ProgressOverview(primarySnapshot, AppGraph.repo.isSmartPlanEligible(st.halaqaId)) }
-                                item { QualityAttendanceCard(insight) }
-                                item { FollowUpCard(insight) }
-                                item { LastMeaningfulActivityCard(recitations, attendance) }
+                                if (!activity.program) item { ProgressOverview(primarySnapshot, AppGraph.repo.isSmartPlanEligible(activity.id)) }
+                                item { QualityAttendanceCard(insight, activity.program) }
+                                if (!activity.program) item { FollowUpCard(insight) }
+                                item { LastMeaningfulActivityCard(recitations, attendance, activity.program) }
                             }
-                            1 -> {
+                            1 -> if (!activity.program) {
                                 item { MonthlyPhaseSummaryCard(phases, phaseStates, snapshots, recitations) }
-                                item { ProgressOverview(primarySnapshot, AppGraph.repo.isSmartPlanEligible(st.halaqaId)) }
+                                item { ProgressOverview(primarySnapshot, AppGraph.repo.isSmartPlanEligible(activity.id)) }
                                 item { WeeklyTimeline(phases, phaseStates, recitations, attendance, weekSessions) }
                                 item { FourWeekProgress(primarySnapshot, recitations) }
                                 item {
@@ -293,12 +360,12 @@ fun StudentProfileScreen(
                                 }
                             }
                             2 -> {
-                                item { com.mohammedsamir.halaqati.ui.components.NourSectionTitle("آخر التسميعات") }
-                                if (recitations.isEmpty()) item { EmptyState("لا توجد تسميعات مسجلة هذا الشهر") }
+                                item { com.mohammedsamir.halaqati.ui.components.NourSectionTitle(if (activity.program) "آخر أنشطة البرنامج" else "آخر التسميعات") }
+                                if (recitations.isEmpty()) item { EmptyState(if (activity.program) "لا توجد أنشطة مسجلة في هذا النطاق" else "لا توجد تسميعات مسجلة هذا الشهر") }
                                 items(recitations.take(8), key = { it.optString("id") }) { row -> RecitationCompactRow(row) }
-                                item { QualityAttendanceCard(insight) }
+                                item { QualityAttendanceCard(insight, activity.program) }
                             }
-                            3 -> {
+                            3 -> if (activity.primary) {
                                 item { GuardianCard(guardians, st) }
                                 item { DataHealthCard(st, guardians, primarySnapshot, attendance, recitations) }
                                 item { FollowUpNoteCard(comment = monthlyComment?.optString("teacher_comment").orEmpty(), onEdit = { editFollowUpNote = true }) }
@@ -308,6 +375,8 @@ fun StudentProfileScreen(
                                         Spacer(Modifier.width(8.dp)); Text("إدارة بيانات الطالب")
                                     }
                                 }
+                            } else {
+                                item { StateNotice("هذا نشاط إضافي. تُدار بيانات الطالب الشخصية وملاحظته العامة من ملف النشاط الأساسي.", "info") }
                             }
                         }
                     }
@@ -316,7 +385,7 @@ fun StudentProfileScreen(
         }
     }
 
-    if (editFollowUpNote) {
+    if (editFollowUpNote && activity.primary) {
         FollowUpNoteDialog(
             initial = monthlyComment?.optString("teacher_comment").orEmpty(),
             close = { editFollowUpNote = false },
@@ -357,7 +426,7 @@ fun StudentProfileScreen(
 }
 
 @Composable
-private fun StudentHero(student: Student, insight: StudentInsightEngine.State, snapshot: PlanSnapshot?) {
+private fun StudentHero(student: Student, insight: StudentInsightEngine.State, snapshot: PlanSnapshot?, program: Boolean, activityName: String) {
     ElevatedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -365,13 +434,13 @@ private fun StudentHero(student: Student, insight: StudentInsightEngine.State, s
                 Column(Modifier.weight(1f)) {
                     Text(student.fullName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text(
-                        "${if (student.track == "tathbit") "التثبيت" else "الحفظ العام"} · ${studentStatusLabel(student.status)}",
+                        listOf(activityName, if (program) "برنامج تعليمي" else if (student.track == "tathbit") "التثبيت" else "الحفظ العام", studentStatusLabel(student.status)).joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (!program) FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 StatusBadge(Icons.Default.Star, insight.performanceLevel.label)
                 val delay = snapshot?.progress?.behindBy ?: 0.0
                 val planLabel = when {
@@ -563,12 +632,12 @@ private fun FourWeekProgress(snapshot: PlanSnapshot?, recitations: List<JSONObje
 }
 
 @Composable
-private fun QualityAttendanceCard(insight: StudentInsightEngine.State) {
+private fun QualityAttendanceCard(insight: StudentInsightEngine.State, program: Boolean = false) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         ElevatedCard(Modifier.weight(1f)) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Icon(Icons.Default.Verified, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                Text("جودة التسميع", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                Text(if (program) "جودة التلاوة" else "جودة التسميع", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                 Text(insight.averageSafety?.let { "${n(it)}%" } ?: "—", style = MaterialTheme.typography.headlineSmall.copy(fontFamily = com.mohammedsamir.halaqati.ui.theme.CairoFamily))
                 Text("${insight.mistakes} خطأ · ${insight.prompts} تلقين", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -652,13 +721,13 @@ private fun FollowUpNoteDialog(initial: String, close: () -> Unit, save: (String
 }
 
 @Composable
-private fun LastMeaningfulActivityCard(recitations: List<JSONObject>, attendance: List<JSONObject>) {
+private fun LastMeaningfulActivityCard(recitations: List<JSONObject>, attendance: List<JSONObject>, program: Boolean = false) {
     val lastRecitation = recitations.firstOrNull()?.optJSONObject("sessions")?.optString("session_date").orEmpty()
     val lastAttendance = attendance.firstOrNull()?.optJSONObject("sessions")?.optString("session_date").orEmpty()
     ElevatedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text("آخر نشاط فعلي", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-            Text("آخر تسميع: ${lastRecitation.ifBlank { "لا يوجد" }}", style = MaterialTheme.typography.bodySmall)
+            Text("${if (program) "آخر نشاط" else "آخر تسميع"}: ${lastRecitation.ifBlank { "لا يوجد" }}", style = MaterialTheme.typography.bodySmall)
             Text("آخر حضور: ${lastAttendance.ifBlank { "لا يوجد" }}", style = MaterialTheme.typography.bodySmall)
         }
     }
