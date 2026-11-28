@@ -103,6 +103,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.mohammedsamir.halaqati.quran.MushafEngine
+import com.mohammedsamir.halaqati.quran.TilawahCategory
+import com.mohammedsamir.halaqati.quran.TilawahMark
+import com.mohammedsamir.halaqati.quran.TilawahMarks
 import com.mohammedsamir.halaqati.quran.MushafEngine.MarkKind
 import com.mohammedsamir.halaqati.quran.MushafEngine.MarkType
 import kotlinx.coroutines.CancellationException
@@ -182,9 +185,12 @@ fun MushafMarkingDialog(
     onMark: (mist: Int, prompt: Int) -> Unit,
     onDismiss: () -> Unit,
     rangeEndPage: Int? = null,
+    tilawahMarks: List<TilawahMark>? = null,
+    onTilawahMarksChange: suspend (List<TilawahMark>) -> Unit = {},
 ) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        MushafScreenContent(session, rangeStartPage, counters, score, inRange, onMark, onDismiss, rangeEndPage = rangeEndPage)
+        MushafScreenContent(session, rangeStartPage, counters, score, inRange, onMark, onDismiss, rangeEndPage = rangeEndPage,
+            tilawahMarks = tilawahMarks, onTilawahMarksChange = onTilawahMarksChange)
     }
 }
 
@@ -229,6 +235,8 @@ internal fun MushafScreenContent(
     onDismiss: () -> Unit,
     rangeEndPage: Int? = null,
     readOnly: Boolean = false,
+    tilawahMarks: List<TilawahMark>? = null,
+    onTilawahMarksChange: suspend (List<TilawahMark>) -> Unit = {},
 ) {
     val context = LocalContext.current
     val pal = rememberMushafPalette()
@@ -238,7 +246,8 @@ internal fun MushafScreenContent(
     var page by remember { mutableIntStateOf(session.page) }
     var zoomed by remember { mutableStateOf(false) }
     var bookmarks by remember { mutableStateOf(MushafBookmarks.all(context)) }
-    var tool by rememberSaveable { mutableStateOf(Tool.Tap) }
+    val tilawah = tilawahMarks != null
+    var tool by rememberSaveable(tilawah) { mutableStateOf(Tool.Tap) }
     var type by rememberSaveable { mutableStateOf(MarkType.Mistake) }
     var dockOpen by rememberSaveable { mutableStateOf(true) }
     var tick by remember { mutableIntStateOf(0) }            // marks live outside Compose state: bump to repaint
@@ -247,6 +256,39 @@ internal fun MushafScreenContent(
     var kindMenu by remember { mutableStateOf<Pair<String, Offset>?>(null) }
     var jumpDialog by remember { mutableStateOf(false) }
     var announce by remember { mutableStateOf("") }
+    val tilawahById = remember(tilawahMarks) { tilawahMarks.orEmpty().groupBy { it.wordId } }
+    var tilawahSelection by remember { mutableStateOf<Pair<List<String>, Int>?>(null) }
+    var tilawahPast by remember { mutableStateOf<List<List<TilawahMark>>>(emptyList()) }
+    var tilawahFuture by remember { mutableStateOf<List<List<TilawahMark>>>(emptyList()) }
+    var tilawahBusy by remember { mutableStateOf(false) }
+    var tilawahError by remember { mutableStateOf<String?>(null) }
+
+    fun selectTilawah(ids: List<String>, pg: Int): List<String> {
+        val allowed = ids.distinct().filter { id -> MushafEngine.parseWordId(id)?.let { inRange(it.first, it.second, pg) } == true }
+        if (allowed.isEmpty()) tilawahError = "اختر كلمة ضمن نطاق القراءة"
+        return allowed
+    }
+    fun changeTilawah(next: List<TilawahMark>, undo: Boolean = false, redo: Boolean = false) {
+        if (tilawahBusy || next == tilawahMarks.orEmpty()) return
+        val current = tilawahMarks.orEmpty()
+        tilawahBusy = true
+        tilawahError = null
+        scope.launch {
+            try {
+                onTilawahMarksChange(next)
+                when {
+                    undo -> { tilawahPast = tilawahPast.dropLast(1); tilawahFuture = (tilawahFuture + listOf(current)).takeLast(50) }
+                    redo -> { tilawahFuture = tilawahFuture.dropLast(1); tilawahPast = (tilawahPast + listOf(current)).takeLast(50) }
+                    else -> { tilawahPast = (tilawahPast + listOf(current)).takeLast(50); tilawahFuture = emptyList() }
+                }
+                tick++
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                announce = "تم حفظ علامات التلاوة محليًا"
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { tilawahError = e.message ?: "تعذر حفظ العلامات محليًا" }
+            finally { tilawahBusy = false }
+        }
+    }
 
     val pagerState = rememberPagerState(initialPage = page - 1) { MushafEngine.TOTAL_PAGES }
     val reducedMotion = LocalReducedMotion.current
@@ -272,6 +314,11 @@ internal fun MushafScreenContent(
     }
     fun actOnWord(id: String, pg: Int) {
         if (readOnly) return
+        if (tilawah) {
+            val ids = selectTilawah(listOf(id), pg)
+            if (ids.isNotEmpty()) tilawahSelection = ids to pg
+            return
+        }
         val name = if (type == MarkType.Mistake) "خطأ" else "تلقين"
         when (tool) {
             Tool.Erase -> report(session.eraseWords(listOf(id)), "مُسحت العلامة")
@@ -291,7 +338,7 @@ internal fun MushafScreenContent(
                 Column(Modifier.systemBarsPadding().fillMaxSize()) {
                     // ---- one slim bar: close, previous / page / next, jump to the assigned range
                     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp)) { Icon(Icons.Default.Close, contentDescription = "إغلاق المصحف") }
+                        IconButton(onClick = onDismiss, enabled = !tilawahBusy, modifier = Modifier.size(48.dp)) { Icon(Icons.Default.Close, contentDescription = "إغلاق المصحف") }
                         val marked = page in bookmarks
                         IconButton(onClick = { bookmarks = MushafBookmarks.toggle(context, page) }, modifier = Modifier.size(48.dp)) {
                             Icon(
@@ -315,7 +362,12 @@ internal fun MushafScreenContent(
                         } else Spacer(Modifier.width(48.dp))
                     }
                     // ---- the official V7 estimate on one line (more only when a page is over its limit)
-                    if (!readOnly) ScoreStrip(session, tick, counters(), score(), pal)
+                    if (tilawah) {
+                        val currentScore = score()
+                        Text("جلي: ${counters().first} · خفي: ${tilawahMarks.orEmpty().filterNot { it.category.major }.sumOf { it.occurrences }} · ${currentScore?.label.orEmpty()}",
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 3.dp), style = MaterialTheme.typography.bodySmall)
+                        tilawahError?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 8.dp)) }
+                    } else if (!readOnly) ScoreStrip(session, tick, counters(), score(), pal)
 
                     BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                         val landscape = maxWidth > maxHeight
@@ -350,11 +402,17 @@ internal fun MushafScreenContent(
                                             p = idx + 1, current = idx + 1 == page, pageW = pageW, pageH = pageH, pal = pal, tick = tick, tool = tool,
                                             marksById = marksById, preview = preview, inRange = inRange,
                                             onTapWord = { id, pg -> actOnWord(id, pg) },
-                                            onLongWord = { id, at -> if (!readOnly) kindMenu = id to at },
+                                            onLongWord = { id, at -> if (tilawah) actOnWord(id, idx + 1) else if (!readOnly) kindMenu = id to at },
                                             onPreview = { preview = it },
                                             onSpan = { ids, pg ->
                                                 preview = emptySet()
-                                                if (ids.isNotEmpty()) {
+                                                if (tilawah) {
+                                                    val allowed = selectTilawah(ids, pg)
+                                                    if (allowed.isNotEmpty()) {
+                                                        if (tool == Tool.Erase) changeTilawah(TilawahMarks.eraseWords(tilawahMarks.orEmpty(), allowed))
+                                                        else tilawahSelection = allowed to pg
+                                                    }
+                                                } else if (ids.isNotEmpty()) {
                                                     if (tool == Tool.Erase) report(session.eraseWords(ids), "مُسحت العلامات")
                                                     else report(session.markSpan(ids, type, pageNo = pg), "تم تظليل ${ids.size} كلمة")
                                                 }
@@ -363,13 +421,17 @@ internal fun MushafScreenContent(
                                             onKind = { id, kind, pg -> kindMenu = null; report(session.markWord(id, type, kind, pg), "تم وضع علامة ${if (type == MarkType.Mistake) "خطأ" else "تلقين"}") },
                                             onDismissKind = { kindMenu = null },
                                             onZoomChanged = { z -> if (idx + 1 == page) zoomed = z },
+                                            tilawahById = tilawahById,
                                         )
                                     }
                                 }
                             }
                         }
                         val dock: @Composable (Boolean, Modifier) -> Unit = { side, m ->
-                            MushafDock(
+                            if (tilawah) TilawahMushafTools(side, tool, tilawahBusy, tilawahPast.isNotEmpty(), tilawahFuture.isNotEmpty(),
+                                { tool = it }, { tilawahPast.lastOrNull()?.let { changeTilawah(it, undo = true) } },
+                                { tilawahFuture.lastOrNull()?.let { changeTilawah(it, redo = true) } })
+                            else MushafDock(
                                 side = side, expanded = dockOpen, onExpanded = { dockOpen = it }, counts = counters(), type = type, tool = tool,
                                 canUndo = remember(tick) { session.canUndo }, canRedo = remember(tick) { session.canRedo }, pal = pal,
                                 onType = { type = it }, onTool = { tool = it }, onUndo = { undoRedo(true) }, onRedo = { undoRedo(false) }, modifier = m,
@@ -394,6 +456,16 @@ internal fun MushafScreenContent(
         }
     }
 
+    tilawahSelection?.let { (ids, pg) ->
+        TilawahWordEditor(ids, tilawahMarks.orEmpty(), tilawahBusy, tilawahError,
+            onAdd = { category, note, subtype ->
+                try { changeTilawah(TilawahMarks.add(tilawahMarks.orEmpty(), ids, pg, category, note, subtype)) }
+                catch (e: IllegalArgumentException) { tilawahError = e.message ?: "تعذر إضافة العلامة" }
+            },
+            onCorrect = { changeTilawah(TilawahMarks.correct(tilawahMarks.orEmpty(), it)) },
+            onRemove = { changeTilawah(TilawahMarks.remove(tilawahMarks.orEmpty(), it)) },
+            onDismiss = { if (!tilawahBusy) tilawahSelection = null })
+    }
     if (jumpDialog) MushafJumpDialog(
         bookmarks = bookmarks, page = page, rangeStart = if (readOnly) null else rangeStartPage, rangeEnd = rangeEndPage,
         onGo = { page = MushafEngine.clampPage(it); jumpDialog = false }, onDismiss = { jumpDialog = false },
@@ -458,6 +530,7 @@ private fun MushafPageSlot(
     marksById: Map<String, MushafEngine.Mark>, preview: Set<String>, inRange: (Int, Int, Int) -> Boolean,
     onTapWord: (String, Int) -> Unit, onLongWord: (String, Offset) -> Unit, onPreview: (Set<String>) -> Unit, onSpan: (List<String>, Int) -> Unit,
     kindMenuFor: Pair<String, Offset>?, onKind: (String, MarkKind, Int) -> Unit, onDismissKind: () -> Unit, onZoomChanged: (Boolean) -> Unit,
+    tilawahById: Map<String, List<TilawahMark>> = emptyMap(),
 ) {
     val context = LocalContext.current
     var attempt by remember { mutableIntStateOf(0) }
@@ -474,7 +547,7 @@ private fun MushafPageSlot(
         state, p, pageW, pageH, pal, tick, tool, marksById, preview, inRange,
         onTapWord = { onTapWord(it, p) }, onLongWord = onLongWord, onPreview = onPreview, onSpan = { onSpan(it, p) },
         kindMenuFor = if (current) kindMenuFor else null, onKind = { id, k -> onKind(id, k, p) }, onDismissKind = onDismissKind,
-        onRetry = { attempt++ }, isCurrent = current, onZoomChanged = onZoomChanged,
+        onRetry = { attempt++ }, isCurrent = current, onZoomChanged = onZoomChanged, tilawahById = tilawahById,
     )
 }
 
@@ -485,6 +558,7 @@ private fun MushafPage(
     onTapWord: (String) -> Unit, onLongWord: (String, Offset) -> Unit, onPreview: (Set<String>) -> Unit, onSpan: (List<String>) -> Unit,
     kindMenuFor: Pair<String, Offset>?, onKind: (String, MarkKind) -> Unit, onDismissKind: () -> Unit, onRetry: () -> Unit,
     isCurrent: Boolean = true, onZoomChanged: (Boolean) -> Unit = {},
+    tilawahById: Map<String, List<TilawahMark>> = emptyMap(),
 ) {
     Box(
         Modifier.width(pageW).height(pageH).background(pal.pageBg, RoundedCornerShape(6.dp))
@@ -497,7 +571,7 @@ private fun MushafPage(
                 Text(state.message + " يمكنك متابعة التسميع بالعدّادات اليدوية دون المصحف.", color = pal.pageInk, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
                 TextButton(onClick = onRetry) { Text("إعادة المحاولة") }
             }
-            is PageState.Dk -> DkReadyPage(state.page, page, pal, tick, tool, marksById, preview, inRange, onTapWord, onLongWord, onPreview, onSpan, kindMenuFor, onKind, onDismissKind, isCurrent, onZoomChanged)
+            is PageState.Dk -> DkReadyPage(state.page, page, pal, tick, tool, marksById, preview, inRange, onTapWord, onLongWord, onPreview, onSpan, kindMenuFor, onKind, onDismissKind, isCurrent, onZoomChanged, tilawahById)
         }
     }
 }
