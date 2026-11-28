@@ -25,4 +25,11 @@ class StudentGuardianRulesTest {
         assertTrue(StudentGuardianRules.matches(option, "أحمد"))
         assertEquals("1", option.id)
     }
+
+    @Test fun linkedAccountsAreEqualAndUnknownLinksAreNotDropped() {
+        val result = StudentGuardianRules.linkedOptions(listOf("2", "1", "3", "2"), guardians)
+        assertEquals(listOf("2", "1", "3"), result.map { it.id })
+        assertEquals("ولي أمر مرتبط", result.last().fullName)
+        assertEquals("محمد سمير", result.first().fullName)
+    }
 }
