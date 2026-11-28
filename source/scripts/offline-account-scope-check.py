@@ -30,7 +30,7 @@ for token in [
 
 required_repo = [
     'private fun queueOwnerId()',
-    'queue.add(queueOwnerId(), method, path, obj?.toString(), dedupe, baseUpdatedAt, entityTable, entityId)',
+    'queue.add(queueOwnerId(), method, path, obj?.toString(), dedupe, baseUpdatedAt, entityTable, entityId, preserveExisting)',
     'fun pendingQueueSize()',
     'fun blockedQueueSize()',
     'fun queueSnapshot(limit: Int = 200)',

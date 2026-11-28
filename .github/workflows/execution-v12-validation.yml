@@ -17,9 +17,15 @@ on:
 permissions:
   contents: read
 
+# Only obsolete PR runs are canceled; never cancel a production release.
+concurrency:
+  group: execution-v12-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   android:
     name: Android / ${{ matrix.stage }}
+    needs: source-gates
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
@@ -133,12 +139,13 @@ jobs:
           persist-credentials: false
       - working-directory: source
         run: |
-          set -euo pipefail
-          python3 scripts/compiler-regression-check.py
-          python3 scripts/rc7-durability-check.py
-          python3 scripts/rc7-offline-contract-check.py
-          python3 scripts/offline-account-scope-check.py
-          python3 scripts/modular-build-contract-check.py
+          failed=0
+          for script in compiler-regression-check.py rc7-durability-check.py rc7-offline-contract-check.py offline-account-scope-check.py modular-build-contract-check.py update-publish-contract-check.py; do
+            echo "::group::$script"
+            python3 "scripts/$script" || failed=1
+            echo "::endgroup::"
+          done
+          exit "$failed"
 
   education-sql:
     runs-on: ubuntu-24.04

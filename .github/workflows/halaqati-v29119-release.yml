@@ -37,6 +37,16 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+      - name: Verify quick contracts before signed compilation
+        working-directory: source
+        run: |
+          failed=0
+          for script in compiler-regression-check.py rc7-durability-check.py rc7-offline-contract-check.py offline-account-scope-check.py modular-build-contract-check.py update-publish-contract-check.py; do
+            echo "::group::$script"
+            python3 "scripts/$script" || failed=1
+            echo "::endgroup::"
+          done
+          exit "$failed"
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
