@@ -203,9 +203,13 @@ import org.json.JSONObject
     }
 }
 
+@Immutable data class GuardianActivity(val id: String, val name: String, val primary: Boolean)
+
 @Immutable data class GuardianHomeUiState(
     val children: List<GuardianChild> = emptyList(),
     val selectedId: String? = null,
+    val activities: List<GuardianActivity> = emptyList(),
+    val selectedActivity: String? = null,
     val overview: GuardianOverview? = null,
     val loadingFirst: Boolean = true,
     val refreshing: Boolean = false,

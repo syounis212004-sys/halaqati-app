@@ -81,6 +81,16 @@ fun GuardianHomeScreen(
                         }
                     }
                 }
+                if (state.activities.isNotEmpty()) {
+                    item(key = "activity-switcher", contentType = "switcher") {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("النشاط", style = MaterialTheme.typography.labelMedium)
+                            com.mohammedsamir.halaqati.ui.components.ResponsiveChipGrid(items = state.activities, minItemWidth = 140.dp, maxColumns = 2) { activity, itemModifier ->
+                                ProFilterChip(state.selectedActivity == activity.id, { vm.selectActivity(activity.id) }, activity.name, itemModifier.fillMaxWidth(), showCheckIcon = true)
+                            }
+                        }
+                    }
+                }
                 if (state.stale && overview != null) {
                     item(key = "stale", contentType = "notice") {
                         StateNotice("تعرض آخر بيانات محفوظة${overview.updatedAt?.let { " · " + shortTime(it) } ?: ""}", kind = "warning")
@@ -124,7 +134,7 @@ fun GuardianHomeScreen(
                                 RecitationRow(line)
                             }
                         }
-                        state.selectedId?.let { sid ->
+                        state.selectedId?.takeUnless { overview.program }?.let { sid ->
                             item(key = "badges", contentType = "badges") { GuardianBadgesCard(sid) }
                         }
                         item(key = "seasons", contentType = "seasons") {

@@ -16,13 +16,12 @@ import kotlinx.coroutines.withContext
 class GuardianHomeViewModel : ViewModel() {
     private val _state = MutableStateFlow(GuardianHomeUiState())
     val state: StateFlow<GuardianHomeUiState> = _state.asStateFlow()
-    private val memory = HashMap<String, GuardianOverview>()
     private var childrenJob: Job? = null
     private var overviewJob: Job? = null
+    private val selectedActivities = HashMap<String, String>()
 
-    fun start() = loadChildren(explicitRefresh = false)
-
-    fun refresh() = loadChildren(explicitRefresh = true)
+    fun start() = loadChildren(false)
+    fun refresh() = loadChildren(true)
 
     private fun loadChildren(explicitRefresh: Boolean) {
         if (childrenJob?.isActive == true) return
@@ -36,31 +35,18 @@ class GuardianHomeViewModel : ViewModel() {
                         .map { GuardianChild(it.id, it.fullName, it.track == "tathbit") }
                 }
             }.getOrElse {
-                _state.update {
-                    it.copy(
-                        loadingFirst = false,
-                        refreshing = false,
-                        stale = true,
-                        message = if (online) "تعذر تحديث قائمة الأبناء" else "تحديث قائمة الأبناء يحتاج اتصالًا بالإنترنت",
-                    )
-                }
+                overviewJob?.cancel()
+                _state.update { it.copy(overview = null, loadingFirst = false, refreshing = false,
+                    stale = true, message = "تعذر التحقق من قائمة الأبناء") }
                 return@launch
             }
-            val allowedIds = children.map { it.id }.toSet()
-            memory.keys.retainAll(allowedIds)
-            val previous = _state.value.selectedId
-            val next = previous?.takeIf { it in allowedIds } ?: children.firstOrNull()?.id
+            val allowed = children.map { it.id }.toSet()
+            selectedActivities.keys.retainAll(allowed)
+            val next = _state.value.selectedId?.takeIf { it in allowed } ?: children.firstOrNull()?.id
             overviewJob?.cancel()
-            _state.update {
-                it.copy(
-                    children = children,
-                    selectedId = next,
-                    overview = if (next == previous) it.overview else next?.let(memory::get),
-                    loadingFirst = next != null && it.loadingFirst,
-                    refreshing = false,
-                    message = if (!online && children.isEmpty()) "اتصل بالإنترنت للتحقق من ارتباط الأبناء" else null,
-                )
-            }
+            _state.update { it.copy(children = children, selectedId = next, overview = null,
+                activities = emptyList(), selectedActivity = null, loadingFirst = next != null,
+                refreshing = false, message = null) }
             if (next != null) select(next)
         }
     }
@@ -68,39 +54,44 @@ class GuardianHomeViewModel : ViewModel() {
     fun select(studentId: String) {
         if (_state.value.children.none { it.id == studentId }) return
         overviewJob?.cancel()
-        val cached = memory[studentId]
-        _state.update {
-            it.copy(
-                selectedId = studentId,
-                overview = cached,
-                refreshing = true,
-                message = null,
-            )
-        }
+        _state.update { it.copy(selectedId = studentId, selectedActivity = null, activities = emptyList(),
+            overview = null, refreshing = true, message = null) }
         overviewJob = viewModelScope.launch {
-            if (cached == null) {
-                val disk = withContext(Dispatchers.IO) {
-                    AppGraph.repo.cachedGuardianChildOverview(studentId)?.let { GuardianOverview.parse(it) }
+            val activities = runCatchingCancellable {
+                withContext(Dispatchers.IO) {
+                    val rows = AppGraph.repo.guardianActivities(studentId)
+                    (0 until rows.length()).mapNotNull { rows.optJSONObject(it) }
+                        .map { GuardianActivity(it.optString("id"),it.optString("name"),it.optBoolean("primary")) }
+                        .filter { it.id.isNotBlank() }
                 }
-                if (disk != null) {
-                    memory[studentId] = disk
-                    _state.update { it.copy(overview = disk, loadingFirst = false, stale = true) }
-                }
+            }.getOrElse {
+                _state.update { it.copy(overview = null, loadingFirst = false, refreshing = false,
+                    message = "تعذر تحميل عضويات الطالب. حدّث الصفحة أو تحقق من الخادم.") }
+                return@launch
             }
-            val online = AppGraph.repo.online()
-            val fresh = runCatchingCancellable {
-                withContext(Dispatchers.IO) { AppGraph.repo.guardianChildOverview(studentId)?.let { GuardianOverview.parse(it) } }
-            }.getOrNull()
-            if (fresh != null) memory[studentId] = fresh
-            _state.update {
-                it.copy(
-                    overview = fresh ?: it.overview,
-                    loadingFirst = false,
-                    refreshing = false,
-                    stale = !online || fresh == null,
-                    message = if (fresh == null && it.overview == null && online) "تعذر تحميل بيانات الطالب" else null,
-                )
-            }
+            val next = selectedActivities[studentId]?.takeIf { id -> activities.any { it.id == id } }
+                ?: activities.firstOrNull { it.primary }?.id ?: activities.singleOrNull()?.id
+            _state.update { it.copy(activities = activities, selectedActivity = next, loadingFirst = false, refreshing = false) }
+            if (next != null) loadOverview(studentId,next)
         }
+    }
+
+    fun selectActivity(id: String) {
+        val studentId = _state.value.selectedId ?: return
+        if (_state.value.activities.none { it.id == id }) return
+        overviewJob?.cancel()
+        overviewJob = viewModelScope.launch { loadOverview(studentId,id) }
+    }
+
+    private suspend fun loadOverview(studentId: String, halaqaId: String) {
+        selectedActivities[studentId] = halaqaId
+        val online = AppGraph.repo.online()
+        _state.update { it.copy(selectedActivity = halaqaId, overview = null, refreshing = true, message = null) }
+        val fresh = runCatchingCancellable {
+            withContext(Dispatchers.IO) { AppGraph.repo.guardianActivityOverview(studentId,halaqaId)?.let { GuardianOverview.parse(it) } }
+        }.getOrNull()
+        if (_state.value.selectedId != studentId || _state.value.selectedActivity != halaqaId) return
+        _state.update { it.copy(overview = fresh, loadingFirst = false, refreshing = false,
+            stale = !online, message = if (fresh == null) "تعذر تحميل بيانات النشاط" else null) }
     }
 }

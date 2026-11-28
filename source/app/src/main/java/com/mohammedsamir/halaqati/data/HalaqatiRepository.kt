@@ -5040,6 +5040,36 @@ class HalaqatiRepository(
         return result
     }
 
+    /** Guardian membership lists and overviews are cached by child and activity, not pooled across memberships. */
+    fun guardianActivities(studentId: String): JSONArray {
+        require(guardianOwnsCachedChild(studentId)) { "الطالب غير مرتبط بهذا الحساب" }
+        val owner = currentUserId() ?: return JSONArray()
+        val key = "guardian:activities:$studentId"
+        if (!online()) return cache.get(owner,key,null)?.let { JSONArray(it) } ?: JSONArray()
+        val result = withAuthRetry { api.rpc("rc_guardian_activities_v12", JSONObject().put("p_student_id",studentId)) }
+        val rows = JSONArray(result)
+        cache.put(owner,key,rows.toString())
+        return rows
+    }
+
+    fun cachedGuardianActivityOverview(studentId: String, halaqaId: String): JSONObject? {
+        val owner = currentUserId() ?: return null
+        if (!guardianOwnsCachedChild(studentId)) return null
+        return cache.get(owner, "${CACHE_GUARDIAN_OVERVIEW_PREFIX}$studentId:$halaqaId", null)?.let { JSONObject(it) }
+    }
+
+    fun guardianActivityOverview(studentId: String, halaqaId: String): JSONObject? {
+        require(guardianOwnsCachedChild(studentId)) { "الطالب غير مرتبط بهذا الحساب" }
+        if (!online()) return cachedGuardianActivityOverview(studentId,halaqaId)
+        val owner = currentUserId() ?: return null
+        val args = JSONObject().put("p_student_id",studentId).put("p_halaqa_id",halaqaId)
+        val result = JSONObject(withAuthRetry { api.rpc("rc_guardian_activity_overview_v12",args) })
+        require(result.optJSONObject("student")?.optString("halaqa_id") == halaqaId) { "نطاق البيانات غير مطابق" }
+        localizeGuardianOverview(studentId,result)
+        cache.put(owner, "${CACHE_GUARDIAN_OVERVIEW_PREFIX}$studentId:$halaqaId", result.toString())
+        return result
+    }
+
     /** RC17: cache-only read, instant (no network). Null when nothing was cached yet. */
     fun cachedGuardianChildOverview(studentId: String): JSONObject? {
         val owner = currentUserId() ?: return null
