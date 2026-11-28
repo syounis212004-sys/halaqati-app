@@ -38,6 +38,11 @@ fun StudentFollowUpScreen(
     navigate: (String) -> Unit,
     vm: DashboardViewModel = viewModel(),
 ) {
+    val kind = com.mohammedsamir.halaqati.ui.components.rememberWorkKind()
+    if (kind == com.mohammedsamir.halaqati.plans.WorkMode.PROGRAM) {
+        ProgramDailyScreen(profile, sync, navigate, onBack = onBack, followUpOnly = true)
+        return
+    }
     val state by vm.state.collectAsState()
     LaunchedEffect(profile.id, sync) { vm.bind(profile, sync) }
 

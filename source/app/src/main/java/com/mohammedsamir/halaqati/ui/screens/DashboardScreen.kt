@@ -62,6 +62,10 @@ fun DashboardScreen(
     // RC27.10: work mode - a program has no smart plans, so plan cards / plan follow-up are hidden there.
     val workKind = com.mohammedsamir.halaqati.ui.components.rememberWorkKind()
     val showPlans = com.mohammedsamir.halaqati.plans.WorkModeRules.showSmartPlans(workKind)
+    if (!showPlans) {
+        ProgramDailyScreen(p, sync, navigate)
+        return
+    }
     LaunchedEffect(p.id, sync) { vm.bind(p, sync) }
     LaunchedEffect(p.id) {
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
