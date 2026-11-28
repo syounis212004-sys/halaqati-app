@@ -82,3 +82,31 @@ jobs:
           path: |
             source/app/build/outputs/apk/debug/app-debug.apk
             source/app/build/test-results/testDebugUnitTest/
+
+  education-sql:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: fixture-only-password
+          POSTGRES_DB: education_fixture
+        options: >-
+          --health-cmd "pg_isready -U postgres -d education_fixture"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Test educational assessment SQL on disposable database
+        env:
+          PG_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          docker exec "$PG_CONTAINER" mkdir -p /tmp/education/tests
+          docker cp source/migration/20261128120700_educational_assessments_v12.sql "$PG_CONTAINER:/tmp/education/"
+          docker cp source/migration/tests/educational_assessments_v12.sql "$PG_CONTAINER:/tmp/education/tests/"
+          docker exec "$PG_CONTAINER" psql -U postgres -d education_fixture -v ON_ERROR_STOP=1 -f /tmp/education/tests/educational_assessments_v12.sql
