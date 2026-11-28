@@ -15,6 +15,10 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class)
 class RoomKspUpgradeCompatibilityTest {
+    private inline fun withDb(db: HalaqatiOfflineDatabase, block: (HalaqatiOfflineDatabase) -> Unit) {
+        try { block(db) } finally { db.close() }
+    }
+
     @Test fun originalVersionOneDatabaseRetainsPendingBlockedAndOtherAccountRows() {
         val context = RuntimeEnvironment.getApplication()
         val name = "ksp-legacy-upgrade-fixture.db"
@@ -47,8 +51,8 @@ class RoomKspUpgradeCompatibilityTest {
                 db.execSQL("INSERT INTO outbox(ownerUserId,method,path,body,createdAt,attempts,dedupe,state,forceLocal) VALUES('a','POST','/fixture','blocked-json',2,1,'blocked','blocked',0)")
                 db.execSQL("INSERT INTO outbox(ownerUserId,method,path,body,createdAt,attempts,dedupe,state,forceLocal) VALUES('b','POST','/fixture','other-json',3,0,'pending','pending',0)")
             }
-            Room.databaseBuilder(context, HalaqatiOfflineDatabase::class.java, name)
-                .addMigrations(*HalaqatiMigrations.ALL).allowMainThreadQueries().build().use { db ->
+            withDb(Room.databaseBuilder(context, HalaqatiOfflineDatabase::class.java, name)
+                .addMigrations(*HalaqatiMigrations.ALL).allowMainThreadQueries().build()) { db ->
                     assertEquals("legacy-json", db.cache().get("a","draft")?.jsonValue)
                     assertNull(db.cache().get("b","draft"))
                     val queue = OfflineQueue(db)
@@ -57,8 +61,8 @@ class RoomKspUpgradeCompatibilityTest {
                     assertEquals("other-json", queue.all("b").single().body)
                     queue.add("a","POST","/fixture","new-json","new")
                 }
-            Room.databaseBuilder(context, HalaqatiOfflineDatabase::class.java, name)
-                .addMigrations(*HalaqatiMigrations.ALL).allowMainThreadQueries().build().use { db ->
+            withDb(Room.databaseBuilder(context, HalaqatiOfflineDatabase::class.java, name)
+                .addMigrations(*HalaqatiMigrations.ALL).allowMainThreadQueries().build()) { db ->
                     val queue = OfflineQueue(db)
                     assertEquals(2, queue.size("a"))
                     assertEquals(1, queue.blockedSize("a"))
