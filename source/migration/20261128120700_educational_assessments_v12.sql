@@ -103,7 +103,7 @@ grant execute on function public.rc_save_education_score_v12(uuid,uuid,text,smal
 -- No API permission is granted to the trigger function.
 create function halaqati_education_private.protect_assessed_session_scope()
 returns trigger language plpgsql security definer set search_path=''
-as $
+as $scope_guard$
 begin
     if (new.halaqa_id is distinct from old.halaqa_id
         or new.session_type is distinct from old.session_type)
@@ -112,7 +112,7 @@ begin
     end if;
     return new;
 end
-$;
+$scope_guard$;
 revoke all on function halaqati_education_private.protect_assessed_session_scope() from public,anon,authenticated;
 create trigger protect_assessed_session_scope_v12
 before update of halaqa_id,session_type on public.sessions
