@@ -74,7 +74,13 @@ private fun loadOrg(myId: String): OrgRoot {
     }
     val byId = people.associateBy { it.id }
     val students = repo.table("students", "select=id,halaqa_id,status&limit=4000", forceRefresh = false).sRows().filter { it.optString("status") == "active" }
-    val perHalaqa = students.groupingBy { it.optString("halaqa_id") }.eachCount()
+    val activeStudentIds = students.map { it.optString("id") }.toSet()
+    val membershipRows = repo.studentHalaqaMemberships(forceRefresh = fresh).sRows()
+    val studentIdsByHalaqa = (students.map { it.optString("halaqa_id") to it.optString("id") } +
+        membershipRows.filter { it.optString("status") == "active" && it.optString("student_id") in activeStudentIds }
+            .map { it.optString("halaqa_id") to it.optString("student_id") })
+        .groupBy({ it.first }, { it.second }).mapValues { it.value.toSet() }
+    val perHalaqa = studentIdsByHalaqa.mapValues { it.value.size }
     val halaqat = halaqaRows.map { h ->
         val id = h.optString("id")
         OrgHalaqa(
@@ -96,7 +102,7 @@ private fun loadOrg(myId: String): OrgRoot {
         val staff = people.filter { !it.owner && (it.associationId ?: "") == aid }
         OrgAssociation(
             aid, aname, staff.filter { it.role == "admin" }, staff.filter { it.role == "supervisor" }, staff.filter { it.role == "teacher" },
-            centers, mine.filter { it.centerId == null || it.centerId !in known }, mine.sumOf { it.students }, alogo,
+            centers, mine.filter { it.centerId == null || it.centerId !in known }, mine.flatMap { studentIdsByHalaqa[it.id].orEmpty() }.toSet().size, alogo,
         )
     }
     return OrgRoot(owner, associations, people, halaqat, centersResult.isFailure, students.map { it.optString("id") }.distinct().size)
@@ -308,21 +314,14 @@ fun OrgScreen(profile: Profile, pending: Int, onRefresh: () -> Unit, navigate: (
         )
     }
     removing?.let { (person, role) ->
+        val safeToDetach = false // Administrative detach awaits the atomic server permission contract.
         val roleName = when (role) { "admin" -> "مسؤول الجمعية"; "supervisor" -> "المشرف"; else -> "المحفّظ" }
         HalaqatiAlertDialog(
             onDismissRequest = { removing = null },
             title = { Text("إزالة ${person.name} من الجمعية؟") },
-            text = { Text("يُفصل $roleName عن «${assoc?.name.orEmpty()}»" + (if (role != "admin") " ويُرفع عن حلقاتها" else "") + ". يبقى حسابه وبياناته كما هي، ويمكنك إعادة إضافته لاحقًا.") },
+            text = { Text(if (safeToDetach) "يُفصل $roleName عن الجمعية دون حذف حسابه أو بياناته." else "لا يمكن الفصل بأمان الآن؛ يجب ضمان بقاء صلاحيات الحلقات المرتبطة. لن تُحذف أي إسنادات.") },
             confirmButton = {
-                TextButton(onClick = {
-                    removing = null
-                    val hids = (assoc?.centers?.flatMap { it.halaqat }.orEmpty() + assoc?.unassigned.orEmpty()).map { it.id }
-                    act("أُزيل ${person.name} من الجمعية") {
-                        if (role == "teacher" && hids.isNotEmpty()) AppGraph.repo.deleteConfirmed("halaqa_teachers", "teacher_id=eq.${person.id}&halaqa_id=in.(${hids.joinToString(",")})")
-                        if (role == "supervisor" && hids.isNotEmpty()) AppGraph.repo.deleteConfirmed("halaqa_supervisors", "supervisor_id=eq.${person.id}&halaqa_id=in.(${hids.joinToString(",")})")
-                        AppGraph.repo.patchConfirmed("profiles", "id=eq.${person.id}", JSONObject().put("association_id", JSONObject.NULL))
-                    }
-                }) { Text("إزالة", color = MaterialTheme.colorScheme.error) }
+                TextButton(onClick = { removing = null }, enabled = true) { Text("إغلاق") }
             },
             dismissButton = { TextButton(onClick = { removing = null }) { Text("تراجع") } },
         )

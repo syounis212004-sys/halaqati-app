@@ -94,10 +94,7 @@ fun DashboardScreen(
     // RC81: counted from what really happened today. Present = marked present/late, or recited, or scheduled and not marked absent.
     // Waiting = present but not recited yet. (It used to count only students the plan scheduled today, so a day with many
     // recitations still showed "1 present, 1 waiting, 0 heard".)
-    val absentIds = remember(state.absentLate) { state.absentLate.map { it.studentId }.toSet() }
-    val presentSet = remember(state.presentIds, state.heardIds, state.dailyOperation.expectedStudentIds, absentIds) {
-        state.presentIds + state.heardIds + (state.dailyOperation.expectedStudentIds - absentIds)
-    }
+    val presentSet = state.presentIds
     val todayPresent = if (state.dailyOperation.countDailyMetrics) presentSet.size else 0
     val waitingCount = if (state.dailyOperation.countDailyMetrics) (presentSet - state.heardIds).size else 0
     val firstName = com.mohammedsamir.halaqati.ui.dashboard.HomeMessages.displayName(p.fullName)

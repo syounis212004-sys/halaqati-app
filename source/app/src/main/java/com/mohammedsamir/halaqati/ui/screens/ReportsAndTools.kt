@@ -209,7 +209,7 @@ fun ReportsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
         if (programReports) {
             track = "all"
             if (reportView !in listOf(ReportDocumentType.ATTENDANCE, ReportDocumentType.RECITATIONS, ReportDocumentType.HALAQA)) reportView = ReportDocumentType.HALAQA
-            if (sessionType !in listOf("all", "tajweed", "test", "lesson")) sessionType = "all"
+            if (sessionType !in listOf("all", "tajweed", "tilawah", "test", "lesson")) sessionType = "all"
         }
         reportStyle = reportStyle.copy(title = reportTitleFor(reportView), visibleColumns = reportColumnsFor(reportView))
     }
@@ -445,7 +445,7 @@ fun ReportsScreen(profile: Profile, pending: Int, onRefresh: () -> Unit) {
                             searchable = halaqas.size > 8,
                         )
                         Text("نوع اللقاء", style = MaterialTheme.typography.labelLarge)
-                        ChipLine(items = if (programReports) listOf("all" to "كل الأنواع", "tajweed" to com.mohammedsamir.halaqati.plans.ProgramKindRules.TILAWAH_TAJWEED_LABEL, "test" to "اختبار", "lesson" to "درس") else listOf("all" to "كل الأنواع", "tasmee" to "تسميع", "sard" to "سرد", "review" to "مراجعة", "test" to "اختبار", "tajweed" to com.mohammedsamir.halaqati.plans.ProgramKindRules.TILAWAH_TAJWEED_LABEL, "lesson" to "درس", "other" to "أخرى")) { pair, itemModifier ->
+                        ChipLine(items = if (programReports) listOf("all" to "كل الأنواع", "tilawah" to "تلاوة", "tajweed" to "تجويد", "test" to "اختبار", "lesson" to "درس") else listOf("all" to "كل الأنواع", "tasmee" to "تسميع", "sard" to "سرد", "review" to "مراجعة", "test" to "اختبار", "tilawah" to "تلاوة", "tajweed" to "تجويد", "lesson" to "درس", "other" to "أخرى")) { pair, itemModifier ->
                             ProFilterChip(selected = sessionType == pair.first, onClick = { sessionType = pair.first }, label = pair.second, modifier = itemModifier.fillMaxWidth(), showCheckIcon = false)
                         }
                         }
